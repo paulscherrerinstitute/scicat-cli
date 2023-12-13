@@ -1,0 +1,35 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="./main.css">
+</head>
+
+<body>
+    <img src="https://www.psi.ch/themes/custom/design/psi.svg">
+    <h2>{{.PageTitle}}: Download Page</h2>
+    <p> Install the wget command for your platform if not yet available. Then type the following commands in your
+        destination folder, which has enough capacity</p>
+    <code>cd destinationFolder</code>
+    <p>And then the transfer commands:</p>
+    <code>
+        <ul>
+            {{range $i, $e := .BrowseUrls}} <li>wget -m -np <a href= {{.}} > {{.}} </a> 
+                ( size: {{index $.SizeArray $i}} , nFiles: {{index $.NumFilesArray $i}} )</li>
+            {{end}}
+        </ul>
+    </code>
+    <p> You can simply repeat the wget command in case the connection is interrupted. In this case only files not yet
+        downloaded will be fetched.</p>
+
+    <p><b>Cite as</b> <a href="https://doi.org/{{.Doi}}">DOI: {{.Doi}}</a></p>
+
+    <p><a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License"
+                style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work
+        is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons
+            Attribution-ShareAlike 4.0 International License</a>.
+    </p>
+
+</body>
+
+</html>

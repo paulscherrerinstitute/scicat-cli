@@ -1,0 +1,26 @@
+# availabilty settings for production system
+production:
+  ingest: 
+    status: on
+    # downfrom: 2019-02-06 12:00
+    # downto: 2019-02-06 18:00
+    # comment: Upgrade to V3
+  archive:
+    status: on
+   # downfrom: 2019-02-18 17:00
+   # downto: 2019-02-19 18:00
+   # comment: Maintenance and HW upgrade at CSCS
+#
+# settings for test environment
+qa:
+  ingest: 
+    status: on
+    # downfrom: 2019-02-06 12:00
+    # downto: 2019-02-06 18:00
+    # comment: Upgrade to V3
+  archive:
+    status: on
+   # downfrom: 2019-02-18 17:00
+   # downto: 2019-02-19 18:00
+   # comment: Maintenance and HW upgrade at CSCS
+#
