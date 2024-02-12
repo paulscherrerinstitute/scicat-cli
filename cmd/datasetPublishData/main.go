@@ -16,20 +16,20 @@ on the publication server
 package main
 
 import (
-	"bufio"
-	"bytes"
-	"crypto/tls"
-	"encoding/json"
-	"flag"
-	"fmt"
-	"html/template"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"os"
-	"os/exec"
+	"bufio"  // Provides buffered I/O operations for efficient reading and writing
+	"bytes"  // Provides functions for operating on byte slices
+	"crypto/tls"  // Provides functionality for secure TLS/SSL communication
+	"encoding/json"  // Encodes and decodes JSON data
+	"flag"  // Parses command-line flags
+	"fmt"  // Provides formatted I/O operations
+	"html/template"  // Parses and executes HTML templates
+	"io/ioutil"  // Reads and writes files
+	"log"  // Writes messages to a log file
+	"net/http"  // Provides network communication for HTTP requests
+	"os"  // Provides access to operating system functionality
+	"os/exec"  // Executes external commands
 	"scicat/datasetUtils"
-	"strings"
+	"strings"  // Provides functions for manipulating strings
 	"time"
 	"unicode/utf8"
 
