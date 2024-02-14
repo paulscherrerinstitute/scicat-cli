@@ -57,8 +57,10 @@ import (
 
 const TOTAL_MAXFILES = 400000
 
+// isFlagPassed checks if a specific command-line flag has been passed to the program.
 func isFlagPassed(name string) bool {
 	found := false
+	// The flag.Visit function is a built-in function from the Go standard library's flag package. It iterates over all command-line flags that have been set (i.e., flags that were provided when the program was run), and for each flag, it calls the provided function.
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == name {
 			found = true
