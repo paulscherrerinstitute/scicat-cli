@@ -126,7 +126,7 @@ func main() {
 
 	if len(datasetList) == 0 {
 		fmt.Printf("\n\nNo datasets found on intermediate cache server.\n")
-		fmt.Println("Did you submit a retrieve job from the data catalog first ?\n")
+		fmt.Println("Did you submit a retrieve job from the data catalog first ?")
 	} else {
 		// get sourceFolder and other dataset related info for all Datasets
 		datasetDetails := datasetUtils.GetDatasetDetails(client, APIServer, user["accessToken"], datasetList, *ownerGroup)
