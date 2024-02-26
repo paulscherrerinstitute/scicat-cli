@@ -61,30 +61,3 @@ func TestMainHelp(t *testing.T) {
 		t.Errorf("Expected output %q not found in %q", expected, buf.String())
 	}
 }
-
-// Errors with the test above.
-// // TestIsFlagPassed is a test function that verifies the output of the isFlagPassed function. It checks whether the function returns the expected results for defined and undefined flags.
-// func TestIsFlagPassed(t *testing.T) {
-// 	// Save original os.Args
-// 	oldArgs := os.Args
-// 	defer func() { os.Args = oldArgs }()
-
-// 	// Define a new flag for testing
-// 	flag.String("testenv", "", "testenv flag")
-
-// 	// Set os.Args to simulate command-line input
-// 	os.Args = []string{"cmd", "-testenv", "false"}
-
-// 	// Parse flags
-// 	flag.Parse()
-
-// 	// Test with a flag that was defined
-// 	if !isFlagPassed("testenv") {
-// 		t.Errorf("isFlagPassed() failed for flag that was defined")
-// 	}
-
-// 	// Test with a flag that was not defined
-// 	if isFlagPassed("undefinedflag") {
-// 		t.Errorf("isFlagPassed() succeeded for flag that was not defined")
-// 	}
-// }
