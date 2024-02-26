@@ -1,4 +1,4 @@
-module scicat
+module github.com/paulscherrerinstitute/scicat
 
 go 1.15
 

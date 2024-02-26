@@ -2,7 +2,7 @@ package datasetIngestor
 
 import (
 	"bytes"
-	"scicat/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"encoding/json"
 	"io/ioutil"
 	"log"
