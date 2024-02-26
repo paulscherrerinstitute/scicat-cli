@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"os"
 	"testing"
-	// "flag"
 )
 
 // TestMainHelp is a test function that verifies the output of the main function.
