@@ -11,8 +11,27 @@ on:
 
 jobs:
 
-  build:
+  test-linux:
     runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Install dependencies
+      run: go get -d -v ./...
+      
+    - name: Build
+      run: go build -v ./...
+
+    - name: Test
+      run: go test -v ./...
+
+  test-windows:
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v3
 
