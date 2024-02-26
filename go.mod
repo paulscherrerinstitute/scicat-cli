@@ -1,4 +1,4 @@
-module scicat
+module github.com/paulscherrerinstitute/scicat-cli
 
 go 1.15
 
