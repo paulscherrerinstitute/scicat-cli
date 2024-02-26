@@ -62,23 +62,7 @@ func TestMainHelp(t *testing.T) {
 	}
 }
 
-
-/*
-Here are some additional ways to test the main function of a CLI tool:
-
-Argument Parsing: Test the main function with different combinations of command-line arguments to ensure that it parses them correctly and handles them appropriately. This includes testing for expected behavior when no arguments are provided, incorrect arguments are provided, or when valid arguments are provided.
-
-Help Output: As you mentioned, testing that the help page is printed correctly when the tool is invoked without any arguments is important. You can capture the output of the main function and verify that it matches the expected help text.
-
-Integration Testing: Execute the CLI tool as a subprocess in your tests and verify its behavior by inspecting the actual outputs or side effects. This can involve running the tool with specific arguments and then checking if it produces the expected output or modifies the system state as intended.
-
-Mocking Dependencies: If the main function interacts with external dependencies such as filesystem operations or network requests, you can mock these dependencies in your tests to isolate the behavior of the main function. This allows you to control the inputs and observe the outputs more easily.
-
-Error Handling: Test how the main function handles errors by simulating error conditions, such as invalid inputs or failures in external dependencies. Verify that it returns the correct error codes and produces informative error messages when necessary.
-
-Code Coverage: Aim for high code coverage by writing tests that exercise as much of the main function's logic as possible. This helps ensure that all paths through the code are tested and reduces the risk of undiscovered bugs.
-*/
-
+// Errors with the test above.
 // // TestIsFlagPassed is a test function that verifies the output of the isFlagPassed function. It checks whether the function returns the expected results for defined and undefined flags.
 // func TestIsFlagPassed(t *testing.T) {
 // 	// Save original os.Args
