@@ -281,7 +281,7 @@ func main() {
 		} else if numFiles > TOTAL_MAXFILES {
 			tooLargeDatasets++
 			color.Set(color.FgRed)
-			log.Println("This dataset exceeds the current filecount limit of the archive system of %v files and will therefore NOT be stored.\n", TOTAL_MAXFILES)
+			log.Printf("This dataset exceeds the current filecount limit of the archive system of %v files and will therefore NOT be stored.\n", TOTAL_MAXFILES)
 			color.Unset()
 		} else {
 			datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)

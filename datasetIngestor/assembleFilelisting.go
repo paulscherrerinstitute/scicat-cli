@@ -118,7 +118,7 @@ func AssembleFilelisting(sourceFolder string, filelistingPath string, skip *stri
 		// spin.Start() // Start the spinner
 		e := filepath.Walk(line, func(path string, f os.FileInfo, err error) error {
 			// ignore ./ (but keep other dot files)
-			if f == nil || f.IsDir == nil || f.Name == nil {
+			if f == nil || !f.IsDir() || f.Name() == "" {
 				log.Printf("Missing file info for line %s and path %s", line, path)
 				return nil
 			}
