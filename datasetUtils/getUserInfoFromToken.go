@@ -49,7 +49,7 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 		accessGroups = respObj.CurrentGroups
 		log.Printf("User is member in following groups: %v\n", accessGroups)
 	} else {
-		log.Fatalln("Could not map a user to the token %v", token)
+		log.Fatalf("Could not map a user to the token %v", token)
 	}
 	return u, accessGroups
 
