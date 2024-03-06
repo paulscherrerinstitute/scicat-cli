@@ -95,7 +95,7 @@ func main() {
 	log.Printf("You are about to retrieve dataset(s) from the === %s === retrieve server...", env)
 	color.Unset()
 
-	if *retrieveFlag == false {
+	if !*retrieveFlag {
 		color.Set(color.FgRed)
 		log.Printf("Note: you run in 'dry' mode to simply check which data would be fetched.\n")
 		log.Printf("Use the -retrieve flag to actually transfer the datasets to your chosen destination path.\n")
@@ -126,7 +126,7 @@ func main() {
 
 	if len(datasetList) == 0 {
 		fmt.Printf("\n\nNo datasets found on intermediate cache server.\n")
-		fmt.Println("Did you submit a retrieve job from the data catalog first ?\n")
+		fmt.Println("Did you submit a retrieve job from the data catalog first ?")
 	} else {
 		// get sourceFolder and other dataset related info for all Datasets
 		datasetDetails := datasetUtils.GetDatasetDetails(client, APIServer, user["accessToken"], datasetList, *ownerGroup)
