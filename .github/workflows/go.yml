@@ -68,12 +68,10 @@ jobs:
           OS="linux"
           APPS="datasetArchiver datasetGetProposal datasetRetriever datasetIngestor datasetCleaner"
           
-          for GOOS in $OS; do
-            OUT="$PREFIX/$GOOS"
-            mkdir -p "$OUT"
-            for APP in $APPS; do
-              GOOS=$GOOS GOARCH=amd64 go build -o "$OUT/$APP" "./cmd/$APP"
-            done
+          OUT="$PREFIX/$OS"
+          mkdir -p "$OUT"
+          for APP in $APPS; do
+            GOOS=$GOOS GOARCH=amd64 go build -o "$OUT/$APP" "./cmd/$APP"
           done
 
       - name: Archive binaries
@@ -101,14 +99,12 @@ jobs:
           $OS="windows"
           $APPS="datasetArchiver", "datasetGetProposal", "datasetRetriever", "datasetIngestor", "datasetCleaner"
           
-          foreach ($GOOS in $OS) {
-            $OUT="$PREFIX/$GOOS"
-            mkdir -p "$OUT"
-            foreach ($APP in $APPS){
-              $env:GOOS=$GOOS
-              $env:GOARCH="amd64"
-              go build -o "$OUT/$APP.exe" "./cmd/$APP"
-            }
+          $OUT="$PREFIX/$OS"
+          mkdir -p "$OUT"
+          foreach ($APP in $APPS){
+            $env:GOOS=$GOOS
+            $env:GOARCH="amd64"
+            go build -o "$OUT/$APP.exe" "./cmd/$APP"
           }
 
       - name: Archive binaries
