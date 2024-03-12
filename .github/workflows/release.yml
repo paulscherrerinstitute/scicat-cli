@@ -2,7 +2,8 @@ name: goreleaser
 
 on:
   push:
-    # run only against tags
+    branches:
+      - autocompile
     tags:
       - "*"
 
@@ -28,6 +29,6 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean
+          args: release --snapshot --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
