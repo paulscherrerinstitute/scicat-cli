@@ -47,8 +47,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"scicat/datasetIngestor"
-	"scicat/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat/datasetIngestor"
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"strings"
 	"time"
 

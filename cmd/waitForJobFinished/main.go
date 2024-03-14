@@ -15,7 +15,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"scicat/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"time"
 
 	"github.com/fatih/color"

@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"scicat/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"strings"
 	"time"
 
