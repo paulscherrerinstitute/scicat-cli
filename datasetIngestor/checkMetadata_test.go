@@ -10,13 +10,17 @@ import (
 	"os"
 )
 
+// TestGetHost is a test function for the getHost function.
 func TestGetHost(t *testing.T) {
+    // Call the function under test.
     host := getHost()
 
+    // fail the test and report an error if the returned hostname is an empty string.
     if len(host) == 0 {
         t.Errorf("getHost() returned an empty string")
     }
 
+    // fail the test and report an error if the returned hostname is "unknown".
     if host == "unknown" {
         t.Errorf("getHost() was unable to get the hostname")
     }
