@@ -27,7 +27,7 @@ func TestCheckMetadata(t *testing.T) {
 	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3" // "https://example.com/api"
 	var APIServer = TEST_API_SERVER
 	var metadatafile1 = "testdata/metadata.json"
-	// var metadatafile2 = "testdata/metadata-short.json"
+	var metadatafile2 = "testdata/metadata-short.json"
 
 	// Mock HTTP client
 	client := &http.Client{
@@ -50,7 +50,7 @@ func TestCheckMetadata(t *testing.T) {
 	}
 
 	// Mock access groups
-	accessGroups := []string{"group1", "p17301"}
+	accessGroups := []string{"p17880", "p17301"}
 
 	// Call the function with mock parameters
 	metaDataMap, sourceFolder, beamlineAccount := CheckMetadata(client, APIServer, metadatafile1, user, accessGroups)
@@ -62,7 +62,57 @@ func TestCheckMetadata(t *testing.T) {
 	if sourceFolder == "" {
 		t.Error("Expected non-empty source folder")
 	}
+	if sourceFolder != "/usr/share/gnome" {
+		t.Error("sourceFolder should be '/usr/share/gnome'")
+	}
 	if reflect.TypeOf(beamlineAccount).Kind() != reflect.Bool {
 		t.Error("Expected beamlineAccount to be boolean")
+	}
+	if beamlineAccount != false {
+		t.Error("Expected beamlineAccount to be false")
+	}
+	if _, ok := metaDataMap["ownerEmail"]; !ok {
+    t.Error("metaDataMap missing required key 'ownerEmail'")
+	}
+	if _, ok := metaDataMap["principalInvestigator"]; !ok {
+    t.Error("metaDataMap missing required key 'principalInvestigator'")
+	}
+	if _, ok := metaDataMap["scientificMetadata"]; !ok {
+    t.Error("metaDataMap missing required key 'scientificMetadata'")
+	}
+	scientificMetadata, ok := metaDataMap["scientificMetadata"].([]interface{})
+	if ok {
+			firstEntry := scientificMetadata[0].(map[string]interface{})
+			sample, ok := firstEntry["sample"].(map[string]interface{})
+			if ok {
+					if _, ok := sample["name"]; !ok {
+							t.Error("Sample is missing 'name' field")
+					}
+					if _, ok := sample["description"]; !ok {
+							t.Error("Sample is missing 'description' field")
+					}
+			}
+	} else {
+			t.Error("scientificMetadata is not a list")
+	}
+
+	// test with the second metadata file
+	metaDataMap2, sourceFolder2, beamlineAccount2 := CheckMetadata(client, APIServer, metadatafile2, user, accessGroups)
+
+	// Add assertions here based on the expected behavior of the function
+	if len(metaDataMap2) == 0 {
+		t.Error("Expected non-empty metadata map")
+	}
+	if sourceFolder2 == "" {
+		t.Error("Expected non-empty source folder")
+	}
+	if sourceFolder2 != "/tmp/gnome" {
+		t.Error("sourceFolder should be '/tmp/gnome'")
+	}
+	if reflect.TypeOf(beamlineAccount2).Kind() != reflect.Bool {
+		t.Error("Expected beamlineAccount to be boolean")
+	}
+	if beamlineAccount2 != false {
+		t.Error("Expected beamlineAccount to be false")
 	}
 }
