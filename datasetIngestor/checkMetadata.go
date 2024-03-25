@@ -18,7 +18,10 @@ import (
 const DUMMY_TIME = "2300-01-01T11:11:11.000Z"
 const DUMMY_OWNER = "x12345"
 
+// getHost is a function that attempts to retrieve and return the fully qualified domain name (FQDN) of the current host.
+// If it encounters any error during the process, it gracefully falls back to returning the simple hostname or "unknown".
 func getHost() string {
+	// Try to get the hostname of the current machine.
 	hostname, err := os.Hostname()
 	if err != nil {
 		return "unknown"
@@ -46,16 +49,19 @@ func getHost() string {
 	return hostname
 }
 
-func CheckMetadata(client *http.Client, APIServer string, metadatafile string, user map[string]string,
-	accessGroups []string) (metaDataMap map[string]interface{}, sourceFolder string, beamlineAccount bool) {
+// CheckMetadata is a function that validates and augments metadata for a dataset.
+// It takes an HTTP client, an API server URL, a metadata file path, a user map, and a list of access groups as input.
+// It returns a map of metadata, a source folder string, and a boolean indicating whether the dataset belongs to a beamline account.
+func CheckMetadata(client *http.Client, APIServer string, metadatafile string, user map[string]string, accessGroups []string) (metaDataMap map[string]interface{}, sourceFolder string, beamlineAccount bool) {
 
-	// read full meta data
+	// Read the full metadata from the file.
 	b, err := ioutil.ReadFile(metadatafile) // just pass the file name
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var metadataObj interface{}
+	// Unmarshal the JSON metadata into an interface{} object.
+	var metadataObj interface{} // Using interface{} allows metadataObj to hold any type of data, since it has no defined methods.
 	err = json.Unmarshal(b, &metadataObj)
 	if err != nil {
 		log.Fatal(err)
@@ -74,6 +80,7 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 		// Check if the metadata contains the "ownerGroup" key.
 		if ownerGroup, ok := metaDataMap["ownerGroup"]; ok { // type assertion with a comma-ok idiom
 			validOwner := false
+			// Iterate over accessGroups to validate the owner group.
 			for _, b := range accessGroups {
 				if b == ownerGroup {
 					validOwner = true
@@ -83,13 +90,15 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 			if validOwner {
 				log.Printf("OwnerGroup information %s verified successfully.\n", ownerGroup)
 			} else {
-				// check for beamline specific account if raw data
+				// If the owner group is not valid, check for beamline-specific accounts.
 				if creationLocation, ok := metaDataMap["creationLocation"]; ok {
+					// Split the creationLocation string to extract beamline-specific information.
 					parts := strings.Split(creationLocation.(string), "/")
 					expectedAccount := ""
 					if len(parts) == 4 {
 						expectedAccount = strings.ToLower(parts[2]) + strings.ToLower(parts[3])
 					}
+					// If the user matches the expected beamline account, grant ingest access.
 					if user["displayName"] == expectedAccount {
 						log.Printf("Beamline specific dataset %s - ingest granted.\n", expectedAccount)
 						beamlineAccount = true
@@ -98,7 +107,7 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 					}
 				} else {
 					// for other data just check user name
-					// this is a quick and dirty test. Should be replaced by test for "globalaccess" role
+					// this is a quick and dirty test. Should be replaced by test for "globalaccess" role. TODO
 					// facilities: ["SLS", "SINQ", "SWISSFEL", "SmuS"],
 					u := user["displayName"]
 					if strings.HasPrefix(u, "sls") ||
@@ -138,7 +147,7 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 			log.Printf("sourceFolderHost field added: %s", metaDataMap["sourceFolderHost"])
 		}
 	}
-	// far raw data add PI if missing
+	// for raw data add PI if missing
 	if val, ok := metaDataMap["type"]; ok {
 		dstype := val.(string)
 		if dstype == "raw" {
