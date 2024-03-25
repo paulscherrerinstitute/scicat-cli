@@ -52,6 +52,7 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 		return
 	}
 	
+	latestVersion = strings.TrimPrefix(latestVersion, "v")
 	majorLatest, err := strconv.Atoi(strings.Split(latestVersion, ".")[0])
 	if err != nil {
 		log.Fatalf("Illegal latest version number:%v", latestVersion)
