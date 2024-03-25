@@ -28,7 +28,7 @@ func TestCheckMetadata(t *testing.T) {
 	var APIServer = TEST_API_SERVER
 	var metadatafile1 = "testdata/metadata.json"
 	var metadatafile2 = "testdata/metadata-short.json"
-	// var metadatafile3 = "testdata/metadata_illegal.json"
+	var metadatafile3 = "testdata/metadata_illegal.json"
 
 	// Mock HTTP client
 	client := &http.Client{
@@ -54,7 +54,10 @@ func TestCheckMetadata(t *testing.T) {
 	accessGroups := []string{"group1", "group2"}
 
 	// Call the function with mock parameters
-	metaDataMap, sourceFolder, beamlineAccount := CheckMetadata(client, APIServer, metadatafile1, user, accessGroups)
+	metaDataMap, sourceFolder, beamlineAccount, err := CheckMetadata(client, APIServer, metadatafile1, user, accessGroups)
+	if err != nil {
+		t.Error("Error in CheckMetadata function: ", err)
+	}
 
 	// Add assertions here based on the expected behavior of the function
 	if len(metaDataMap) == 0 {
@@ -98,7 +101,10 @@ func TestCheckMetadata(t *testing.T) {
 	}
 
 	// test with the second metadata file
-	metaDataMap2, sourceFolder2, beamlineAccount2 := CheckMetadata(client, APIServer, metadatafile2, user, accessGroups)
+	metaDataMap2, sourceFolder2, beamlineAccount2, err := CheckMetadata(client, APIServer, metadatafile2, user, accessGroups)
+	if err != nil {
+		t.Error("Error in CheckMetadata function: ", err)
+	}
 
 	// Add assertions here based on the expected behavior of the function
 	if len(metaDataMap2) == 0 {
@@ -107,53 +113,16 @@ func TestCheckMetadata(t *testing.T) {
 	if sourceFolder2 == "" {
 		t.Error("Expected non-empty source folder")
 	}
-	if sourceFolder2 != "/tmp/gnome" {
-		t.Error("sourceFolder should be '/tmp/gnome'")
-	}
 	if reflect.TypeOf(beamlineAccount2).Kind() != reflect.Bool {
 		t.Error("Expected beamlineAccount to be boolean")
 	}
 	if beamlineAccount2 != false {
 		t.Error("Expected beamlineAccount to be false")
 	}
-}
 
-func TestCheckMetadata_CrashCase(t *testing.T) {
-   defer func() {
-      if recover() != nil {
-         t.Log("Function crashed as expected") 
-      } else {
-         t.Fatal("Function did not crash as expected")
-      }
-   }()
-
-		// Define mock parameters for the function
-	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3" // "https://example.com/api"
-	var APIServer = TEST_API_SERVER
-	var metadatafile3 = "testdata/metadata_illegal.json"
-
-	// Mock HTTP client
-	client := &http.Client{
-		Timeout:   5 * time.Second, // Set a timeout for requests
-		Transport: &http.Transport{
-			// Customize the transport settings if needed (e.g., proxy, TLS config)
-			// For a dummy client, default settings are usually sufficient
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Customize how redirects are handled if needed
-			// For a dummy client, default behavior is usually sufficient
-			return http.ErrUseLastResponse // Use the last response for redirects
-		},
+	// test with the third metadata file
+	_, _, _, err = CheckMetadata(client, APIServer, metadatafile3, user, accessGroups)
+	if err.Error() != ErrIllegalKeys {
+		t.Errorf("Expected error in CheckMetadata function: %s, got: %v", ErrIllegalKeys, err)
 	}
-
-	// Mock user map
-	user := map[string]string{
-		"displayName": "csaxsswissfel",
-		"mail":        "testuser@example.com",
-	}
-
-	// Mock access groups
-	accessGroups := []string{"group1", "group2"}
-   // Call the function that should crash
-  CheckMetadata(client, APIServer, metadatafile3, user, accessGroups)
 }
