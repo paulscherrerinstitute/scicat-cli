@@ -1,0 +1,20 @@
+{
+    "creationLocation": "/PSI/SLS/CSAXS/SWISSFEL",
+    "datasetName": "CMakeCache",
+    "description": "",
+    "owner": "first last",
+    "ownerEmail": "test@example.com",
+    "ownerGroup": "group1",
+    "principalInvestigator": "test@example.com",
+    "scientificMetadata": [
+        {
+            "sample": {
+                "description": "",
+                "name": "",
+                "principalInvestigator": ""
+            }
+        }
+    ],
+    "sourceFolder": "/usr/share/gnome",
+    "type": "raw"
+}

@@ -2,8 +2,8 @@ package datasetIngestor
 
 import (
 	"bytes"
-	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"encoding/json"
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"io/ioutil"
 	"log"
 	"net"
@@ -60,17 +60,19 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 	if err != nil {
 		log.Fatal(err)
 	}
-	// use type assertion to access f's underlying map
-	metaDataMap = metadataObj.(map[string]interface{})
+
+	// Use type assertion to convert the interface{} object to a map[string]interface{}.
+	metaDataMap = metadataObj.(map[string]interface{}) // `.(` is type assertion: a way to extract the underlying value of an interface and check whether it's of a specific type.
 	beamlineAccount = false
 
-		// Check scientificMetadata for illegal keys
+	// Check scientificMetadata for illegal keys
 	if checkIllegalKeys(metaDataMap) {
-		log.Fatal("Metadata contains keys with illegal characters (., [], or <>).")
+		panic("Metadata contains keys with illegal characters (., [], $, or <>).")
 	}
 
 	if user["displayName"] != "ingestor" {
-		if ownerGroup, ok := metaDataMap["ownerGroup"]; ok {
+		// Check if the metadata contains the "ownerGroup" key.
+		if ownerGroup, ok := metaDataMap["ownerGroup"]; ok { // type assertion with a comma-ok idiom
 			validOwner := false
 			for _, b := range accessGroups {
 				if b == ownerGroup {
@@ -219,6 +221,9 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 		//fmt.Printf("Marshalled meta data : %s\n", string(bmm))
 		// now check validity
 		req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bmm))
+		if err != nil {
+			log.Fatal(err)
+		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := client.Do(req)
@@ -265,30 +270,27 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 
 }
 
-// checkIllegalKeys checks whether the metadata contains illegal keys
 func checkIllegalKeys(metadata map[string]interface{}) bool {
-	for _, item := range metadata {
-		// Use a type switch to check if the item is a slice of interface{} type, e.g. the scientificMetadata key.
-		switch v := item.(type) {
+	for key, value := range metadata {
+		if containsIllegalCharacters(key) {
+			return true
+		}
+
+		switch v := value.(type) {
+		case map[string]interface{}:
+			if checkIllegalKeys(v) {
+				return true
+			}
 		case []interface{}:
-			// If the item is a slice of interface{}, iterate over each subItem in the slice.
-			for _, subItem := range v {
-				if subMap, ok := subItem.(map[string]interface{}); ok {
-					if containsIllegalKeys(subMap) {
+			for _, item := range v {
+				switch itemValue := item.(type) { // Type switch on array item
+				case map[string]interface{}:
+					if checkIllegalKeys(itemValue) {
 						return true
 					}
+					// Add other cases if needed
 				}
 			}
-		}
-	}
-	return false
-}
-
-// containsIllegalKeys checks whether the key contains illegal characters
-func containsIllegalKeys(m map[string]interface{}) bool {
-	for k := range m {
-		if containsIllegalCharacters(k) {
-			return true
 		}
 	}
 	return false
@@ -298,7 +300,7 @@ func containsIllegalCharacters(s string) bool {
 	// Check if the string contains periods, brackets, or other illegal characters
 	// You can adjust this condition based on your specific requirements
 	for _, char := range s {
-		if char == '.' || char == '[' || char == ']' || char == '<' || char == '>' {
+		if char == '.' || char == '[' || char == ']' || char == '<' || char == '>' || char == '$' {
 			return true
 		}
 	}
