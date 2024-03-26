@@ -78,13 +78,13 @@ func TestCheckForNewVersion(t *testing.T) {
 			{
 				name:           "New version available",
 				currentVersion: "0.9.0",
-				mockResponse:   `{"tag_name": "1.0.0"}`,
+				mockResponse:   `{"tag_name": "v1.0.0"}`,
 				expectedLog:    "You should upgrade to a newer version",
 			},
 			{
 				name:           "No new version available",
 				currentVersion: "1.0.0",
-				mockResponse:   `{"tag_name": "1.0.0"}`,
+				mockResponse:   `{"tag_name": "v1.0.0"}`,
 				expectedLog:    "Your version of this program is up-to-date",
 			},
 		}
