@@ -44,8 +44,11 @@ func fetchLatestVersion(client *http.Client) (string, error) {
 	return strings.TrimSpace(release.TagName), nil
 }
 
-// Make sure the version number is stripped of the 'v' prefix. That's required for `strconv.Atoi`.
+// Make sure the version number is stripped of the 'v' prefix. That's required for `strconv.Atoi` to work.
 func generateDownloadURL(deployLocation, latestVersion, osName string) string {
+    if strings.ToLower(osName) == "windows" {
+        return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.zip", deployLocation, latestVersion, latestVersion, strings.Title(osName))
+    }
     return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.tar.gz", deployLocation, latestVersion, latestVersion, strings.Title(osName))
 }
 
