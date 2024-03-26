@@ -76,7 +76,7 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 	// Generate the download URL
 	downloadURL := generateDownloadURL(DeployLocation, latestVersion, osName)
 
-	if majorLatest > majorCurrent || version.Compare(latestVersion, VERSION, ">") {
+	if version.Compare(latestVersion, VERSION, ">") {
 		log.Println("You should upgrade to a newer version")
 		log.Println("Current Version: ", VERSION)
 		log.Println("Latest  Version: ", latestVersion)
