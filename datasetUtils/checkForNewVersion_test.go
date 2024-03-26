@@ -37,6 +37,19 @@ func TestFetchLatestVersion(t *testing.T) {
 	}
 }
 
+func TestGenerateDownloadURL(t *testing.T) {
+    deployLocation := "https://github.com/paulscherrerinstitute/scicat-cli/releases/download"
+    latestVersion := "0.1.0"
+    osName := "Linux"
+
+    expectedURL := "https://github.com/paulscherrerinstitute/scicat-cli/releases/download/v0.1.0/scicat-cli_.0.1.0_Linux_x86_64.tar.gz"
+    actualURL := generateDownloadURL(deployLocation, latestVersion, osName)
+
+    if actualURL != expectedURL {
+        t.Errorf("Expected URL to be %s, but got %s", expectedURL, actualURL)
+    }
+}
+
 func TestCheckForNewVersion(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -90,13 +103,13 @@ func TestCheckForNewVersion(t *testing.T) {
 	}
 }
 	
-	var buf bytes.Buffer
-	
-	func init() {
-		// Redirect the output of the logger to buf
-		log.SetOutput(&buf)
-	}
-	
-	func getLogOutput() string {
-		return buf.String()
-	}
+var buf bytes.Buffer
+
+func init() {
+	// Redirect the output of the logger to buf
+	log.SetOutput(&buf)
+}
+
+func getLogOutput() string {
+	return buf.String()
+}

@@ -44,6 +44,11 @@ func fetchLatestVersion(client *http.Client) (string, error) {
 	return strings.TrimSpace(release.TagName), nil
 }
 
+// Make sure the version number is stripped of the 'v' prefix. That's required for `strconv.Atoi`.
+func generateDownloadURL(deployLocation, latestVersion, osName string) string {
+    return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.tar.gz", deployLocation, latestVersion, latestVersion, strings.Title(osName))
+}
+
 func CheckForNewVersion(client *http.Client, APP string, VERSION string, interactiveFlag bool) {
 	latestVersion, err := fetchLatestVersion(client)
 	if err != nil {
@@ -66,8 +71,8 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 	osName := runtime.GOOS
 	
 	// Generate the download URL
-	downloadURL := fmt.Sprintf("%s/scicat-cli_%s_%s_x86_64.tar.gz", DeployLocation, latestVersion, strings.Title(osName))
-	
+	downloadURL := generateDownloadURL(DeployLocation, latestVersion, osName)
+
 	if majorLatest > majorCurrent || version.Compare(latestVersion, VERSION, ">") {
 		log.Println("You should upgrade to a newer version")
 		log.Println("Current Version: ", VERSION)
