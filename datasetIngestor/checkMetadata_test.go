@@ -8,40 +8,40 @@ import (
 )
 
 func TestGetHost(t *testing.T) {
-    // Call the function under test.
-		host := GetHost()
+	// Call the function under test.
+	host := GetHost()
 
-    // fail the test and report an error if the returned hostname is an empty string.
-    if len(host) == 0 {
-        t.Errorf("getHost() returned an empty string")
-    }
+	// fail the test and report an error if the returned hostname is an empty string.
+	if len(host) == 0 {
+		t.Errorf("getHost() returned an empty string")
+	}
 
-    // fail the test and report an error if the returned hostname is "unknown".
-    if host == "unknown" {
-        t.Errorf("getHost() was unable to get the hostname")
-    }
+	// fail the test and report an error if the returned hostname is "unknown".
+	if host == "unknown" {
+		t.Errorf("getHost() was unable to get the hostname")
+	}
 }
 
 func TestCheckMetadata(t *testing.T) {
 	// Define mock parameters for the function
-	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3" // "https://example.com/api"
+	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3" // TODO: Test Improvement. Change this to a mock server. At the moment, tests will fail if we change this to a mock server.
 	var APIServer = TEST_API_SERVER
 	var metadatafile1 = "testdata/metadata.json"
 	var metadatafile2 = "testdata/metadata-short.json"
 
 	// Mock HTTP client
 	client := &http.Client{
-					Timeout: 5 * time.Second, // Set a timeout for requests
-					Transport: &http.Transport{
-							// Customize the transport settings if needed (e.g., proxy, TLS config)
-							// For a dummy client, default settings are usually sufficient
-					},
-					CheckRedirect: func(req *http.Request, via []*http.Request) error {
-							// Customize how redirects are handled if needed
-							// For a dummy client, default behavior is usually sufficient
-							return http.ErrUseLastResponse // Use the last response for redirects
-					},
-			}
+		Timeout: 5 * time.Second, // Set a timeout for requests
+		Transport: &http.Transport{
+			// Customize the transport settings if needed (e.g., proxy, TLS config)
+			// For a dummy client, default settings are usually sufficient
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// Customize how redirects are handled if needed
+			// For a dummy client, default behavior is usually sufficient
+			return http.ErrUseLastResponse // Use the last response for redirects
+		},
+	}
 
 	// Mock user map
 	user := map[string]string{
@@ -82,18 +82,18 @@ func TestCheckMetadata(t *testing.T) {
 	}
 	scientificMetadata, ok := metaDataMap["scientificMetadata"].([]interface{})
 	if ok {
-			firstEntry := scientificMetadata[0].(map[string]interface{})
-			sample, ok := firstEntry["sample"].(map[string]interface{})
-			if ok {
-					if _, ok := sample["name"]; !ok {
-							t.Error("Sample is missing 'name' field")
-					}
-					if _, ok := sample["description"]; !ok {
-							t.Error("Sample is missing 'description' field")
-					}
+		firstEntry := scientificMetadata[0].(map[string]interface{})
+		sample, ok := firstEntry["sample"].(map[string]interface{})
+		if ok {
+			if _, ok := sample["name"]; !ok {
+				t.Error("Sample is missing 'name' field")
 			}
+			if _, ok := sample["description"]; !ok {
+				t.Error("Sample is missing 'description' field")
+			}
+		}
 	} else {
-			t.Error("scientificMetadata is not a list")
+		t.Error("scientificMetadata is not a list")
 	}
 
 	// test with the second metadata file
