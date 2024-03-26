@@ -80,8 +80,14 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 		log.Println("You should upgrade to a newer version")
 		log.Println("Current Version: ", VERSION)
 		log.Println("Latest  Version: ", latestVersion)
-		log.Println("Use the following command to update:")
-		log.Printf("curl -L -O %s; tar xzf scicat-cli_.%s_%s_x86_64.tar.gz; chmod +x %s\n", downloadURL, latestVersion, strings.Title(osName), APP)
+		log.Println("You can either download the file using the browser or use the following command:")
+
+		if strings.ToLower(osName) == "windows" {
+			log.Printf("Browser: %s\nCommand: curl -L -O %s; unzip scicat-cli_.%s_%s_x86_64.zip; cd scicat-cli\n", downloadURL, downloadURL, latestVersion, strings.Title(osName))
+		} else {
+			log.Printf("Browser: %s\nCommand: curl -L -O %s; tar xzf scicat-cli_.%s_%s_x86_64.tar.gz; cd scicat-cli; chmod +x %s\n", downloadURL, downloadURL, latestVersion, strings.Title(osName), APP)
+		}
+
 		if interactiveFlag {
 			log.Print("Do you want to continue with current version (y/N) ? ")
 			scanner.Scan()
@@ -90,7 +96,7 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 				log.Fatalf("Execution stopped, please update program now.\n")
 			}
 		}
-		} else {
-			log.Println("Your version of this program is up-to-date")
-		}
+	} else {
+		log.Println("Your version of this program is up-to-date")
+	}
 }
