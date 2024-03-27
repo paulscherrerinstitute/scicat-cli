@@ -2,9 +2,9 @@ package datasetIngestor
 
 import (
 	"net/http"
-	"reflect"
 	"testing"
 	"time"
+	"reflect"
 )
 
 func TestGetHost(t *testing.T) {
@@ -51,6 +51,7 @@ func TestCheckMetadata(t *testing.T) {
 
 	// Mock access groups
 	accessGroups := []string{"group1", "group2"}
+
 
 	// Call the function with mock parameters
 	metaDataMap, sourceFolder, beamlineAccount := CheckMetadata(client, APIServer, metadatafile1, user, accessGroups)
@@ -156,3 +157,4 @@ func TestCheckMetadata_CrashCase(t *testing.T) {
    // Call the function that should crash
   CheckMetadata(client, APIServer, metadatafile3, user, accessGroups)
 }
+
