@@ -203,7 +203,10 @@ func main() {
 
 	/* TODO Add info about policy settings and that autoarchive will take place or not */
 
-	metaDataMap, sourceFolder, beamlineAccount := datasetIngestor.CheckMetadata(client, APIServer, metadatafile, user, accessGroups)
+	metaDataMap, sourceFolder, beamlineAccount, err := datasetIngestor.CheckMetadata(client, APIServer, metadatafile, user, accessGroups)
+	if err != nil {
+		log.Fatal("Error in CheckMetadata function: ", err)
+	}
 	//log.Printf("metadata object: %v\n", metaDataMap)
 
 	// assemble list of folders (=datasets) to created

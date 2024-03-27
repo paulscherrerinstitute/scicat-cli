@@ -6,7 +6,6 @@
     "ownerEmail": "test@example.com",
     "ownerGroup": "group1",
     "principalInvestigator": "test@example.com",
-
     "scientificMetadata": [
         {
             "sample": {
