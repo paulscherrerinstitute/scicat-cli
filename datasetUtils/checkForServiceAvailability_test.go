@@ -91,11 +91,7 @@ qa:
 	}
 
 	checkService := func(service Availability, serviceName string) {
-		if service.Status != "on" && service.Status != "down" {
-			t.Errorf("Expected status 'on' or 'down' for %s, got %q", serviceName, service.Status)
-		}
-
-		if service.Status == "down" {
+		if service.Status != "on" {
 			if service.Downfrom == "" {
 				t.Errorf("Expected 'downfrom' for %s when status is 'down'", serviceName)
 			}
