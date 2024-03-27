@@ -144,3 +144,33 @@ func TestLogServiceUnavailability(t *testing.T) {
 	}
 }
 
+func TestHandleServiceUnavailability(t *testing.T) {
+	tests := []struct {
+		name            string
+		status          OverallAvailability
+		env             string
+		autoarchiveFlag bool
+		wantErr         bool
+		}{
+		{
+			name: "ingest service unavailable",
+			status: OverallAvailability{
+				Ingest: Availability{Status: "off"},
+				Archive: Availability{Status: "on"},
+			},
+			env:             "test",
+			autoarchiveFlag: false,
+			wantErr:         true,
+		},
+		// Add more test cases here.
+	}
+		
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := handleServiceUnavailability(tt.status, tt.env, tt.autoarchiveFlag)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("handleServiceUnavailability() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

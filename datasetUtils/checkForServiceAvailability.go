@@ -41,7 +41,11 @@ func CheckForServiceAvailability(client *http.Client, testenvFlag bool, autoarch
 	
 	logPlannedDowntime(status, env)
 	
-	handleServiceUnavailability(status, env, autoarchiveFlag)
+	err = handleServiceUnavailability(status, env, autoarchiveFlag)
+	if err != nil {
+			log.Printf("Error: %v", err)
+			os.Exit(1)
+	}
 }
 
 func getServiceAvailability(client *http.Client) (ServiceAvailability, error) {
@@ -100,18 +104,20 @@ func logPlannedDowntime(status OverallAvailability, env string) {
 	}
 }
 
-func handleServiceUnavailability(status OverallAvailability, env string, autoarchiveFlag bool) {
-	// If the ingest service is not available, log a message and terminate the program
+func handleServiceUnavailability(status OverallAvailability, env string, autoarchiveFlag bool) error {
+	// If the ingest service is not available, log a message and return an error
 	if status.Ingest.Status != "on" {
 		logServiceUnavailability("ingest", env, status.Ingest)
-		os.Exit(1)
+		return fmt.Errorf("ingest service is unavailable")
 	}
 	
-	// If the archive service is not available and autoarchiveFlag is set, log a message and terminate the program
+	// If the archive service is not available and autoarchiveFlag is set, log a message and return an error
 	if autoarchiveFlag && status.Archive.Status != "on" {
 		logServiceUnavailability("archive", env, status.Archive)
-		os.Exit(1)
+		return fmt.Errorf("archive service is unavailable")
 	}
+
+	return nil
 }
 
 func logServiceUnavailability(serviceName string, env string, availability Availability) {
