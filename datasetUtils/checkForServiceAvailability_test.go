@@ -7,6 +7,9 @@ import (
 	"testing"
 	"bytes"
 	"gopkg.in/yaml.v2"
+	"log"
+	"os"
+	"strings"
 )
 
 func TestReadYAMLFile(t *testing.T) {
@@ -111,3 +114,33 @@ qa:
 	checkService(serviceAvailability.Qa.Ingest, "qa ingest")
 	checkService(serviceAvailability.Qa.Archive, "qa archive")
 }
+
+func TestLogServiceUnavailability(t *testing.T) {
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+		
+	serviceName := "ingest"
+	env := "test"
+	availability := Availability{
+		Status:   "off",
+		Downfrom: "2022-01-01T00:00:00Z",
+		Downto:   "2022-01-02T00:00:00Z",
+		Comment:  "Maintenance",
+	}
+	
+	logServiceUnavailability(serviceName, env, availability)
+	
+	want := "The test data catalog is currently not available for ingesting new datasets"
+	if got := buf.String(); !strings.Contains(got, want) {
+		t.Errorf("logServiceUnavailability() = %q, want %q", got, want)
+	}
+	
+	want = "Planned downtime until 2022-01-02T00:00:00Z. Reason: Maintenance"
+	if got := buf.String(); !strings.Contains(got, want) {
+		t.Errorf("logServiceUnavailability() = %q, want %q", got, want)
+	}
+}
+
