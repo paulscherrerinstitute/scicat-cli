@@ -6,9 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-
+	// "encoding/json"
 	"gopkg.in/yaml.v2"
-
 	"github.com/fatih/color"
 )
 
@@ -28,29 +27,15 @@ type ServiceAvailability struct {
 	Qa         OverallAvailability
 }
 
+var GitHubMainLocation = "https://github.com/paulscherrerinstitute/scicat-cli/blob/main"
+
 // CheckForServiceAvailability checks the availability of the dataset ingestor service.
-// It fetches a YAML file from a specified location, parses it, and logs the service availability status.
+// It fetches a YAML file from GitHubMainLocation, parses it, and logs the service availability status.
 func CheckForServiceAvailability(client *http.Client, testenvFlag bool, autoarchiveFlag bool) {
-	// Send a GET request to fetch the service availability YAML file
-	resp, err := client.Get(DeployLocation + "datasetIngestorServiceAvailability.yml")
+	yamlFile, err := readYAMLFile(client)
 	if err != nil {
-		fmt.Println("No Information about Service Availability")
-		return
-	}
-	defer resp.Body.Close()
-
-	// If the HTTP status code is not 200 (OK), log a message and return
-	if resp.StatusCode != 200 {
-		log.Println("No Information about Service Availability")
-		log.Printf("Error: Got %s fetching %s\n", resp.Status, DeployLocation + "datasetIngestorServiceAvailability.yml")
-		return
-	}
-
-	// Read the entire body of the response (the YAML file)
-	yamlFile, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Can not read service availability file for this application")
-		return
+			log.Printf("Failed to read service availability YAML file: %v", err)
+			return
 	}
 
 	// Unmarshal the YAML file into a ServiceAvailability struct
@@ -115,4 +100,32 @@ func CheckForServiceAvailability(client *http.Client, testenvFlag bool, autoarch
 		color.Unset()
 		os.Exit(1)
 	}
+}
+
+func readYAMLFile(client *http.Client) ([]byte, error) {
+    // Construct the URL of the service availability YAML file
+    yamlURL := fmt.Sprintf("%s/cmd/datasetIngestor/datasetIngestorServiceAvailability.yml", GitHubMainLocation)
+
+    // Send a GET request to fetch the service availability YAML file
+    resp, err := client.Get(yamlURL)
+    if err != nil {
+        fmt.Println("No Information about Service Availability")
+        return nil, fmt.Errorf("failed to fetch the service availability YAML file: %w", err)
+    }
+    defer resp.Body.Close()
+
+    // If the HTTP status code is not 200 (OK), log a message and return
+    if resp.StatusCode != 200 {
+        log.Println("No Information about Service Availability")
+        log.Printf("Error: Got %s fetching %s\n", resp.Status, yamlURL)
+        return nil, fmt.Errorf("got %s fetching %s", resp.Status, yamlURL)
+    }
+
+    // Read the entire body of the response (the YAML file)
+    yamlFile, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return nil, fmt.Errorf("Can not read service availability file for this application")
+    }
+
+    return yamlFile, nil
 }
