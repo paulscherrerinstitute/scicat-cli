@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	// "encoding/json"
 	"gopkg.in/yaml.v2"
 	"github.com/fatih/color"
 )
