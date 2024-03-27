@@ -1,0 +1,20 @@
+{
+    "creationLocation": "/PSI/SLS/CSAXS/SWISSFEL",
+    "datasetName": "CMakeCache",
+    "description": "",
+    "owner": "Ana Diaz",
+    "ownerEmail": "ana.diaz@psi.ch",
+    "ownerGroup": "p17301",
+    "principalInvestigator": "ana.diaz@psi.ch",
+    "scientificMetadata": [
+        {
+            "sample": {
+                "description": "",
+                "name": "",
+                "principalInvestigator": ""
+            }
+        }
+    ],
+    "sourceFolder": "/usr/share/gnome",
+    "type": "raw"
+}
