@@ -2,8 +2,8 @@ package datasetIngestor
 
 import (
 	"bytes"
-	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"encoding/json"
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"io/ioutil"
 	"log"
 	"net"
@@ -68,13 +68,18 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 	}
 
 	// Use type assertion to convert the interface{} object to a map[string]interface{}.
-	metaDataMap = metadataObj.(map[string]interface{})  // `.(` is type assertion: a way to extract the underlying value of an interface and check whether it's of a specific type.
+	metaDataMap = metadataObj.(map[string]interface{}) // `.(` is type assertion: a way to extract the underlying value of an interface and check whether it's of a specific type.
 	beamlineAccount = false
+
+	// Check scientificMetadata for illegal keys
+	if checkIllegalKeys(metaDataMap) {
+		panic("Metadata contains keys with illegal characters (., [], $, or <>).")
+	}
 
 	// If the user is not the ingestor, check whether any of the accessGroups equal the ownerGroup. Otherwise, check for beamline-specific accounts.
 	if user["displayName"] != "ingestor" {
 		// Check if the metadata contains the "ownerGroup" key.
-		if ownerGroup, ok := metaDataMap["ownerGroup"]; ok {  // type assertion with a comma-ok idiom
+		if ownerGroup, ok := metaDataMap["ownerGroup"]; ok { // type assertion with a comma-ok idiom
 			validOwner := false
 			// Iterate over accessGroups to validate the owner group.
 			for _, b := range accessGroups {
@@ -226,6 +231,9 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 		//fmt.Printf("Marshalled meta data : %s\n", string(bmm))
 		// now check validity
 		req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bmm))
+		if err != nil {
+			log.Fatal(err)
+		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := client.Do(req)
@@ -270,4 +278,41 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 	}
 	return metaDataMap, sourceFolder, beamlineAccount
 
+}
+
+func checkIllegalKeys(metadata map[string]interface{}) bool {
+	for key, value := range metadata {
+		if containsIllegalCharacters(key) {
+			return true
+		}
+
+		switch v := value.(type) {
+		case map[string]interface{}:
+			if checkIllegalKeys(v) {
+				return true
+			}
+		case []interface{}:
+			for _, item := range v {
+				switch itemValue := item.(type) { // Type switch on array item
+				case map[string]interface{}:
+					if checkIllegalKeys(itemValue) {
+						return true
+					}
+					// Add other cases if needed
+				}
+			}
+		}
+	}
+	return false
+}
+
+func containsIllegalCharacters(s string) bool {
+	// Check if the string contains periods, brackets, or other illegal characters
+	// You can adjust this condition based on your specific requirements
+	for _, char := range s {
+		if char == '.' || char == '[' || char == ']' || char == '<' || char == '>' || char == '$' {
+			return true
+		}
+	}
+	return false
 }

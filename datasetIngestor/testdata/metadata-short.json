@@ -1,8 +1,9 @@
 {
-    "principalInvestigator":"egon.meier@psi.ch",
+    "principalInvestigator":"piemail@example.ch",
     "creationLocation":"/PSI/SLS/CSAXS/SWISSFEL",
     "sourceFolder": "/tmp/gnome",
-    "owner": "Andreas Menzel",
+    "owner": "first last",
     "type": "raw",
-    "ownerGroup": "p17880"
+    "ownerGroup": "group1"
+
 }

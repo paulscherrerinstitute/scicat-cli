@@ -1,17 +1,16 @@
 {
-    "creationLocation": "/PSI/SLS/CSAXS/SWISSFEL",
+    "creationLocation": "/PSI/SLS/CSAXS",
     "datasetName": "CMakeCache",
     "description": "",
     "owner": "first last",
     "ownerEmail": "test@example.com",
     "ownerGroup": "group1",
     "principalInvestigator": "test@example.com",
-
     "scientificMetadata": [
         {
             "sample": {
-                "description": "",
-                "name": "",
+                "description.": "It has an illegal characters in the key",
+                "name]": "same",
                 "principalInvestigator": ""
             }
         }

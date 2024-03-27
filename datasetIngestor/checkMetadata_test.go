@@ -50,7 +50,8 @@ func TestCheckMetadata(t *testing.T) {
 	}
 
 	// Mock access groups
-	accessGroups := []string{"p17880", "p17301"}
+	accessGroups := []string{"group1", "group2"}
+
 
 	// Call the function with mock parameters
 	metaDataMap, sourceFolder, beamlineAccount := CheckMetadata(client, APIServer, metadatafile1, user, accessGroups)
@@ -116,3 +117,44 @@ func TestCheckMetadata(t *testing.T) {
 		t.Error("Expected beamlineAccount to be false")
 	}
 }
+
+func TestCheckMetadata_CrashCase(t *testing.T) {
+   defer func() {
+      if recover() != nil {
+         t.Log("Function crashed as expected") 
+      } else {
+         t.Fatal("Function did not crash as expected")
+      }
+   }()
+
+		// Define mock parameters for the function
+	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3"
+	var APIServer = TEST_API_SERVER
+	var metadatafile3 = "testdata/metadata_illegal.json"
+
+	// Mock HTTP client
+	client := &http.Client{
+		Timeout:   5 * time.Second, // Set a timeout for requests
+		Transport: &http.Transport{
+			// Customize the transport settings if needed (e.g., proxy, TLS config)
+			// For a dummy client, default settings are usually sufficient
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// Customize how redirects are handled if needed
+			// For a dummy client, default behavior is usually sufficient
+			return http.ErrUseLastResponse // Use the last response for redirects
+		},
+	}
+
+	// Mock user map
+	user := map[string]string{
+		"displayName": "csaxsswissfel",
+		"mail":        "testuser@example.com",
+	}
+
+	// Mock access groups
+	accessGroups := []string{"group1", "group2"}
+   // Call the function that should crash
+  CheckMetadata(client, APIServer, metadatafile3, user, accessGroups)
+}
+
