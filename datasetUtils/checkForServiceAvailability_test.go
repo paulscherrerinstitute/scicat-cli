@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"reflect"
 )
 
 func TestReadYAMLFile(t *testing.T) {
@@ -170,6 +171,48 @@ func TestHandleServiceUnavailability(t *testing.T) {
 			err := handleServiceUnavailability(tt.status, tt.env, tt.autoarchiveFlag)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("handleServiceUnavailability() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDetermineStatusAndEnv(t *testing.T) {
+	tests := []struct {
+		name        string
+		s           ServiceAvailability
+		testenvFlag bool
+		wantStatus  OverallAvailability
+		wantEnv     string
+	}{
+		{
+			name: "test environment",
+			s: ServiceAvailability{
+				Qa: OverallAvailability{
+					Ingest: Availability{Status: "off"},
+					Archive: Availability{Status: "on"},
+				},
+				Production: OverallAvailability{
+					Ingest: Availability{Status: "on"},
+					Archive: Availability{Status: "on"},
+				},
+			},
+			testenvFlag: true,
+			wantStatus: OverallAvailability{
+				Ingest: Availability{Status: "off"},
+				Archive: Availability{Status: "on"},
+			},
+			wantEnv: "test",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotStatus, gotEnv := determineStatusAndEnv(tt.s, tt.testenvFlag)
+			if !reflect.DeepEqual(gotStatus, tt.wantStatus) {
+				t.Errorf("determineStatusAndEnv() gotStatus = %v, want %v", gotStatus, tt.wantStatus)
+			}
+			if gotEnv != tt.wantEnv {
+				t.Errorf("determineStatusAndEnv() gotEnv = %v, want %v", gotEnv, tt.wantEnv)
 			}
 		})
 	}
