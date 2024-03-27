@@ -25,12 +25,11 @@ const (
 
 func CheckMetadata(client *http.Client, APIServer string, metadatafile string, user map[string]string, accessGroups []string) (metaDataMap map[string]interface{}, sourceFolder string, beamlineAccount bool, err error) {
 	metaDataMap, err = readMetadataFromFile(metadatafile)
-
 	if err != nil {
 			return nil, "", false, err
 	}
 
-	if checkIllegalKeys(metaDataMap) {
+	if containsIllegalKeys(metaDataMap) {
 			return nil, "", false, errors.New(ErrIllegalKeys)
 	}
 
@@ -64,7 +63,6 @@ func readMetadataFromFile(metadatafile string) (map[string]interface{}, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
- 
 	// Unmarshal the JSON metadata into an interface{} object.
 	var metadataObj interface{} // Using interface{} allows metadataObj to hold any type of data, since it has no defined methods.
 	err = json.Unmarshal(b, &metadataObj)
@@ -77,7 +75,7 @@ func readMetadataFromFile(metadatafile string) (map[string]interface{}, error) {
 	return metaDataMap, err
 }
 
-func checkIllegalKeys(metadata map[string]interface{}) bool {
+func containsIllegalKeys(metadata map[string]interface{}) bool {
 	for key, value := range metadata {
 		if containsIllegalCharacters(key) {
 			return true
@@ -85,14 +83,14 @@ func checkIllegalKeys(metadata map[string]interface{}) bool {
 
 		switch v := value.(type) {
 		case map[string]interface{}:
-			if checkIllegalKeys(v) {
+			if containsIllegalKeys(v) {
 				return true
 			}
 		case []interface{}:
 			for _, item := range v {
 				switch itemValue := item.(type) { // Type switch on array item
 				case map[string]interface{}:
-					if checkIllegalKeys(itemValue) {
+					if containsIllegalKeys(itemValue) {
 						return true
 					}
 					// Add other cases if needed
@@ -118,7 +116,7 @@ func containsIllegalCharacters(s string) bool {
 // checkUserAndOwnerGroup checks the user and owner group and returns whether the user is a beamline account.
 func checkUserAndOwnerGroup(user map[string]string, accessGroups []string, metaDataMap map[string]interface{}) (bool, error) {
 	beamlineAccount := false
-
+	
 	if user["displayName"] != "ingestor" {
 		// Check if the metadata contains the "ownerGroup" key.
 		if ownerGroup, ok := metaDataMap["ownerGroup"]; ok { // type assertion with a comma-ok idiom
@@ -364,41 +362,4 @@ func getSourceFolder(metaDataMap map[string]interface{}) (string, error) {
     }
 
     return sourceFolder, nil
-}
-
-func checkIllegalKeys(metadata map[string]interface{}) bool {
-	for key, value := range metadata {
-		if containsIllegalCharacters(key) {
-			return true
-		}
-
-		switch v := value.(type) {
-		case map[string]interface{}:
-			if checkIllegalKeys(v) {
-				return true
-			}
-		case []interface{}:
-			for _, item := range v {
-				switch itemValue := item.(type) { // Type switch on array item
-				case map[string]interface{}:
-					if checkIllegalKeys(itemValue) {
-						return true
-					}
-					// Add other cases if needed
-				}
-			}
-		}
-	}
-	return false
-}
-
-func containsIllegalCharacters(s string) bool {
-	// Check if the string contains periods, brackets, or other illegal characters
-	// You can adjust this condition based on your specific requirements
-	for _, char := range s {
-		if char == '.' || char == '[' || char == ']' || char == '<' || char == '>' || char == '$' {
-			return true
-		}
-	}
-	return false
 }
