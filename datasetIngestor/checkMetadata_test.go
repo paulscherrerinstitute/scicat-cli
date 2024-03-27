@@ -24,15 +24,14 @@ func TestGetHost(t *testing.T) {
 
 func TestCheckMetadata(t *testing.T) {
 	// Define mock parameters for the function
-	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3" // "https://example.com/api"
+	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3" // TODO: Test Improvement. Change this to a mock server. At the moment, tests will fail if we change this to a mock server.
 	var APIServer = TEST_API_SERVER
 	var metadatafile1 = "testdata/metadata.json"
 	var metadatafile2 = "testdata/metadata-short.json"
-	// var metadatafile3 = "testdata/metadata_illegal.json"
 
 	// Mock HTTP client
 	client := &http.Client{
-		Timeout:   5 * time.Second, // Set a timeout for requests
+		Timeout: 5 * time.Second, // Set a timeout for requests
 		Transport: &http.Transport{
 			// Customize the transport settings if needed (e.g., proxy, TLS config)
 			// For a dummy client, default settings are usually sufficient
@@ -73,13 +72,13 @@ func TestCheckMetadata(t *testing.T) {
 		t.Error("Expected beamlineAccount to be false")
 	}
 	if _, ok := metaDataMap["ownerEmail"]; !ok {
-		t.Error("metaDataMap missing required key 'ownerEmail'")
+    t.Error("metaDataMap missing required key 'ownerEmail'")
 	}
 	if _, ok := metaDataMap["principalInvestigator"]; !ok {
-		t.Error("metaDataMap missing required key 'principalInvestigator'")
+    t.Error("metaDataMap missing required key 'principalInvestigator'")
 	}
 	if _, ok := metaDataMap["scientificMetadata"]; !ok {
-		t.Error("metaDataMap missing required key 'scientificMetadata'")
+    t.Error("metaDataMap missing required key 'scientificMetadata'")
 	}
 	scientificMetadata, ok := metaDataMap["scientificMetadata"].([]interface{})
 	if ok {
@@ -128,7 +127,7 @@ func TestCheckMetadata_CrashCase(t *testing.T) {
    }()
 
 		// Define mock parameters for the function
-	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3" // "https://example.com/api"
+	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3"
 	var APIServer = TEST_API_SERVER
 	var metadatafile3 = "testdata/metadata_illegal.json"
 

@@ -76,6 +76,7 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 		panic("Metadata contains keys with illegal characters (., [], $, or <>).")
 	}
 
+	// If the user is not the ingestor, check whether any of the accessGroups equal the ownerGroup. Otherwise, check for beamline-specific accounts.
 	if user["displayName"] != "ingestor" {
 		// Check if the metadata contains the "ownerGroup" key.
 		if ownerGroup, ok := metaDataMap["ownerGroup"]; ok { // type assertion with a comma-ok idiom
