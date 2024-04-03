@@ -52,11 +52,11 @@ func generateDownloadURL(deployLocation, latestVersion, osName string) string {
     return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.tar.gz", deployLocation, latestVersion, latestVersion, strings.Title(osName))
 }
 
-func CheckForNewVersion(client *http.Client, APP string, VERSION string, interactiveFlag bool) {
+func CheckForNewVersion(client *http.Client, APP string, VERSION string, interactiveFlag bool, userInput UserInput) error {
 	latestVersion, err := fetchLatestVersion(client)
 	if err != nil {
 		log.Printf("Can not find info about latest version for this program: %s\n", err)
-		return
+		return err
 	}
 	
 	latestVersion = strings.TrimPrefix(latestVersion, "v")
@@ -88,15 +88,27 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 			log.Printf("Browser: %s\nCommand: curl -L -O %s; tar xzf scicat-cli_.%s_%s_x86_64.tar.gz; cd scicat-cli; chmod +x %s\n", downloadURL, downloadURL, latestVersion, strings.Title(osName), APP)
 		}
 
-		if interactiveFlag {
-			log.Print("Do you want to continue with current version (y/N) ? ")
-			scanner.Scan()
-			continueyn := scanner.Text()
-			if continueyn != "y" {
-				log.Fatalf("Execution stopped, please update program now.\n")
-			}
-		}
+    if interactiveFlag {
+        log.Print("Do you want to continue with current version (y/N) ? ")
+        continueyn, _ := userInput.ReadLine()
+        if continueyn != "y\n" {
+					return fmt.Errorf("Execution stopped, please update the program now.")
+        }
+    }
 	} else {
 		log.Println("Your version of this program is up-to-date")
 	}
+	return nil
+}
+
+// UserInput is an interface that defines a method to read a line of input. We use this so that we can test interactive mode.
+type UserInput interface {
+    ReadLine() (string, error)
+}
+
+type StdinUserInput struct {}
+
+func (StdinUserInput) ReadLine() (string, error) {
+    reader := bufio.NewReader(os.Stdin)
+    return reader.ReadString('\n')
 }

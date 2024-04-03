@@ -7,6 +7,7 @@ import (
 	"testing"
 	"bytes"
 	"log"
+	"errors"
 )
 
 func TestFetchLatestVersion(t *testing.T) {
@@ -59,14 +60,22 @@ func TestGenerateDownloadURL(t *testing.T) {
 			},
 		}
 		
-		for _, testCase := range testCases {
-			actualURL := generateDownloadURL(deployLocation, latestVersion, testCase.osName)
-			
-			if actualURL != testCase.expectedURL {
-				t.Errorf("Expected URL to be %s, but got %s", testCase.expectedURL, actualURL)
-			}
+	for _, testCase := range testCases {
+		actualURL := generateDownloadURL(deployLocation, latestVersion, testCase.osName)
+		
+		if actualURL != testCase.expectedURL {
+			t.Errorf("Expected URL to be %s, but got %s", testCase.expectedURL, actualURL)
 		}
 	}
+}
+
+type MockUserInput struct {
+    Input string
+}
+
+func (m MockUserInput) ReadLine() (string, error) {
+    return m.Input, nil
+}
 
 func TestCheckForNewVersion(t *testing.T) {
 	tests := []struct {
@@ -74,18 +83,45 @@ func TestCheckForNewVersion(t *testing.T) {
 		currentVersion string
 		mockResponse   string
 		expectedLog    string
+		expectedError error
+		interactiveFlag bool
+		userInput string
 		}{
 			{
-				name:           "New version available",
+				name:           "New version available, non-interactive mode",
 				currentVersion: "0.9.0",
 				mockResponse:   `{"tag_name": "v1.0.0"}`,
 				expectedLog:    "You should upgrade to a newer version",
+				expectedError:  nil,
+				interactiveFlag: false,
+				userInput: "y\n",
 			},
 			{
-				name:           "No new version available",
+				name:           "No new version available, non-interactive mode",
 				currentVersion: "1.0.0",
 				mockResponse:   `{"tag_name": "v1.0.0"}`,
 				expectedLog:    "Your version of this program is up-to-date",
+				expectedError:  nil,
+				interactiveFlag: false,
+				userInput: "y\n",
+			},
+			{
+				name:           "New version available, interactive mode",
+				currentVersion: "0.9.0",
+				mockResponse:   `{"tag_name": "v1.0.0"}`,
+				expectedLog:    "You should upgrade to a newer version",
+				expectedError:  nil,
+				interactiveFlag: true,
+				userInput: "y\n",
+			},
+			{
+				name:           "New version available, interactive mode, no upgrade",
+				currentVersion: "0.9.0",
+				mockResponse:   `{"tag_name": "v1.0.0"}`,
+				expectedLog:    "Execution stopped, please update the program now.",
+				expectedError:  errors.New("Execution stopped, please update the program now."),
+				interactiveFlag: true,
+				userInput: "n\n",
 			},
 		}
 		
@@ -107,12 +143,17 @@ func TestCheckForNewVersion(t *testing.T) {
 			client := server.Client()
 			
 			// Call CheckForNewVersion
-			CheckForNewVersion(client, "test", tt.currentVersion, false)
+			err := CheckForNewVersion(client, "test", tt.currentVersion, tt.interactiveFlag, MockUserInput{Input: tt.userInput})
+			if err != nil && err.Error() != tt.expectedLog {
+					t.Errorf("got error %v, want %v", err, tt.expectedLog)
+			}
 			
 			// Check the log output
-			logOutput := getLogOutput()
-			if !strings.Contains(logOutput, tt.expectedLog) {
-				t.Errorf("Expected log message not found: %s", logOutput)
+			if tt.userInput == "y\n" { 
+				logOutput := getLogOutput()
+				if !strings.Contains(logOutput, tt.expectedLog) {
+					t.Errorf("Expected log message not found: %s", logOutput)
+				}
 			}
 			
 			// Clear the log buffer after each test
