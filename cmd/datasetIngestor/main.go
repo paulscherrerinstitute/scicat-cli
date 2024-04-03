@@ -138,9 +138,9 @@ func main() {
 		fmt.Printf("%s\n", VERSION)
 		return
 	}
-	// check for program version only if running interactively
 
-	datasetUtils.CheckForNewVersion(client, APP, VERSION, !(*noninteractiveFlag))
+	// check for program version only if running interactively
+	datasetUtils.CheckForNewVersion(client, APP, VERSION, *noninteractiveFlag)
 	datasetUtils.CheckForServiceAvailability(client, *testenvFlag, *autoarchiveFlag)
 
 	//}

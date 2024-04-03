@@ -58,7 +58,7 @@ func main() {
 	}
 
 	// check for program version only if running interactively
-	datasetUtils.CheckForNewVersion(client, APP, VERSION, true)
+	datasetUtils.CheckForNewVersion(client, APP, VERSION, *nonInteractiveFlag)
 
 	if *testenvFlag {
 		APIServer = TEST_API_SERVER
