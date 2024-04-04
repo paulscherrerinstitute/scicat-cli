@@ -53,7 +53,10 @@ func main() {
 	}
 
 	// check for program version only if running interactively
-	datasetUtils.CheckForNewVersion(client, APP, VERSION, true)
+	err := datasetUtils.CheckForNewVersion(client, APP, VERSION, true, datasetUtils.StdinUserInput{})
+	if err != nil {
+			log.Fatalf("Error checking for new version: %v", err)
+	}
 
 	if *testenvFlag {
 		APIServer = TEST_API_SERVER

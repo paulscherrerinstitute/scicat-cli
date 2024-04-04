@@ -109,7 +109,7 @@ func main() {
 	devenvFlag := flag.Bool("devenv", false, "Use development environment instead of production environment (developers only)")
 	localenvFlag := flag.Bool("localenv", false, "Use local environment instead of production environment (developers only)")
 	tunnelenvFlag := flag.Bool("tunnelenv", false, "Use tunneled API server at port 5443 to access development instance (developers only)")
-	noninteractiveFlag := flag.Bool("noninteractive", false, "If set no questions will be asked and the default settings for all undefined flags will be assumed")
+	noninteractiveFlag := flag.Bool("noninteractive", false, "If true, no questions will be asked and the default settings for all undefined flags will be assumed")
 	userpass := flag.String("user", "", "Defines optional username:password string. This can be used both for access to the data catalog API and for access to the intermediate storage server for the decentral use case")
 	token := flag.String("token", "", "Defines API token for access to the data catalog API. It is now mandatory for normal user accounts, but optional for functional accounts. It takes precedence over username/pw.")
 	copyFlag := flag.Bool("copy", false, "Defines if files should be copied from your local system to a central server before ingest (i.e. your data is not centrally available and therefore needs to be copied ='decentral' case). copyFlag has higher priority than nocopyFlag. If neither flag is defined the tool will try to make the best guess.")
@@ -138,9 +138,12 @@ func main() {
 		fmt.Printf("%s\n", VERSION)
 		return
 	}
-	// check for program version only if running interactively
 
-	datasetUtils.CheckForNewVersion(client, APP, VERSION, !(*noninteractiveFlag))
+	// check for program version only if running interactively
+	err := datasetUtils.CheckForNewVersion(client, APP, VERSION, !*noninteractiveFlag, datasetUtils.StdinUserInput{})
+	if err != nil {
+			log.Fatalf("Error checking for new version: %v", err)
+	}
 	datasetUtils.CheckForServiceAvailability(client, *testenvFlag, *autoarchiveFlag)
 
 	//}
