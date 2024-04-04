@@ -2,21 +2,21 @@ package datasetUtils
 
 import (
 	"bufio"
+	"encoding/json"
+	"fmt"
+	version "github.com/mcuadros/go-version"
 	"log"
 	"net/http"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
-	"encoding/json"
-	version "github.com/mcuadros/go-version"
-	"fmt"
 )
 
 var scanner = bufio.NewScanner(os.Stdin)
 
 var (
-	GitHubAPI = "https://api.github.com/repos/paulscherrerinstitute/scicat-cli/releases/latest"
+	GitHubAPI      = "https://api.github.com/repos/paulscherrerinstitute/scicat-cli/releases/latest"
 	DeployLocation = "https://github.com/paulscherrerinstitute/scicat-cli/releases/download"
 )
 
@@ -30,39 +30,39 @@ func fetchLatestVersion(client *http.Client) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("got %s fetching %s", resp.Status, GitHubAPI)
 	}
-	
+
 	var release Release
 	err = json.NewDecoder(resp.Body).Decode(&release)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return strings.TrimSpace(release.TagName), nil
 }
 
 // Make sure the version number is stripped of the 'v' prefix. That's required for `strconv.Atoi` to work.
 func generateDownloadURL(deployLocation, latestVersion, osName string) string {
-    if strings.ToLower(osName) == "windows" {
-        return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.zip", deployLocation, latestVersion, latestVersion, strings.Title(osName))
-    }
-    return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.tar.gz", deployLocation, latestVersion, latestVersion, strings.Title(osName))
+	if strings.ToLower(osName) == "windows" {
+		return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.zip", deployLocation, latestVersion, latestVersion, strings.Title(osName))
+	}
+	return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.tar.gz", deployLocation, latestVersion, latestVersion, strings.Title(osName))
 }
 
 func CheckForNewVersion(client *http.Client, APP string, VERSION string, interactiveFlag bool, userInput UserInput) error {
 	// avoid checking for new version in test mode
 	if os.Getenv("TEST_MODE") == "true" {
-    return nil
+		return nil
 	}
 	latestVersion, err := fetchLatestVersion(client)
 	if err != nil {
 		log.Printf("Can not find info about latest version for this program: %s\n", err)
 		return err
 	}
-	
+
 	latestVersion = strings.TrimPrefix(latestVersion, "v")
 	_, err = strconv.Atoi(strings.Split(latestVersion, ".")[0])
 	if err != nil {
@@ -73,10 +73,10 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 		log.Fatalf("Illegal version number:%v", VERSION)
 	}
 	log.Printf("Latest version: %s", latestVersion)
-	
+
 	// Get the operating system name
 	osName := runtime.GOOS
-	
+
 	// Generate the download URL
 	downloadURL := generateDownloadURL(DeployLocation, latestVersion, osName)
 
@@ -90,8 +90,8 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 	latestMajor, _ := strconv.Atoi(latestParts[0])
 	latestMinor, _ := strconv.Atoi(latestParts[1])
 
-	if latestMajor > currentMajor || (latestMajor == currentMajor && latestMinor > currentMinor) { 
-		// Enforce an update if the major or minor version has changed
+	if version.Compare(latestVersion, VERSION, ">") {
+		// Notify an update if the version has changed
 		log.Println("You should upgrade to a newer version")
 		log.Println("Current Version: ", VERSION)
 		log.Println("Latest  Version: ", latestVersion)
@@ -102,31 +102,28 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 		} else {
 			log.Printf("Browser: %s\nCommand: curl -L -O %s; tar xzf scicat-cli_.%s_%s_x86_64.tar.gz; cd scicat-cli; chmod +x %s\n", downloadURL, downloadURL, latestVersion, strings.Title(osName), APP)
 		}
-
-    if interactiveFlag {
-        log.Print("Do you want to continue with current version (y/N) ? ")
-        continueyn, _ := userInput.ReadLine()
-        if continueyn != "y\n" {
-					return fmt.Errorf("Execution stopped, please update the program now.")
-        }
-    }
-	} else if version.Compare(latestVersion, VERSION, ">") {
-    // Recommend an update if the patch version has changed
-    log.Println("You should upgrade to the latest version.")
 	} else {
 		log.Println("Your version of this program is up-to-date")
 	}
+	if interactiveFlag && (latestMajor > currentMajor || latestMinor > currentMinor) {
+		log.Print("Do you want to continue with current version (y/N) ? ")
+		continueyn, _ := userInput.ReadLine()
+		if continueyn != "y\n" {
+			return fmt.Errorf("Execution stopped, please update the program now.")
+		}
+	}
+
 	return nil
 }
 
 // UserInput is an interface that defines a method to read a line of input. We use this so that we can test interactive mode.
 type UserInput interface {
-    ReadLine() (string, error)
+	ReadLine() (string, error)
 }
 
-type StdinUserInput struct {}
+type StdinUserInput struct{}
 
 func (StdinUserInput) ReadLine() (string, error) {
-    reader := bufio.NewReader(os.Stdin)
-    return reader.ReadString('\n')
+	reader := bufio.NewReader(os.Stdin)
+	return reader.ReadString('\n')
 }
