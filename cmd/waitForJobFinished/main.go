@@ -26,6 +26,8 @@ type Job struct {
 	JobStatusMessage string
 }
 
+var VERSION string
+
 func main() {
 
 	var client = &http.Client{
@@ -38,7 +40,6 @@ func main() {
 
 	const MANUAL string = "http://melanie.gitpages.psi.ch/SciCatPages"
 	const APP = "waitForJobFinished"
-	const VERSION = "1.0.1"
 
 	var APIServer string
 	var env string

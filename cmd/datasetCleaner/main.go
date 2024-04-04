@@ -48,6 +48,8 @@ func isFlagPassed(name string) bool {
 	return found
 }
 
+var VERSION string
+
 func main() {
 
 	var client = &http.Client{
@@ -60,7 +62,6 @@ func main() {
 
 	const MANUAL string = "http://melanie.gitpages.psi.ch/SciCatPages"
 	const APP = "datasetCleaner"
-	const VERSION = "1.0.6"
 
 	var APIServer string
 	var env string

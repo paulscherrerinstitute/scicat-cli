@@ -123,6 +123,15 @@ func TestCheckForNewVersion(t *testing.T) {
 				interactiveFlag: true,
 				userInput: "n\n",
 			},
+			{
+				name:           "New path available, interactive mode",
+				currentVersion: "0.9.0",
+				mockResponse:   `{"tag_name": "v0.9.1"}`,
+				expectedLog:    "You should upgrade to a newer version",
+				expectedError:  nil,
+				interactiveFlag: true,
+				userInput: "y\n",
+			},
 		}
 		
 	for _, tt := range tests {
@@ -144,8 +153,8 @@ func TestCheckForNewVersion(t *testing.T) {
 			
 			// Call CheckForNewVersion
 			err := CheckForNewVersion(client, "test", tt.currentVersion, tt.interactiveFlag, MockUserInput{Input: tt.userInput})
-			if err != nil && err.Error() != tt.expectedLog {
-					t.Errorf("got error %v, want %v", err, tt.expectedLog)
+			if err != nil && err.Error() != tt.expectedError.Error() {
+				t.Errorf("got error %v, want %v", err, tt.expectedLog)
 			}
 			
 			// Check the log output

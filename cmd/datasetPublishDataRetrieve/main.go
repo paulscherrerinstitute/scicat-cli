@@ -38,7 +38,6 @@ const RETRIEVELocation string = "/data/archiveManager/retrieve/"
 const MANUAL string = "http://melanie.gitpages.psi.ch/SciCatPages/#sec-5"
 
 const APP = "datasetPublishDataRetrieve"
-const VERSION = "1.0.1"
 
 var APIServer string = PROD_API_SERVER
 var RSYNCServer string = PROD_RSYNC_RETRIEVE_SERVER
@@ -47,6 +46,7 @@ var client = &http.Client{
 	Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
 	Timeout:   10 * time.Second}
 var scanner = bufio.NewScanner(os.Stdin)
+var VERSION string
 
 func main() {
 

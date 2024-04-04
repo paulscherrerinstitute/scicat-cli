@@ -68,6 +68,8 @@ func isFlagPassed(name string) bool {
 	return found
 }
 
+var VERSION string
+
 func main() {
 	var tooLargeDatasets = 0
 	var emptyDatasets = 0
@@ -96,10 +98,8 @@ func main() {
 
 	const MANUAL string = "http://melanie.gitpages.psi.ch/SciCatPages"
 	const APP = "datasetIngestor"
-	const VERSION = "1.1.31"
 
 	var scanner = bufio.NewScanner(os.Stdin)
-
 	var APIServer string
 	var RSYNCServer string
 	var env string

@@ -21,6 +21,8 @@ import (
 	"github.com/fatih/color"
 )
 
+var VERSION string
+
 func main() {
 
 	var client = &http.Client{
@@ -34,7 +36,6 @@ func main() {
 
 	const MANUAL string = "http://melanie.gitpages.psi.ch/SciCatPages"
 	const APP = "datasetArchiver"
-	const VERSION = "1.1.9"
 	var scanner = bufio.NewScanner(os.Stdin)
 
 	var APIServer string
