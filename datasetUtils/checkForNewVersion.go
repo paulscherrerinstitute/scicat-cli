@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	version "github.com/mcuadros/go-version"
 	"log"
 	"net/http"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
+	version "github.com/mcuadros/go-version"
 )
 
 var scanner = bufio.NewScanner(os.Stdin)
@@ -107,12 +107,14 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 	}
 	if interactiveFlag && (latestMajor > currentMajor || latestMinor > currentMinor) {
 		log.Print("Do you want to continue with current version (y/N) ? ")
-		continueyn, _ := userInput.ReadLine()
-		if continueyn != "y\n" {
+		continueyn, err := userInput.ReadLine()
+		if err != nil {
+			return fmt.Errorf("failed to read user input: %v", err)
+		}
+		if strings.TrimSpace(continueyn) != "y" {
 			return fmt.Errorf("Execution stopped, please update the program now.")
 		}
 	}
-
 	return nil
 }
 

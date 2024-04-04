@@ -144,8 +144,8 @@ func TestCheckForNewVersion(t *testing.T) {
 			
 			// Call CheckForNewVersion
 			err := CheckForNewVersion(client, "test", tt.currentVersion, tt.interactiveFlag, MockUserInput{Input: tt.userInput})
-			if err != nil && err.Error() != tt.expectedLog {
-					t.Errorf("got error %v, want %v", err, tt.expectedLog)
+			if err != nil && err.Error() != tt.expectedError.Error() {
+				t.Errorf("got error %v, want %v", err, tt.expectedLog)
 			}
 			
 			// Check the log output
