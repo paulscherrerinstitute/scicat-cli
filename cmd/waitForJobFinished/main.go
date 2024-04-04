@@ -38,7 +38,6 @@ func main() {
 
 	const MANUAL string = "http://melanie.gitpages.psi.ch/SciCatPages"
 	const APP = "waitForJobFinished"
-	const VERSION = "1.0.1"
 
 	var APIServer string
 	var env string
@@ -54,7 +53,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("%s\n", VERSION)
+		fmt.Printf("%s\n", datasetUtils.VERSION)
 		return
 	}
 

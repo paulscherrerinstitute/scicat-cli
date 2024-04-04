@@ -34,7 +34,6 @@ func main() {
 
 	const MANUAL string = "http://melanie.gitpages.psi.ch/SciCatPages"
 	const APP = "datasetArchiver"
-	const VERSION = "1.1.9"
 	var scanner = bufio.NewScanner(os.Stdin)
 
 	var APIServer string
@@ -53,12 +52,12 @@ func main() {
 	flag.Parse()
 	
 	if *showVersion {
-		fmt.Printf("%s\n", VERSION)
+		fmt.Printf("%s\n", datasetUtils.VERSION)
 		return
 	}
 
 	// check for program version only if running interactively
-	err := datasetUtils.CheckForNewVersion(client, APP, VERSION, !*nonInteractiveFlag, datasetUtils.StdinUserInput{})
+	err := datasetUtils.CheckForNewVersion(client, APP, datasetUtils.VERSION, !*nonInteractiveFlag, datasetUtils.StdinUserInput{})
 	if err != nil {
 			log.Fatalf("Error checking for new version: %v", err)
 	}

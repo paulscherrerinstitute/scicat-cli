@@ -44,7 +44,6 @@ const MANUAL string = "http://melanie.gitpages.psi.ch/SciCatPages/#sec-5"
 
 // TODO Windows
 const APP = "datasetRetriever"
-const VERSION = "1.1.14"
 
 var APIServer string = PROD_API_SERVER
 var RSYNCServer string = PROD_RSYNC_RETRIEVE_SERVER
@@ -70,11 +69,11 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("%s\n", VERSION)
+		fmt.Printf("%s\n", datasetUtils.VERSION)
 		return
 	}
 	
-	err := datasetUtils.CheckForNewVersion(client, APP, VERSION, true, datasetUtils.StdinUserInput{})
+	err := datasetUtils.CheckForNewVersion(client, APP, datasetUtils.VERSION, true, datasetUtils.StdinUserInput{})
 	if err != nil {
 			log.Fatalf("Error checking for new version: %v", err)
 	}

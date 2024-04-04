@@ -53,6 +53,10 @@ func generateDownloadURL(deployLocation, latestVersion, osName string) string {
 }
 
 func CheckForNewVersion(client *http.Client, APP string, VERSION string, interactiveFlag bool, userInput UserInput) error {
+	// avoid checking for new version in test mode
+	if os.Getenv("TEST_MODE") == "true" {
+    return nil
+	}
 	latestVersion, err := fetchLatestVersion(client)
 	if err != nil {
 		log.Printf("Can not find info about latest version for this program: %s\n", err)
