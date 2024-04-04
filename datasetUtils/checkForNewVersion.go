@@ -80,7 +80,18 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 	// Generate the download URL
 	downloadURL := generateDownloadURL(DeployLocation, latestVersion, osName)
 
-	if version.Compare(latestVersion, VERSION, ">") {
+	// Split the versions into parts
+	currentParts := strings.Split(VERSION, ".")
+	latestParts := strings.Split(latestVersion, ".")
+
+	// Convert the major and minor parts to integers
+	currentMajor, _ := strconv.Atoi(currentParts[0])
+	currentMinor, _ := strconv.Atoi(currentParts[1])
+	latestMajor, _ := strconv.Atoi(latestParts[0])
+	latestMinor, _ := strconv.Atoi(latestParts[1])
+
+	if latestMajor > currentMajor || (latestMajor == currentMajor && latestMinor > currentMinor) { 
+		// Enforce an update if the major or minor version has changed
 		log.Println("You should upgrade to a newer version")
 		log.Println("Current Version: ", VERSION)
 		log.Println("Latest  Version: ", latestVersion)
@@ -99,6 +110,9 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 					return fmt.Errorf("Execution stopped, please update the program now.")
         }
     }
+	} else if version.Compare(latestVersion, VERSION, ">") {
+    // Recommend an update if the patch version has changed
+    log.Println("You should upgrade to the latest version.")
 	} else {
 		log.Println("Your version of this program is up-to-date")
 	}
