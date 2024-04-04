@@ -21,6 +21,8 @@ import (
 	"github.com/fatih/color"
 )
 
+var VERSION string
+
 func main() {
 
 	var client = &http.Client{
@@ -52,12 +54,12 @@ func main() {
 	flag.Parse()
 	
 	if *showVersion {
-		fmt.Printf("%s\n", datasetUtils.VERSION)
+		fmt.Printf("%s\n", VERSION)
 		return
 	}
 
 	// check for program version only if running interactively
-	err := datasetUtils.CheckForNewVersion(client, APP, datasetUtils.VERSION, !*nonInteractiveFlag, datasetUtils.StdinUserInput{})
+	err := datasetUtils.CheckForNewVersion(client, APP, VERSION, !*nonInteractiveFlag, datasetUtils.StdinUserInput{})
 	if err != nil {
 			log.Fatalf("Error checking for new version: %v", err)
 	}

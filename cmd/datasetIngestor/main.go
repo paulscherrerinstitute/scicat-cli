@@ -67,6 +67,8 @@ func isFlagPassed(name string) bool {
 	return found
 }
 
+var VERSION string
+
 func main() {
 	var tooLargeDatasets = 0
 	var emptyDatasets = 0
@@ -97,7 +99,6 @@ func main() {
 	const APP = "datasetIngestor"
 
 	var scanner = bufio.NewScanner(os.Stdin)
-
 	var APIServer string
 	var RSYNCServer string
 	var env string
@@ -134,12 +135,12 @@ func main() {
 	}
 
 	if *showVersion {
-		fmt.Printf("%s\n", datasetUtils.VERSION)
+		fmt.Printf("%s\n", VERSION)
 		return
 	}
 
 	// check for program version only if running interactively
-	err := datasetUtils.CheckForNewVersion(client, APP, datasetUtils.VERSION, !*noninteractiveFlag, datasetUtils.StdinUserInput{})
+	err := datasetUtils.CheckForNewVersion(client, APP, VERSION, !*noninteractiveFlag, datasetUtils.StdinUserInput{})
 	if err != nil {
 			log.Fatalf("Error checking for new version: %v", err)
 	}

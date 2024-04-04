@@ -23,7 +23,9 @@ before:
 builds:
   - id: "datasetIngestor"
     flags:
-      - -ldflags=-X main.VERSION={{.Version}}  # This will set the VERSION variable in the binary to the github tag.
+      - -trimpath
+    ldflags:
+      - -s -w -X main.VERSION={{.Version}} # This will set the VERSION variable in the binary to the github tag
     env:
       - CGO_ENABLED=0
     dir: ./cmd/datasetIngestor/
@@ -38,7 +40,9 @@ builds:
 
   - id: "datasetArchiver"
     flags:
-      - -ldflags=-X main.VERSION={{.Version}}
+      - -trimpath
+    ldflags:
+      - -s -w -X main.VERSION={{.Version}}
     env:
       - CGO_ENABLED=0
     dir: ./cmd/datasetArchiver/
@@ -53,7 +57,9 @@ builds:
 
   - id: "datasetRetriever"
     flags:
-      - -ldflags=-X main.VERSION={{.Version}}
+      - -trimpath
+    ldflags:
+      - -s -w -X main.VERSION={{.Version}}
     env:
       - CGO_ENABLED=0
     dir: ./cmd/datasetRetriever/
@@ -68,7 +74,9 @@ builds:
 
   - id: "datasetCleaner"
     flags:
-      - -ldflags=-X main.VERSION={{.Version}}
+      - -trimpath
+    ldflags:
+      - -s -w -X main.VERSION={{.Version}}
     env:
       - CGO_ENABLED=0
     dir: ./cmd/datasetCleaner/
@@ -83,7 +91,9 @@ builds:
 
   - id: "datasetGetProposal"
     flags:
-      - -ldflags=-X main.VERSION={{.Version}}
+      - -trimpath
+    ldflags:
+      - -s -w -X main.VERSION={{.Version}}
     env:
       - CGO_ENABLED=0
     dir: ./cmd/datasetGetProposal/

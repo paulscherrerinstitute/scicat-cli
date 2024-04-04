@@ -26,6 +26,8 @@ type Job struct {
 	JobStatusMessage string
 }
 
+var VERSION string
+
 func main() {
 
 	var client = &http.Client{
@@ -53,7 +55,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("%s\n", datasetUtils.VERSION)
+		fmt.Printf("%s\n", VERSION)
 		return
 	}
 

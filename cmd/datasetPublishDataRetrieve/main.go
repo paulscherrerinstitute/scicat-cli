@@ -46,6 +46,7 @@ var client = &http.Client{
 	Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
 	Timeout:   10 * time.Second}
 var scanner = bufio.NewScanner(os.Stdin)
+var VERSION string
 
 func main() {
 
@@ -62,7 +63,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("%s\n", datasetUtils.VERSION)
+		fmt.Printf("%s\n", VERSION)
 		return
 	}
 
