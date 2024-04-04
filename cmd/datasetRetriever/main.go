@@ -74,10 +74,7 @@ func main() {
 		return
 	}
 	
-	err := datasetUtils.CheckForNewVersion(client, APP, VERSION, true, datasetUtils.StdinUserInput{})
-	if err != nil {
-			log.Fatalf("Error checking for new version: %v", err)
-	}
+	datasetUtils.CheckForNewVersion(client, APP, VERSION, true, datasetUtils.StdinUserInput{})
 
 	var env string
 	if *testenvFlag {

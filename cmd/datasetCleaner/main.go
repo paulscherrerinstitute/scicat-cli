@@ -83,10 +83,7 @@ func main() {
 	}
 	
 	// check for program version only if running interactively
-	err := datasetUtils.CheckForNewVersion(client, APP, VERSION, !*nonInteractiveFlag, datasetUtils.StdinUserInput{})
-	if err != nil {
-			log.Fatalf("Error checking for new version: %v", err)
-	}
+	datasetUtils.CheckForNewVersion(client, APP, VERSION, !*nonInteractiveFlag, datasetUtils.StdinUserInput{})
 	datasetUtils.CheckForServiceAvailability(client, *testenvFlag, true)
 
 	//}
