@@ -1,13 +1,13 @@
 package datasetIngestor
 
 import (
-	"os/exec"
-	"reflect"
-	"testing"
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"reflect"
 	"strconv"
+	"testing"
 )
 
 // Mock for exec.Command
@@ -46,56 +46,56 @@ func TestHelperProcess(t *testing.T) {
 	os.Exit(exitStatus)
 }
 
-func TestTestDataCentrallyAvailable(t *testing.T) {
+func TestCheckDataCentrallyAvailable(t *testing.T) {
 	tests := []struct {
-		name         string
-		username     string
+		name          string
+		username      string
 		archiveServer string
-		sourceFolder string
-		wantErr      bool
-		errMsg       string
-		}{
-			{
-				name:         "test data centrally available",
-				username:     "testuser",
-				archiveServer: "testserver",
-				sourceFolder: "/test/folder",
-				wantErr:      false,
-			},
-			{
-				name:         "test data not available",
-				username:     "testuser",
-				archiveServer: "testserver",
-				sourceFolder: "/nonexistent/folder",
-				wantErr:      true,
-				errMsg:       "exit status 1",
-			},
-			// Add more test cases here.
-		}
-		
+		sourceFolder  string
+		wantErr       bool
+		errMsg        string
+	}{
+		{
+			name:          "test data centrally available",
+			username:      "testuser",
+			archiveServer: "testserver",
+			sourceFolder:  "/test/folder",
+			wantErr:       false,
+		},
+		{
+			name:          "test data not available",
+			username:      "testuser",
+			archiveServer: "testserver",
+			sourceFolder:  "/nonexistent/folder",
+			wantErr:       true,
+			errMsg:        "exit status 1",
+		},
+		// Add more test cases here.
+	}
+
 	for _, tt := range tests {
 		expectedArgs := []string{"-q", "-l", tt.username, tt.archiveServer, "test", "-d", tt.sourceFolder}
-			
+
 		var returnError error
 		if tt.wantErr {
 			returnError = errors.New(tt.errMsg)
 		}
-			
+
 		// Replace exec.Command with a mock
 		oldExecCommand := execCommand
 		execCommand = (&execCommandMock{
 			expectedArgs: expectedArgs,
 			returnError:  returnError,
-			}).Command
+		}).Command
 		defer func() { execCommand = oldExecCommand }()
-		
+
 		t.Run(tt.name, func(t *testing.T) {
-			err := TestDataCentrallyAvailable(tt.username, tt.archiveServer, tt.sourceFolder)
+			err := CheckDataCentrallyAvailable(tt.username, tt.archiveServer, tt.sourceFolder)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("TestDataCentrallyAvailable() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("CheckDataCentrallyAvailable() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if err != nil && tt.wantErr && err.Error() != tt.errMsg {
-				t.Errorf("TestDataCentrallyAvailable() errMsg = %v, wantErrMsg %v", err.Error(), tt.errMsg)
+				t.Errorf("CheckDataCentrallyAvailable() errMsg = %v, wantErrMsg %v", err.Error(), tt.errMsg)
 			}
 		})
 	}

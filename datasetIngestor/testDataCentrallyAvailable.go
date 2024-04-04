@@ -11,19 +11,19 @@ import (
 // execCommand is a variable that points to exec.Command, allowing it to be replaced in tests.
 var execCommand = exec.Command
 
-// TestDataCentrallyAvailable checks if a specific directory (sourceFolder) is available on a remote server (ARCHIVEServer) 
+// CheckDataCentrallyAvailable checks if a specific directory (sourceFolder) is available on a remote server (ARCHIVEServer)
 // using the provided username for SSH connection. It returns an error if the directory is not available or if there's an issue with the SSH connection.
-func TestDataCentrallyAvailable(username string, ARCHIVEServer string, sourceFolder string) (err error) {
+func CheckDataCentrallyAvailable(username string, ARCHIVEServer string, sourceFolder string) (err error) {
 	var cmd *exec.Cmd
 
 	// Check the operating system
 	switch os := runtime.GOOS; os {
 	case "linux", "windows", "darwin":
 		// Check if ssh exists
-		_, err := exec.LookPath("ssh")  // locate a program in the user's path
+		_, err := exec.LookPath("ssh") // locate a program in the user's path
 		if err != nil {
-				log.Println("SSH is not installed. Please install OpenSSH client.")
-				return err
+			log.Println("SSH is not installed. Please install OpenSSH client.")
+			return err
 		}
 
 		// Create a new exec.Command to run the SSH command. The command checks if the directory exists on the remote server.

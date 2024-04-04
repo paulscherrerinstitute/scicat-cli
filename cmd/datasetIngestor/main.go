@@ -47,10 +47,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"github.com/paulscherrerinstitute/scicat/datasetIngestor"
-	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"strings"
 	"time"
+
+	"github.com/paulscherrerinstitute/scicat/datasetIngestor"
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 
 	"github.com/fatih/color"
 )
@@ -296,7 +297,7 @@ func main() {
 			// and unless copy flag defined via command line
 			if !*copyFlag && !*nocopyFlag {
 				if !beamlineAccount {
-					err := datasetIngestor.TestDataCentrallyAvailable(user["username"], RSYNCServer, sourceFolder)
+					err := datasetIngestor.CheckDataCentrallyAvailable(user["username"], RSYNCServer, sourceFolder)
 					if err != nil {
 						color.Set(color.FgYellow)
 						log.Printf("The source folder %v is not centrally available (decentral use case).\nThe data must first be copied to a rsync cache server.\n ", sourceFolder)
