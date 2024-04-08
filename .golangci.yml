@@ -65,3 +65,17 @@ linters-settings:
     # Treat code as a program (not a library) and report unused exported identifiers; default is false.
     # The argument specifies the Go source directory to analyze.
     check-exported: false
+
+output:
+  formats:
+    - format: colored-line-number
+      path: stdout
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+  sort-results: true
+  sort-order:
+    - file
+    - linter
+    - severity
+  show-stats: true
