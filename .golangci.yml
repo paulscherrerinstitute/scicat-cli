@@ -14,6 +14,17 @@ linters:
     - whitespace
     - bodyclose
     - dupl
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - misspell
+    - nakedret
+    - prealloc
+    - staticcheck
+    - typecheck
+    - unparam
+    - unused
 
   # Disable specific linters
   disable:
@@ -24,27 +35,10 @@ linters:
     - godot
     - gofmt
     - goimports
-    - golint
-    - goprintffuncname
-    - gosec
-    - gosimple
-    - govet
     - ineffassign
-    - interfacer
     - lll
-    - misspell
-    - nakedret
-    - prealloc
-    - scopelint
-    - staticcheck
-    - structcheck
     - stylecheck
-    - typecheck
     - unconvert
-    - unparam
-    - unused
-    - varcheck
-    - maligned
     - megacheck
     - gas
     - dogsled

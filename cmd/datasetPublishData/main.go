@@ -1,7 +1,7 @@
 /*
 
 Purpose: copy all files from a publisheddata entry (list of datasets) to publication server
-         taking into account orginal sourceFolder names
+         taking into account original sourceFolder names
 
 This script must be run on the retrieve servers (from root) and pushes data to the publication server
 hosted in the DMZ. It requires that a previous retrieve job for the datasets, executed
@@ -314,6 +314,9 @@ func createWebpage(urls []string, title string, doi string, datasetDetails []dat
 
 	myurl := APIServer + "/PublishedData/" + strings.Replace(publishedDataId, "/", "%2F", 1) + "?access_token=" + user["accessToken"]
 	req, err := http.NewRequest("PATCH", myurl, bytes.NewBuffer(cmm))
+	if err != nil {
+		log.Fatal(err)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	// fmt.Printf("request to message broker:%v\n", req)
 	resp, err := client.Do(req)

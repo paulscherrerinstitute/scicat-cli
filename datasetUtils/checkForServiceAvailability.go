@@ -57,7 +57,7 @@ func getServiceAvailability(client *http.Client) (ServiceAvailability, error) {
 	s := ServiceAvailability{}
 	err = yaml.Unmarshal(yamlFile, &s)
 	if err != nil {
-		return ServiceAvailability{}, fmt.Errorf("Unmarshal of availabilty file failed: %v\n%s", err, yamlFile)
+		return ServiceAvailability{}, fmt.Errorf("Unmarshal of availability file failed: %v\n%s", err, yamlFile)
 	}
 	
 	return s, nil

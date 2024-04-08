@@ -1,6 +1,6 @@
 /*
 
-Purpose: retrieve datasets from intermediate cache, taking into account orginal sourceFolder names
+Purpose: retrieve datasets from intermediate cache, taking into account original sourceFolder names
 
 This script must be run on the machine having write access to the destination folder
 

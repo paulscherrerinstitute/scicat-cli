@@ -6,14 +6,11 @@ import (
 	"testing"
 )
 
-func init() {
-	os.Setenv("TEST_MODE", "true")
-}
-
 // TestMainOutput is a test function that verifies the output of the main function.
 // It captures the stdout, runs the main function, and checks if the output contains the expected strings.
 // This just checks if the main function prints the help message.
 func TestMainOutput(t *testing.T) {
+	os.Setenv("TEST_MODE", "true")
 	oldTestMode := "false"
 	defer os.Setenv("TEST_MODE", oldTestMode)
 	// Capture stdout

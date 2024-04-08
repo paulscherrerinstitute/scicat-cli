@@ -22,6 +22,8 @@ const (
 	DUMMY_OWNER = "x12345"
 )
 
+const unknown	= "unknown"
+const raw	= "raw"
 
 func CheckMetadata(client *http.Client, APIServer string, metadatafile string, user map[string]string, accessGroups []string) (metaDataMap map[string]interface{}, sourceFolder string, beamlineAccount bool, err error) {
 	metaDataMap, err = readMetadataFromFile(metadatafile)
@@ -171,7 +173,7 @@ func getHost() string {
 	// Try to get the hostname of the current machine.
 	hostname, err := os.Hostname()
 	if err != nil {
-		return "unknown"
+		return unknown
 	}
 
 	addrs, err := net.LookupIP(hostname)
@@ -215,7 +217,7 @@ func augmentMissingMetadata(user map[string]string, metaDataMap map[string]inter
 	// and sourceFolderHost
 	if _, ok := metaDataMap["sourceFolderHost"]; !ok {
 		hostname := getHost()
-		if hostname == "unknown" {
+		if hostname == unknown {
 			log.Printf("sourceFolderHost is unknown")
 		} else {
 			metaDataMap["sourceFolderHost"] = hostname
@@ -228,7 +230,7 @@ func augmentMissingMetadata(user map[string]string, metaDataMap map[string]inter
 		if !ok {
 			return fmt.Errorf("type is not a string")
 		}
-		if dstype == "raw" {
+		if dstype == raw {
 			if _, ok := metaDataMap["principalInvestigator"]; !ok {
 				val, ok := metaDataMap["ownerGroup"]
 				if ok {
@@ -259,7 +261,7 @@ func augmentMissingMetadata(user map[string]string, metaDataMap map[string]inter
 func checkMetadataValidity(client *http.Client, APIServer string, metaDataMap map[string]interface{}, dstype string) error {
     myurl := ""
     switch dstype {
-    case "raw":
+    case raw:
         myurl = APIServer + "/RawDatasets/isValid"
     case "derived":
         myurl = APIServer + "/DerivedDatasets/isValid"
@@ -277,7 +279,7 @@ func checkMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 	if _, exists := metaDataMap["creationTime"]; !exists {
 		metaDataMap["creationTime"] = DUMMY_TIME
 	}
-	if metaDataMap["type"] == "raw" {
+	if metaDataMap["type"] == raw {
 		if _, exists := metaDataMap["endTime"]; !exists {
 			metaDataMap["endTime"] = DUMMY_TIME
 		}
