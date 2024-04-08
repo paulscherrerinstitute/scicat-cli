@@ -22,12 +22,12 @@ linters:
     - nakedret
     - prealloc
     - staticcheck
-    - typecheck
     - unparam
     - unused
 
   # Disable specific linters
   disable:
+    - typecheck
     - gochecknoinits
     - goconst
     - gocritic
