@@ -64,7 +64,6 @@ func addResult(client *http.Client, APIServer string, filter string, accessToken
 }
 
 func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup string, inputdatasetList []string, accessToken string) (datasetList []string) {
-
 	datasetList = make([]string, 0)
 
 	filter := ""

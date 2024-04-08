@@ -9,7 +9,6 @@ import (
 
 func GetProposal(client *http.Client, APIServer string, ownerGroup string, user map[string]string,
 	accessGroups []string) (proposal map[string]interface{}) {
-
 	// Check if ownerGroup is in accessGroups list. No longer needed, done on server side and
 	//  takes also accessGroup for beamline accounts into account
 

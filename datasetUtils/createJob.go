@@ -13,7 +13,6 @@ type Job struct {
 }
 
 func CreateJob(client *http.Client, APIServer string, user map[string]string, datasetList []string, tapecopies *int) (jobId string) {
-
 	// important: define field with capital names and rename fields via 'json' constructs
 	// otherwise the marshaling will omit the fields !
 

@@ -33,7 +33,6 @@ func keyString(k ssh.PublicKey) string {
 }
 
 func trustedHostKeyCallback(trustedKey string) ssh.HostKeyCallback {
-
 	if trustedKey == "" {
 		return func(_ string, _ net.Addr, k ssh.PublicKey) error {
 			log.Printf("WARNING: SSH-key verification is *NOT* in effect: to fix, add this trustedKey: %q", keyString(k))
@@ -151,7 +150,6 @@ func (c *Client) walkAndSend(w io.Writer, src string) error {
 			return err
 		}
 	} else {
-
 		// It is a directory need to walk and copy
 		dirStack := strings.Split(cleanedPath, fmt.Sprintf("%c", os.PathSeparator))
 		startStackLen := len(dirStack)

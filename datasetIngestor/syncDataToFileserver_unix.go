@@ -13,7 +13,6 @@ import (
 
 // functionality needed for "de-central" data
 func SyncDataToFileserver(datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string) (err error) {
-
 	username := user["username"]
 	shortDatasetId := strings.Split(datasetId, "/")[1]
 	log.Println("short dataset id:", shortDatasetId)

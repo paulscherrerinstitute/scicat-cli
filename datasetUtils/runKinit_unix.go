@@ -13,7 +13,6 @@ import (
 )
 
 func RunKinit(username string, password string) (err error) {
-
 	c, err := expect.NewConsole(expect.WithStdout(os.Stdout))
 	if err != nil {
 		log.Printf("Warning: Could not start kinit to get Kerberos tickets: %v\n", err)

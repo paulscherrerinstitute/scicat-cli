@@ -12,7 +12,6 @@ import (
 )
 
 func AddAttachment(client *http.Client, APIServer string, datasetId string, metaDataDataset map[string]interface{}, accessToken string, attachmentFile string, caption string) {
-
 	// turn image into base64 structure:
 	imgFile, err := os.Open(attachmentFile)
 	if err != nil {
@@ -40,12 +39,12 @@ func AddAttachment(client *http.Client, APIServer string, datasetId string, meta
 	metaDataMap["caption"] = caption
 	metaDataMap["datasetId"] = datasetId
 	if ownerGroup, ok := metaDataDataset["ownerGroup"]; ok {
-		metaDataMap["ownerGroup"], ok = ownerGroup.(string)
+		metaDataMap["ownerGroup"], _ = ownerGroup.(string)
 	}
 	if accessGroups, ok := metaDataDataset["accessGroups"]; ok {
 		metaDataMap["accessGroups"], ok = accessGroups.([]string)
 		if !ok {
-			metaDataMap["accessGroups"], ok = accessGroups.([]interface{})
+			metaDataMap["accessGroups"], _ = accessGroups.([]interface{})
 		}
 	}
 
@@ -56,6 +55,9 @@ func AddAttachment(client *http.Client, APIServer string, datasetId string, meta
 	myurl := APIServer + "/Datasets/" + strings.Replace(datasetId, "/", "%2F", 1) + "/attachments?access_token=" + accessToken
 
 	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bm))
+	if err != nil {
+		log.Fatal(err)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {

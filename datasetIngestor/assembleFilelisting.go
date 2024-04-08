@@ -26,7 +26,7 @@ type Datafile struct {
 var skippedLinks = 0
 var illegalFileNames = 0
 var errorGroupIds = 0
-
+const windows = "windows"
 var scanner = bufio.NewScanner(os.Stdin)
 
 // readLines reads a whole file into memory
@@ -47,7 +47,6 @@ func readLines(path string) ([]string, error) {
 }
 
 func AssembleFilelisting(sourceFolder string, filelistingPath string, skip *string) (fullFileArray []Datafile, startTime time.Time, endTime time.Time, owner string, numFiles int64, totalSize int64) {
-
 	// scan all lines
 	//fmt.Println("sourceFolder,listing:", sourceFolder, filelistingPath)
 	fullFileArray = make([]Datafile, 0)
@@ -82,7 +81,7 @@ func AssembleFilelisting(sourceFolder string, filelistingPath string, skip *stri
 	// for windows source path add colon in the leading drive character
 	// windowsSource := strings.Replace(sourceFolder, "/C/", "C:/", 1)
 	osSource := sourceFolder
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		re := regexp.MustCompile(`^\/([A-Z])\/`)
 		osSource = re.ReplaceAllString(sourceFolder, "$1:/")
 	}
@@ -130,7 +129,7 @@ func AssembleFilelisting(sourceFolder string, filelistingPath string, skip *stri
 				uidName, gidName := GetFileOwner(f)
 				// replace backslashes for windows path
 				modpath := path
-				if runtime.GOOS == "windows" {
+				if runtime.GOOS == windows {
 					modpath = strings.Replace(path, "\\", "/", -1)
 				}
 				fileStruct := Datafile{Path: modpath, User: uidName, Group: gidName, Perm: f.Mode().String(), Size: f.Size(), Time: f.ModTime().Format(time.RFC3339)}
@@ -145,6 +144,7 @@ func AssembleFilelisting(sourceFolder string, filelistingPath string, skip *stri
 						if err != nil {
 							log.Printf("Could not follow symlink for file:%v %v", pabs, err)
 							keep = false
+							log.Printf("keep variable set to %v", keep)
 						}
 					}
 					//fmt.Printf("Skip variable:%v\n", *skip)
@@ -187,7 +187,6 @@ Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, 
 						log.Printf("You chose to remove the link %v -> %v.\n\n", modpath, pointee)
 					}
 					color.Unset()
-
 				}
 
 				// make sure that filenames do not contain characters like "\" or "*"

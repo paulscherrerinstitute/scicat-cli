@@ -33,7 +33,6 @@ type DatasetInfo struct {
 type QueryResult []DatasetInfo
 
 func TestForExistingSourceFolder(folders []string, client *http.Client, APIServer string, accessToken string, allowExistingSourceFolder *bool) {
-
 	// Split into chunks of 100 sourceFolders
 	const chunkSize = 100
 	all := len(folders)
@@ -106,7 +105,6 @@ func TestForExistingSourceFolder(folders []string, client *http.Client, APIServe
 					log.Fatalf("Use the flag -allowexistingsource to ingest nevertheless\n")
 				}
 				color.Unset()
-
 			}
 		}
 	}

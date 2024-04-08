@@ -15,7 +15,6 @@ const PUBLISHServer string = "doi2.psi.ch"
 // get dataset details and filter by ownergroup
 
 func GetDatasetDetailsPublished(client *http.Client, APIServer string, datasetList []string) ([]Dataset, []string) {
-
 	outputDatasetDetails := make([]Dataset, 0)
 	urls := make([]string, 0)
 	sizeArray := make([]int, 0)

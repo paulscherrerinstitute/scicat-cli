@@ -11,7 +11,6 @@ import (
 )
 
 func GetFileOwner(f os.FileInfo) (uidName string, gidName string) {
-
 	uid := strconv.Itoa(int(f.Sys().(*syscall.Stat_t).Uid))
 	u, err2 := user.LookupId(uid)
 	if err2 != nil {

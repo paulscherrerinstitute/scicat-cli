@@ -10,7 +10,6 @@ import (
 )
 
 func AuthenticateUser(client *http.Client, APIServer string, username string, password string) (map[string]string, []string) {
-
 	u := make(map[string]string)
 	accessGroups := make([]string, 0)
 
@@ -101,7 +100,6 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 
 			// create Kerberos TGT for normal user account, if not yet existing
 			RunKinit(username, password)
-
 		}
 	}
 

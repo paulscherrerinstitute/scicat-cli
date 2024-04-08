@@ -42,11 +42,9 @@ func returnCount(client *http.Client, APIServer string, pid string, user map[str
 }
 
 func RemoveFromCatalog(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool) {
-
 	// first check that there are no datablocks anymore
-
 	// check for existing OrigDatablocks, attachments first
-
+	
 	countOrig := returnCount(client, APIServer, pid, user, "origdatablocks")
 	countAttachments := returnCount(client, APIServer, pid, user, "attachments")
 	countDataset := returnCount(client, APIServer, pid, user, "datasets")

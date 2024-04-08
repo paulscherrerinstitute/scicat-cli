@@ -10,7 +10,6 @@ import (
 )
 
 func SendFilesReadyCommand(client *http.Client, APIServer string, datasetId string, user map[string]string) {
-
 	var metaDataMap = map[string]interface{}{}
 	metaDataMap["datasetlifecycle"] = map[string]interface{}{}
 	metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
@@ -34,5 +33,4 @@ func SendFilesReadyCommand(client *http.Client, APIServer string, datasetId stri
 	} else {
 		log.Fatalf("SendFilesReadyCommand: Failed to update datasetLifecycle %v %v\n", resp.StatusCode, metaDataMap)
 	}
-
 }
