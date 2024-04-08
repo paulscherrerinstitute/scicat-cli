@@ -7,7 +7,6 @@ import (
 	"testing"
 	"bytes"
 	"log"
-	"errors"
 )
 
 func TestFetchLatestVersion(t *testing.T) {
@@ -83,7 +82,6 @@ func TestCheckForNewVersion(t *testing.T) {
 		currentVersion string
 		mockResponse   string
 		expectedLog    string
-		expectedError error
 		interactiveFlag bool
 		userInput string
 		}{
@@ -92,7 +90,6 @@ func TestCheckForNewVersion(t *testing.T) {
 				currentVersion: "0.9.0",
 				mockResponse:   `{"tag_name": "v1.0.0"}`,
 				expectedLog:    "You should upgrade to a newer version",
-				expectedError:  nil,
 				interactiveFlag: false,
 				userInput: "y\n",
 			},
@@ -101,7 +98,6 @@ func TestCheckForNewVersion(t *testing.T) {
 				currentVersion: "1.0.0",
 				mockResponse:   `{"tag_name": "v1.0.0"}`,
 				expectedLog:    "Your version of this program is up-to-date",
-				expectedError:  nil,
 				interactiveFlag: false,
 				userInput: "y\n",
 			},
@@ -110,7 +106,6 @@ func TestCheckForNewVersion(t *testing.T) {
 				currentVersion: "0.9.0",
 				mockResponse:   `{"tag_name": "v1.0.0"}`,
 				expectedLog:    "You should upgrade to a newer version",
-				expectedError:  nil,
 				interactiveFlag: true,
 				userInput: "y\n",
 			},
@@ -118,8 +113,7 @@ func TestCheckForNewVersion(t *testing.T) {
 				name:           "New version available, interactive mode, no upgrade",
 				currentVersion: "0.9.0",
 				mockResponse:   `{"tag_name": "v1.0.0"}`,
-				expectedLog:    "Execution stopped, please update the program now.",
-				expectedError:  errors.New("Execution stopped, please update the program now."),
+				expectedLog:    "Warning: Execution stopped, please update the program now.",
 				interactiveFlag: true,
 				userInput: "n\n",
 			},
@@ -128,7 +122,6 @@ func TestCheckForNewVersion(t *testing.T) {
 				currentVersion: "0.9.0",
 				mockResponse:   `{"tag_name": "v0.9.1"}`,
 				expectedLog:    "You should upgrade to a newer version",
-				expectedError:  nil,
 				interactiveFlag: true,
 				userInput: "y\n",
 			},
@@ -152,17 +145,12 @@ func TestCheckForNewVersion(t *testing.T) {
 			client := server.Client()
 			
 			// Call CheckForNewVersion
-			err := CheckForNewVersion(client, "test", tt.currentVersion, tt.interactiveFlag, MockUserInput{Input: tt.userInput})
-			if err != nil && err.Error() != tt.expectedError.Error() {
-				t.Errorf("got error %v, want %v", err, tt.expectedLog)
-			}
+			CheckForNewVersion(client, "test", tt.currentVersion, tt.interactiveFlag, MockUserInput{Input: tt.userInput})
 			
 			// Check the log output
-			if tt.userInput == "y\n" { 
-				logOutput := getLogOutput()
-				if !strings.Contains(logOutput, tt.expectedLog) {
-					t.Errorf("Expected log message not found: %s", logOutput)
-				}
+			logOutput := getLogOutput()
+			if !strings.Contains(logOutput, tt.expectedLog) {
+				t.Errorf("Expected log message not found: %s", logOutput)
 			}
 			
 			// Clear the log buffer after each test

@@ -52,25 +52,25 @@ func generateDownloadURL(deployLocation, latestVersion, osName string) string {
 	return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.tar.gz", deployLocation, latestVersion, latestVersion, strings.Title(osName))
 }
 
-func CheckForNewVersion(client *http.Client, APP string, VERSION string, interactiveFlag bool, userInput UserInput) error {
+func CheckForNewVersion(client *http.Client, APP string, VERSION string, interactiveFlag bool, userInput UserInput)  {
 	// avoid checking for new version in test mode
 	if os.Getenv("TEST_MODE") == "true" {
-		return nil
+		return
 	}
 	latestVersion, err := fetchLatestVersion(client)
 	if err != nil {
-		log.Printf("Can not find info about latest version for this program: %s\n", err)
-		return err
+			log.Printf("Warning: Can not find info about latest version for this program: %s\n", err)
+			return
 	}
 
 	latestVersion = strings.TrimPrefix(latestVersion, "v")
 	_, err = strconv.Atoi(strings.Split(latestVersion, ".")[0])
 	if err != nil {
-		log.Fatalf("Illegal latest version number:%v", latestVersion)
+		log.Printf("Warning: Illegal latest version number:%v\n", latestVersion)
 	}
 	_, err = strconv.Atoi(strings.Split(VERSION, ".")[0])
 	if err != nil {
-		log.Fatalf("Illegal version number:%v", VERSION)
+		log.Printf("Warning: Illegal version number:%v\n", VERSION)
 	}
 	log.Printf("Latest version: %s", latestVersion)
 
@@ -109,13 +109,12 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 		log.Print("Do you want to continue with current version (y/N) ? ")
 		continueyn, err := userInput.ReadLine()
 		if err != nil {
-			return fmt.Errorf("failed to read user input: %v", err)
-		}
-		if strings.TrimSpace(continueyn) != "y" {
-			return fmt.Errorf("Execution stopped, please update the program now.")
+				log.Printf("Warning: Failed to read user input: %v\n", err)
+		} else if strings.TrimSpace(continueyn) != "y" {
+				log.Println("Warning: Execution stopped, please update the program now.")
 		}
 	}
-	return nil
+	return
 }
 
 // UserInput is an interface that defines a method to read a line of input. We use this so that we can test interactive mode.
