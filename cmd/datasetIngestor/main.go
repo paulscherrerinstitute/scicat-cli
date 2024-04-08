@@ -370,7 +370,6 @@ func main() {
 				}
 			}
 			datasetIngestor.ResetUpdatedMetaData(originalMap, metaDataMap)
-
 		}
 	}
 
@@ -404,5 +403,4 @@ func main() {
 	for i := 0; i < len(datasetList); i++ {
 		fmt.Println(datasetList[i])
 	}
-
 }

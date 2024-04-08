@@ -8,7 +8,6 @@ import (
 )
 
 func GetAvailableDatasets(username string, RSYNCServer string, singleDatasetId string) []string {
-
 	datasetList := make([]string, 0)
 	if singleDatasetId != "" {
 		// Append missing prefix if needed

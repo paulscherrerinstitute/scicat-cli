@@ -197,8 +197,7 @@ func getHost() string {
 }
 
 // augmentMissingMetadata augments missing metadata fields.
-func augmentMissingMetadata(user map[string]string, metaDataMap map[string]interface{}, client *http.Client, APIServer string, accessGroups []string) error {
-	
+func augmentMissingMetadata(user map[string]string, metaDataMap map[string]interface{}, client *http.Client, APIServer string, accessGroups []string) error {	
 	color.Set(color.FgGreen)
 	// optionally augment missing owner metadata
 	if _, ok := metaDataMap["owner"]; !ok {

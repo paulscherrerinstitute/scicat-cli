@@ -12,14 +12,11 @@ linters:
   # Enable specific linters
   enable:
     - whitespace
+    - bodyclose
+    - dupl
 
   # Disable specific linters
   disable:
-    - bodyclose
-    - deadcode
-    - dogsled
-    - dupl
-    - errcheck
     - gochecknoinits
     - goconst
     - gocritic
@@ -50,6 +47,8 @@ linters:
     - maligned
     - megacheck
     - gas
+    - dogsled
+    - errcheck
 
 linters-settings:
   gocyclo:
@@ -58,9 +57,6 @@ linters-settings:
   golint:
     # Minimal confidence to report a problem, low by default
     min-confidence: 0.8
-  govet:
-    # Check each frame of the stack
-    check-shadowing: true
   unused:
     # Treat code as a program (not a library) and report unused exported identifiers; default is false.
     # The argument specifies the Go source directory to analyze.

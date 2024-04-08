@@ -38,7 +38,6 @@ func getAVFromPolicy(client *http.Client, APIServer string, user map[string]stri
 
 func UpdateMetaData(client *http.Client, APIServer string, user map[string]string,
 	originalMap map[string]string, metaDataMap map[string]interface{}, startTime time.Time, endTime time.Time, owner string, tapecopies *int) {
-
 	// add real creationTime if not yet existing
 	color.Set(color.FgGreen)
 	if metaDataMap["creationTime"] == DUMMY_TIME {

@@ -47,7 +47,6 @@ func readLines(path string) ([]string, error) {
 }
 
 func AssembleFilelisting(sourceFolder string, filelistingPath string, skip *string) (fullFileArray []Datafile, startTime time.Time, endTime time.Time, owner string, numFiles int64, totalSize int64) {
-
 	// scan all lines
 	//fmt.Println("sourceFolder,listing:", sourceFolder, filelistingPath)
 	fullFileArray = make([]Datafile, 0)
@@ -187,7 +186,6 @@ Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, 
 						log.Printf("You chose to remove the link %v -> %v.\n\n", modpath, pointee)
 					}
 					color.Unset()
-
 				}
 
 				// make sure that filenames do not contain characters like "\" or "*"

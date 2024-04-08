@@ -24,7 +24,6 @@ import (
 var VERSION string
 
 func main() {
-
 	var client = &http.Client{
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
 		Timeout:   10 * time.Second}
@@ -125,5 +124,4 @@ func main() {
 	} else {
 		log.Fatalf("No archivable datasets remaining")
 	}
-
 }

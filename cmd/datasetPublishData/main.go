@@ -79,9 +79,7 @@ func check(e error) {
 }
 
 func main() {
-
 	// check input parameters
-
 	publishFlag := flag.Bool("publish", false, "Defines if this command is meant to actually publish data (default nothing is done)")
 	publishedDataId := flag.String("publisheddata", "", "Defines to publish data froma given publishedData document ID")
 	// datasetId := flag.String("dataset", "", "Defines single datasetId to publish")
@@ -208,7 +206,6 @@ func findMinLength(arr []string) int {
 // A Function that returns the longest common prefix path (runes)
 // from the array of strings
 func commonPrefix(arr []string) string {
-
 	n := len(arr)
 	if n == 1 {
 		return arr[0]

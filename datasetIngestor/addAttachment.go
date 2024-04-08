@@ -12,7 +12,6 @@ import (
 )
 
 func AddAttachment(client *http.Client, APIServer string, datasetId string, metaDataDataset map[string]interface{}, accessToken string, attachmentFile string, caption string) {
-
 	// turn image into base64 structure:
 	imgFile, err := os.Open(attachmentFile)
 	if err != nil {

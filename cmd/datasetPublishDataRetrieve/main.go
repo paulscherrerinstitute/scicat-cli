@@ -49,9 +49,7 @@ var scanner = bufio.NewScanner(os.Stdin)
 var VERSION string
 
 func main() {
-
 	// check input parameters
-
 	retrieveFlag := flag.Bool("retrieve", false, "Defines if this command is meant to actually retrieve data (default: retrieve actions are only displayed)")
 	publishedDataId := flag.String("publisheddata", "", "Defines to publish data from a given publishedData document ID")
 	userpass := flag.String("user", "", "Defines optional username:password string")

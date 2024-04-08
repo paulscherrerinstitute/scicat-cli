@@ -21,7 +21,6 @@ type Dataset struct {
 // get dataset details and filter by ownergroup
 
 func GetDatasetDetails(client *http.Client, APIServer string, accessToken string, datasetList []string, ownerGroup string) []Dataset {
-
 	outputDatasetDetails := make([]Dataset, 0)
 	log.Println("Dataset ID                                         Size[MB]  Owner                      SourceFolder")
 	log.Println("====================================================================================================")

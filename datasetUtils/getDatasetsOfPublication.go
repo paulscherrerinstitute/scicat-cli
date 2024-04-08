@@ -15,7 +15,6 @@ type PublishedDataInfo struct {
 }
 
 func GetDatasetsOfPublication(client *http.Client, APIServer string, publishedDataId string) (datasetList []string, title string, doi string) {
-
 	publishedDataIdEncoded := strings.Replace(publishedDataId, "/", "%2F", 1)
 	datasetList = make([]string, 0)
 
@@ -41,7 +40,6 @@ func GetDatasetsOfPublication(client *http.Client, APIServer string, publishedDa
 		datasetList = respObj.PidArray
 		title = respObj.Title
 		doi = respObj.Doi
-
 	} else {
 		log.Printf("Statuscode:%v", resp.StatusCode)
 	}

@@ -27,7 +27,6 @@ const BLOCK_MAXBYTES = 200000000000 // 700000 for testing the logic
 const BLOCK_MAXFILES = 20000        // 20 for testing the logic
 
 func createOrigBlock(start int, end int, filesArray []Datafile, datasetId string) (fileblock FileBlock) {
-
 	// accumulate sizes
 	var totalSize int64
 	totalSize = 0
@@ -41,7 +40,6 @@ func createOrigBlock(start int, end int, filesArray []Datafile, datasetId string
 
 func SendIngestCommand(client *http.Client, APIServer string, metaDataMap map[string]interface{},
 	fullFileArray []Datafile, user map[string]string) (datasetId string) {
-
 	// create dataset
 
 	cmm, _ := json.Marshal(metaDataMap)

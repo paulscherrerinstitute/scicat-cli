@@ -26,7 +26,6 @@ type jobparamsStruct struct {
 }
 
 func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool) {
-
 	// check for existing Datablocks first
 	filter := `{"where":{"datasetId":"` + pid + `"},"fields": {"id":1,"size":1}}`
 	url := APIServer + "/Datablocks?access_token=" + user["accessToken"]
@@ -116,10 +115,8 @@ func RemoveFromArchive(client *http.Client, APIServer string, pid string, user m
 			log.Fatalln("Job response Body:", string(body))
 		}
 	} else {
-
 		color.Set(color.FgGreen)
 		log.Println("No datablocks found for this dataset - dataset already cleaned from archive")
 		color.Unset()
 	}
-
 }

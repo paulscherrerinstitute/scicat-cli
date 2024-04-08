@@ -9,14 +9,12 @@ import (
 )
 
 func Authenticate(httpClient *http.Client, APIServer string, token *string, userpass *string) (map[string]string, []string) {
-
 	user := make(map[string]string)
 	accessGroups := make([]string, 0)
 
 	// if token is defined do not ask for username/password interactively
 
 	if *token == "" {
-
 		username := ""
 		password := ""
 		if *userpass == "" {
@@ -39,9 +37,7 @@ func Authenticate(httpClient *http.Client, APIServer string, token *string, user
 			}
 			username = strings.Split(*userpass, ":")[0]
 		}
-
 		user, accessGroups = AuthenticateUser(httpClient, APIServer, username, password)
-
 	} else {
 		user, accessGroups = GetUserInfoFromToken(httpClient, APIServer, *token)
 		// extract password if defined in userpass value
@@ -49,8 +45,6 @@ func Authenticate(httpClient *http.Client, APIServer string, token *string, user
 		if len(u) == 2 {
 			user["password"] = strings.Split(*userpass, ":")[1]
 		}
-
 	}
-
 	return user, accessGroups
 }

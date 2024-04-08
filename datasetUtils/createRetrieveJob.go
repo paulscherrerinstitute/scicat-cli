@@ -9,7 +9,6 @@ import (
 )
 
 func CreateRetrieveJob(client *http.Client, APIServer string, user map[string]string, datasetList []string) (jobId string) {
-
 	// important: define field with capital names and rename fields via 'json' constructs
 	// otherwise the marshaling will omit the fields !
 

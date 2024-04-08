@@ -14,7 +14,6 @@ type UserInfo struct {
 }
 
 func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (map[string]string, []string) {
-
 	u := make(map[string]string)
 	accessGroups := make([]string, 0)
 
@@ -52,5 +51,4 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 		log.Fatalf("Could not map a user to the token %v", token)
 	}
 	return u, accessGroups
-
 }
