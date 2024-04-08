@@ -1,0 +1,67 @@
+run:
+  # Timeout for analysis, e.g. 30s, 5m, default is 1m
+  deadline: 3m
+
+  # Exit code when at least one issue was found, default is 1
+  issues-exit-code: 1
+
+  # Include test files or not, default is true
+  tests: true
+
+linters:
+  # Enable specific linters
+  enable:
+    - whitespace
+
+  # Disable specific linters
+  disable:
+    - bodyclose
+    - deadcode
+    - dogsled
+    - dupl
+    - errcheck
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gofmt
+    - goimports
+    - golint
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - interfacer
+    - lll
+    - misspell
+    - nakedret
+    - prealloc
+    - scopelint
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - maligned
+    - megacheck
+    - gas
+
+linters-settings:
+  gocyclo:
+    # Minimal code complexity to report
+    min-complexity: 10
+  golint:
+    # Minimal confidence to report a problem, low by default
+    min-confidence: 0.8
+  govet:
+    # Check each frame of the stack
+    check-shadowing: true
+  unused:
+    # Treat code as a program (not a library) and report unused exported identifiers; default is false.
+    # The argument specifies the Go source directory to analyze.
+    check-exported: false
