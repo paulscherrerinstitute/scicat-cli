@@ -141,7 +141,7 @@ func main() {
 	}
 
 	// check for program version only if running interactively
-	datasetUtils.CheckForNewVersion(client, APP, VERSION, !*noninteractiveFlag, datasetUtils.StdinUserInput{})
+	datasetUtils.CheckForNewVersion(client, APP, VERSION)
 	datasetUtils.CheckForServiceAvailability(client, *testenvFlag, *autoarchiveFlag)
 
 	//}

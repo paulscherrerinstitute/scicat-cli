@@ -52,7 +52,7 @@ func generateDownloadURL(deployLocation, latestVersion, osName string) string {
 	return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.tar.gz", deployLocation, latestVersion, latestVersion, strings.Title(osName))
 }
 
-func CheckForNewVersion(client *http.Client, APP string, VERSION string, interactiveFlag bool, userInput UserInput)  {
+func CheckForNewVersion(client *http.Client, APP string, VERSION string)  {
 	// avoid checking for new version in test mode
 	if os.Getenv("TEST_MODE") == "true" {
 		return
@@ -80,16 +80,6 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 	// Generate the download URL
 	downloadURL := generateDownloadURL(DeployLocation, latestVersion, osName)
 
-	// Split the versions into parts
-	currentParts := strings.Split(VERSION, ".")
-	latestParts := strings.Split(latestVersion, ".")
-
-	// Convert the major and minor parts to integers
-	currentMajor, _ := strconv.Atoi(currentParts[0])
-	currentMinor, _ := strconv.Atoi(currentParts[1])
-	latestMajor, _ := strconv.Atoi(latestParts[0])
-	latestMinor, _ := strconv.Atoi(latestParts[1])
-
 	if version.Compare(latestVersion, VERSION, ">") {
 		// Notify an update if the version has changed
 		log.Println("You should upgrade to a newer version")
@@ -105,26 +95,5 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string, interac
 	} else {
 		log.Println("Your version of this program is up-to-date")
 	}
-	if interactiveFlag && (latestMajor > currentMajor || latestMinor > currentMinor) {
-		log.Print("Do you want to continue with current version (y/N) ? ")
-		continueyn, err := userInput.ReadLine()
-		if err != nil {
-				log.Printf("Warning: Failed to read user input: %v\n", err)
-		} else if strings.TrimSpace(continueyn) != "y" {
-				log.Println("Warning: Execution stopped, please update the program now.")
-		}
-	}
 	return
-}
-
-// UserInput is an interface that defines a method to read a line of input. We use this so that we can test interactive mode.
-type UserInput interface {
-	ReadLine() (string, error)
-}
-
-type StdinUserInput struct{}
-
-func (StdinUserInput) ReadLine() (string, error) {
-	reader := bufio.NewReader(os.Stdin)
-	return reader.ReadString('\n')
 }
