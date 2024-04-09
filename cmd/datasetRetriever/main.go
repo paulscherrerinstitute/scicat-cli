@@ -74,7 +74,7 @@ func main() {
 		return
 	}
 	
-	datasetUtils.CheckForNewVersion(client, APP, VERSION, true, datasetUtils.StdinUserInput{})
+	datasetUtils.CheckForNewVersion(client, APP, VERSION)
 
 	var env string
 	if *testenvFlag {

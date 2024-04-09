@@ -82,48 +82,18 @@ func TestCheckForNewVersion(t *testing.T) {
 		currentVersion string
 		mockResponse   string
 		expectedLog    string
-		interactiveFlag bool
-		userInput string
 		}{
 			{
 				name:           "New version available, non-interactive mode",
 				currentVersion: "0.9.0",
 				mockResponse:   `{"tag_name": "v1.0.0"}`,
 				expectedLog:    "You should upgrade to a newer version",
-				interactiveFlag: false,
-				userInput: "y\n",
 			},
 			{
 				name:           "No new version available, non-interactive mode",
 				currentVersion: "1.0.0",
 				mockResponse:   `{"tag_name": "v1.0.0"}`,
 				expectedLog:    "Your version of this program is up-to-date",
-				interactiveFlag: false,
-				userInput: "y\n",
-			},
-			{
-				name:           "New version available, interactive mode",
-				currentVersion: "0.9.0",
-				mockResponse:   `{"tag_name": "v1.0.0"}`,
-				expectedLog:    "You should upgrade to a newer version",
-				interactiveFlag: true,
-				userInput: "y\n",
-			},
-			{
-				name:           "New version available, interactive mode, no upgrade",
-				currentVersion: "0.9.0",
-				mockResponse:   `{"tag_name": "v1.0.0"}`,
-				expectedLog:    "Warning: Execution stopped, please update the program now.",
-				interactiveFlag: true,
-				userInput: "n\n",
-			},
-			{
-				name:           "New path available, interactive mode",
-				currentVersion: "0.9.0",
-				mockResponse:   `{"tag_name": "v0.9.1"}`,
-				expectedLog:    "You should upgrade to a newer version",
-				interactiveFlag: true,
-				userInput: "y\n",
 			},
 		}
 		
@@ -145,7 +115,7 @@ func TestCheckForNewVersion(t *testing.T) {
 			client := server.Client()
 			
 			// Call CheckForNewVersion
-			CheckForNewVersion(client, "test", tt.currentVersion, tt.interactiveFlag, MockUserInput{Input: tt.userInput})
+			CheckForNewVersion(client, "test", tt.currentVersion)
 			
 			// Check the log output
 			logOutput := getLogOutput()
