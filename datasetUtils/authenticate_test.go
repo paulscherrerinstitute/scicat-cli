@@ -7,7 +7,19 @@ import (
 	"testing"
 )
 
+// Create a mock implementation of the interface
+type MockAuthenticator struct{}
+
+func (m *MockAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string) {
+	return map[string]string{"username": "testuser", "password": "testpass"}, []string{"group1", "group2"}
+}
+
+func (m *MockAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string) {
+	return map[string]string{"username": "testuser", "password": "testpass"}, []string{"group1", "group2"}
+}
+
 func TestAuthenticate(t *testing.T) {
+	var auth Authenticator = &MockAuthenticator{}
 	// Mock HTTP server
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Write([]byte(`{"username": "testuser", "accessGroups": ["group1", "group2"]}`))
@@ -38,7 +50,7 @@ func TestAuthenticate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			httpClient := server.Client()
-			user, group := Authenticate(httpClient, server.URL, &tt.token, &tt.userpass)
+			user, group := Authenticate(auth, httpClient, server.URL, &tt.token, &tt.userpass)
 			
 			if !reflect.DeepEqual(user, tt.wantUser) {
 				t.Errorf("got %v, want %v", user, tt.wantUser)

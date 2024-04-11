@@ -84,7 +84,8 @@ func main() {
 		return
 	}
 
-	user, _ := datasetUtils.Authenticate(client, APIServer, token, userpass)
+	auth := &datasetUtils.RealAuthenticator{}
+	user, _ := datasetUtils.Authenticate(auth, client, APIServer, token, userpass)
 
 	filter := `{"where":{"id":"` + *jobId + `"}}`
 

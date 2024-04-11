@@ -200,7 +200,8 @@ func main() {
 		return
 	}
 
-	user, accessGroups := datasetUtils.Authenticate(client, APIServer, token, userpass)
+	auth := &datasetUtils.RealAuthenticator{}
+	user, accessGroups := datasetUtils.Authenticate(auth, client, APIServer, token, userpass)
 
 	/* TODO Add info about policy settings and that autoarchive will take place or not */
 

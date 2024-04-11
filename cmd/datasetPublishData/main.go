@@ -300,7 +300,8 @@ func createWebpage(urls []string, title string, doi string, datasetDetails []dat
 
 	// set value in publishedData ==============================
 
-	user, _ := datasetUtils.Authenticate(client, APIServer, token, userpass)
+	auth := &datasetUtils.RealAuthenticator{}
+	user, _ := datasetUtils.Authenticate(auth, client, APIServer, token, userpass)
 
 	type PublishedDataPart struct {
 		DownloadLink string `json:"downloadLink"`

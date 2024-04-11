@@ -101,7 +101,8 @@ func main() {
 		inputdatasetList = args[0:]
 	}
 
-	user, _ := datasetUtils.Authenticate(client, APIServer, token, userpass)
+	auth := &datasetUtils.RealAuthenticator{}
+	user, _ := datasetUtils.Authenticate(auth, client, APIServer, token, userpass)
 
 	archivableDatasets := datasetUtils.GetArchivableDatasets(client, APIServer, ownerGroup, inputdatasetList, user["accessToken"])
 	if len(archivableDatasets) > 0 {
