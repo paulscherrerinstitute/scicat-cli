@@ -8,6 +8,11 @@ import (
 	"syscall"
 )
 
+// Authenticate handles user authentication by prompting the user for their credentials,
+// validating these credentials against the authentication server, 
+// and returning an authentication token if the credentials are valid. 
+// This token can then be used for authenticated requests to the server.
+// If the credentials are not valid, the function returns an error.
 func Authenticate(httpClient *http.Client, APIServer string, token *string, userpass *string) (map[string]string, []string) {
 	user := make(map[string]string)
 	accessGroups := make([]string, 0)
