@@ -26,7 +26,7 @@ type ServiceAvailability struct {
 	Qa         OverallAvailability
 }
 
-var GitHubMainLocation = "https://raw.githubusercontent.com/paulscherrerinstitute/scicat-cli/main"
+var GitHubMainLocation = "https://raw.githubusercontent.com/paulscherrerinstitute/scicat-cli/service-availability"
 
 // CheckForServiceAvailability checks the availability of the dataset ingestor service.
 // It fetches a YAML file from GitHubMainLocation, parses it, and logs the service availability status.
