@@ -44,21 +44,50 @@ func TestAuthenticate(t *testing.T) {
 				},
 				wantGroup: []string{"group1", "group2"},
 			},
-			// Add more test cases as needed
+			{
+				name:     "Test with empty token and userpass",
+				token:    "",
+				userpass: "",
+				wantUser: map[string]string{
+					"username": "testuser",
+					"password": "testpass",
+				},
+				wantGroup: []string{"group1", "group2"},
+			},
+			{
+				name:     "Test with empty token and non-empty userpass",
+				token:    "",
+				userpass: "testuser:testpass",
+				wantUser: map[string]string{
+					"username": "testuser",
+					"password": "testpass",
+				},
+				wantGroup: []string{"group1", "group2"},
+			},
+			{
+				name:     "Test with non-empty token and empty userpass",
+				token:    "testtoken",
+				userpass: "",
+				wantUser: map[string]string{
+					"username": "testuser",
+					"password": "testpass",
+				},
+				wantGroup: []string{"group1", "group2"},
+			},
 		}
 		
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			httpClient := server.Client()
-			user, group := Authenticate(auth, httpClient, server.URL, &tt.token, &tt.userpass)
-			
-			if !reflect.DeepEqual(user, tt.wantUser) {
-				t.Errorf("got %v, want %v", user, tt.wantUser)
-			}
-			
-			if !reflect.DeepEqual(group, tt.wantGroup) {
-				t.Errorf("got %v, want %v", group, tt.wantGroup)
-			}
-		})
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				httpClient := server.Client()
+				user, group := Authenticate(auth, httpClient, server.URL, &tt.token, &tt.userpass)
+				
+				if !reflect.DeepEqual(user, tt.wantUser) {
+					t.Errorf("got %v, want %v", user, tt.wantUser)
+				}
+				
+				if !reflect.DeepEqual(group, tt.wantGroup) {
+					t.Errorf("got %v, want %v", group, tt.wantGroup)
+				}
+			})
+		}
 	}
-}
