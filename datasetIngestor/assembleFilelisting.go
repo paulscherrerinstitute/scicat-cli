@@ -46,6 +46,28 @@ func readLines(path string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
+/*
+AssembleFilelisting scans a source folder and optionally a file listing, and returns a list of data files, the earliest and latest modification times, the owner, the number of files, and the total size of the files.
+
+Parameters:
+- sourceFolder: The path to the source folder to scan.
+- filelistingPath: The path to a file listing to use. If this is an empty string, the function scans the entire source folder.
+- skip: A pointer to a string that controls how the function handles symbolic links. The string can have the following values:
+  - "sA", "sa": Skip all symbolic links.
+  - "kA", "ka": Keep all symbolic links.
+  - "dA", "da": Keep symbolic links that point to the source folder, skip others.
+  - "": The function asks the user how to handle each symbolic link.
+
+Returns:
+- fullFileArray: A slice of Datafile structs, each representing a file in the source folder or file listing.
+- startTime: The earliest modification time of the files.
+- endTime: The latest modification time of the files.
+- owner: The owner of the files.
+- numFiles: The number of files.
+- totalSize: The total size of the files.
+
+The function logs an error and returns if it cannot change the working directory to the source folder.
+*/
 func AssembleFilelisting(sourceFolder string, filelistingPath string, skip *string) (fullFileArray []Datafile, startTime time.Time, endTime time.Time, owner string, numFiles int64, totalSize int64) {
 	// scan all lines
 	//fmt.Println("sourceFolder,listing:", sourceFolder, filelistingPath)
@@ -118,7 +140,7 @@ func AssembleFilelisting(sourceFolder string, filelistingPath string, skip *stri
 		e := filepath.Walk(line, func(path string, f os.FileInfo, err error) error {
 			// ignore ./ (but keep other dot files)
 			if f == nil || f.Name() == "" {
-				log.Printf("Missing file info for line %s and path %s", line, path)
+				log.Printf("Skipping file or directory %s", path)
 				return nil
 			}
 			if f.IsDir() && f.Name() == "." {
