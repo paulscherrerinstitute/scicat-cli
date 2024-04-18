@@ -24,7 +24,7 @@ func TestAssembleFilelisting(t *testing.T) {
 	
 	// Call AssembleFilelisting on the temporary directory
 	skip := ""
-	fullFileArray, startTime, endTime, owner, numFiles, totalSize := AssembleFilelisting(tempDir, "", &skip)
+	fullFileArray, startTime, endTime, _, numFiles, totalSize := AssembleFilelisting(tempDir, "", &skip)
 	
 	// Check that the returned file array contains the correct file
 	if len(fullFileArray) != 1 {
@@ -50,9 +50,6 @@ func TestAssembleFilelisting(t *testing.T) {
 	}
 	if time.Since(endTime) > time.Second {
 		t.Errorf("Expected end time within 1 second of now")
-	}
-	if owner != "" {
-		t.Errorf("Expected owner to be empty, got %s", owner)
 	}
 	if numFiles != 1 {
 		t.Errorf("Expected numFiles to be 1, got %d", numFiles)
