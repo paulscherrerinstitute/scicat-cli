@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strings"
 	version "github.com/mcuadros/go-version"
+	"regexp"
 )
 
 // functionality needed for "de-central" data
@@ -44,7 +45,7 @@ func SyncDataToFileserver(datasetId string, user map[string]string, RSYNCServer 
 		
 	// Show rsync's output	
 	rsyncCmd.Stderr = os.Stderr
-	log.Printf("Running %v.\n", rsyncCmd.Args)
+	log.Printf("Running: %v.\n", rsyncCmd.Args)
 	err = rsyncCmd.Run()
 	return err
 }
@@ -56,7 +57,15 @@ func getRsyncVersion() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	version := strings.Split(string(output), "\n")[0]
-	versionNumber := strings.Split(version, " ")[2]
+	version := string(output)
+	
+	// Use a regular expression to find the version number.
+	// It will match the first occurrence of a string in the format "x.y.z" in the `version` string, where "x", "y", and "z" are one or more digits.
+	re := regexp.MustCompile(`\d+\.\d+\.\d+`)
+	versionNumber := re.FindString(version)
+	if versionNumber == "" {
+		return "", fmt.Errorf("could not find version number in rsync version string: %s", version)
+	}
+	
 	return versionNumber, nil
 }

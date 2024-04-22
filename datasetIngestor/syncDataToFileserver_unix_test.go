@@ -4,6 +4,7 @@ package datasetIngestor
 
 import (
 	"testing"
+	"regexp"
 )
 
 func TestGetRsyncVersion(t *testing.T) {
@@ -13,5 +14,10 @@ func TestGetRsyncVersion(t *testing.T) {
 	}
 	if version == "" {
 		t.Error("getRsyncVersion() returned an empty string")
+	} else {
+		match, _ := regexp.MatchString(`^\d{1,2}\.\d{1,2}\.\d{1,2}$`, version)
+		if !match {
+			t.Error("getRsyncVersion() returned wrong version string format: ", version)
+		}
 	}
 }
