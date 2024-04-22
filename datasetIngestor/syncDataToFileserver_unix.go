@@ -31,16 +31,14 @@ func SyncDataToFileserver(datasetId string, user map[string]string, RSYNCServer 
 	
 	// Check rsync version and adjust command accordingly
 	var rsyncCmd *exec.Cmd
+	rsyncFlags := []string{"-e", "ssh", "-avxz", "--progress", "--stderr=error"}
+	if absFileListing != "" {
+		rsyncFlags = append(rsyncFlags, "-r", "--files-from", absFileListing)
+	}
 	if version.Compare(versionNumber, "3.2.3", ">=") {
-		rsyncCmd = exec.Command("/usr/bin/rsync", "-e", "ssh", "-avxz", "--progress", "--stderr=error", fullSourceFolderPath, serverConnectString)
-		if absFileListing != "" {
-			rsyncCmd = exec.Command("/usr/bin/rsync", "-e", "ssh", "-avxzr", "--progress", "--stderr=error", "--files-from", absFileListing, fullSourceFolderPath, serverConnectString)
-		}
+		rsyncCmd = exec.Command("/usr/bin/rsync", append(rsyncFlags, fullSourceFolderPath, serverConnectString)...)
 	} else {
-		rsyncCmd = exec.Command("/usr/bin/rsync", "-e", "ssh -q", "-avxz", "--progress", "--msgs2stderr", fullSourceFolderPath, serverConnectString)
-		if absFileListing != "" {
-			rsyncCmd = exec.Command("/usr/bin/rsync", "-e", "ssh -q", "-avxzr", "--progress", "--msgs2stderr", "--files-from", absFileListing, fullSourceFolderPath, serverConnectString)
-		}
+		rsyncCmd = exec.Command("/usr/bin/rsync", append(rsyncFlags, "-q", "--msgs2stderr", fullSourceFolderPath, serverConnectString)...)
 	}
 		
 	// Show rsync's output	
