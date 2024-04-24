@@ -12,7 +12,7 @@ import (
 )
 
 /*
-getAVFromPolicy  retrieves the AV (?) from a policy. 
+getAVFromPolicy retrieves the AV (?) from a policy. 
 
 Parameters:
 - client: An HTTP client used to send requests.
@@ -53,6 +53,32 @@ func getAVFromPolicy(client *http.Client, APIServer string, user map[string]stri
 	return level
 }
 
+/*
+UpdateMetaData updates the metadata of a dataset.
+
+Parameters:
+- client: An HTTP client used to send requests.
+- APIServer: The URL of the API server.
+- user: A map containing user information. It should contain an "accessToken" key.
+- originalMap: A map containing the original metadata.
+- metaDataMap: A map containing the metadata to be updated.
+- startTime: The start time of the dataset.
+- endTime: The end time of the dataset.
+- owner: The owner of the dataset.
+- tapecopies: A pointer to an integer indicating the number of tape copies.
+
+The function updates the following fields in metaDataMap:
+- "creationTime": If it's equal to DUMMY_TIME, it's replaced with startTime.
+- "ownerGroup": If it's equal to DUMMY_OWNER, it's replaced with owner.
+- "endTime": If the "type" field is "raw" and "endTime" is equal to DUMMY_TIME, it's replaced with endTime.
+- "license": If it doesn't exist, it's set to "CC BY-SA 4.0".
+- "isPublished": If it doesn't exist, it's set to false.
+- "classification": If it doesn't exist, it's set to "IN=medium,AV=<AV from policy>,CO=low". If tapecopies is 1 or 2, the "AV" part is replaced with "AV=low" or "AV=medium" respectively.
+
+The function logs a message each time it updates a field. If the "classification" field contains "AV=medium", it also logs a note that the dataset will be copied to two tape copies.
+
+The function does not return a value.
+*/
 func UpdateMetaData(client *http.Client, APIServer string, user map[string]string,
 	originalMap map[string]string, metaDataMap map[string]interface{}, startTime time.Time, endTime time.Time, owner string, tapecopies *int) {
 	// add real creationTime if not yet existing
