@@ -2,7 +2,7 @@ package datasetIngestor
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -11,6 +11,23 @@ import (
 	"github.com/fatih/color"
 )
 
+/*
+getAVFromPolicy  retrieves the AV (?) from a policy. 
+
+Parameters:
+- client: An HTTP client used to send requests.
+- APIServer: The URL of the API server.
+- user: A map containing user information. It should contain an "accessToken" key.
+- owner: The owner of the policy.
+
+The function constructs a URL using the APIServer, owner, and user's access token, and sends a GET request to this URL. 
+If the response status code is 200, it reads the response body and unmarshals it into a slice of Policy structs. 
+If there are no policies available for the owner, it logs a warning and sets the level to "low". 
+If there are policies available, it sets the level to the TapeRedundancy of the first policy.
+
+Returns:
+- level: The TapeRedundancy level of the first policy if available, otherwise "low".
+*/
 func getAVFromPolicy(client *http.Client, APIServer string, user map[string]string, owner string) (level string) {
 	var myurl = APIServer + "/Policies?filter=%7B%22where%22%3A%7B%22ownerGroup%22%3A%22" + owner + "%22%7D%7D&access_token=" + user["accessToken"]
 	resp, _ := client.Get(myurl)
@@ -18,7 +35,7 @@ func getAVFromPolicy(client *http.Client, APIServer string, user map[string]stri
 
 	level = "low"
 	if resp.StatusCode == 200 {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		type Policy struct {
 			TapeRedundancy string
 			AutoArchive    bool
