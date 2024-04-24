@@ -91,3 +91,72 @@ func TestUpdateMetaData(t *testing.T) {
 		t.Errorf("Expected classification to be set, got '%v'", metaDataMap["classification"])
 	}
 }
+
+// Check if updateFieldIfDummy correctly updates the metaDataMap and originalMap when the field is a dummy value.
+func TestUpdateFieldIfDummy(t *testing.T) {
+	// Define test parameters
+	metaDataMap := map[string]interface{}{
+		"testField": "DUMMY",
+	}
+	originalMap := map[string]string{}
+	fieldName := "testField"
+	dummyValue := "DUMMY"
+	newValue := "newValue"
+	
+	// Call the function
+	updateFieldIfDummy(metaDataMap, originalMap, fieldName, dummyValue, newValue)
+	
+	// Check results
+	if metaDataMap[fieldName] != newValue {
+		t.Errorf("Expected %s to be '%v', got '%v'", fieldName, newValue, metaDataMap[fieldName])
+	}
+	if originalMap[fieldName] != dummyValue {
+		t.Errorf("Expected original %s to be '%v', got '%v'", fieldName, dummyValue, originalMap[fieldName])
+	}
+}
+
+// Check if addFieldIfNotExists correctly adds a field to the metaDataMap if it does not already exist.
+func TestAddFieldIfNotExists(t *testing.T) {
+	// Define test parameters
+	metaDataMap := map[string]interface{}{}
+	fieldName := "testField"
+	value := "testValue"
+	
+	// Call the function
+	addFieldIfNotExists(metaDataMap, fieldName, value)
+	
+	// Check results
+	if metaDataMap[fieldName] != value {
+		t.Errorf("Expected %s to be '%v', got '%v'", fieldName, value, metaDataMap[fieldName])
+	}
+}
+
+// Check if updateClassificationField correctly updates the classification field in the metaDataMap.
+func TestUpdateClassificationField(t *testing.T) {
+	// Create a mock server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[{"TapeRedundancy": "medium", "AutoArchive": false}]`)) // policy list with one policy
+	}))
+	defer ts.Close()
+	
+	// Create a test client
+	client := ts.Client()
+	
+	// Define test parameters
+	APIServer := ts.URL // Use the mock server's URL
+	user := map[string]string{"accessToken": "testToken"}
+	metaDataMap := map[string]interface{}{
+		"ownerGroup": "testOwner",
+	}
+	tapecopies := new(int)
+	*tapecopies = 1
+	
+	// Call the function
+	updateClassificationField(client, APIServer, user, metaDataMap, tapecopies)
+	
+	// Check results
+	if _, ok := metaDataMap["classification"]; !ok {
+		t.Errorf("Expected classification to be set, got '%v'", metaDataMap["classification"])
+	}
+}
