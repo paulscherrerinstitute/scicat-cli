@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"fmt"
 )
 
 type FileBlock struct {
@@ -89,7 +90,10 @@ func createDataset(client *http.Client, APIServer string, metaDataMap map[string
 	
 	if val, ok := metaDataMap["type"]; ok {
 		dstype := val.(string)
-		endpoint := getEndpoint(dstype)
+		endpoint, err := getEndpoint(dstype)
+		if err != nil {
+			log.Fatal(err)
+		}
 		myurl := APIServer + endpoint + "/?access_token=" + user["accessToken"]
 		resp := sendRequest(client, "POST", myurl, cmm)
 		defer resp.Body.Close()
@@ -107,17 +111,16 @@ func createDataset(client *http.Client, APIServer string, metaDataMap map[string
 	return datasetId
 }
 		
-func getEndpoint(dstype string) string {
+func getEndpoint(dstype string) (string, error) {
 	switch dstype {
 	case "raw":
-		return "/RawDatasets"
+		return "/RawDatasets", nil
 	case "derived":
-		return "/DerivedDatasets"
+		return "/DerivedDatasets", nil
 	case "base":
-		return "/Datasets"
+		return "/Datasets", nil
 	default:
-		log.Fatal("Unknown dataset type encountered:", dstype)
-		return ""
+		return "", fmt.Errorf("Unknown dataset type encountered: %s", dstype)
 	}
 }
 		
