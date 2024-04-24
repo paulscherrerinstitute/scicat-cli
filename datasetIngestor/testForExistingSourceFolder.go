@@ -32,6 +32,18 @@ type DatasetInfo struct {
 
 type QueryResult []DatasetInfo
 
+/*
+TestForExistingSourceFolder checks if the provided source folders already exist on the API server.
+
+Parameters:
+- folders: A slice of strings representing the source folders to check.
+- client: An http.Client object used to send the HTTP requests.
+- APIServer: A string representing the URL of the API server.
+- accessToken: A string representing the access token for the API server.
+- allowExistingSourceFolder: A pointer to a boolean. If it's nil or false, the function will check for existing source folders. If it's true, the function will not perform the check.
+
+The function splits the folders into chunks of 100 and sends a GET request to the API server for each chunk. If a source folder already exists, the function logs a warning and asks the user if they want to continue. If the user chooses not to continue, the function stops the process and logs an error message.
+*/
 func TestForExistingSourceFolder(folders []string, client *http.Client, APIServer string, accessToken string, allowExistingSourceFolder *bool) {
 	// Split into chunks of 100 sourceFolders
 	const chunkSize = 100
