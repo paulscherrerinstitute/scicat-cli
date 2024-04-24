@@ -26,6 +26,18 @@ const TOTAL_MAXFILES = 400000
 const BLOCK_MAXBYTES = 200000000000 // 700000 for testing the logic
 const BLOCK_MAXFILES = 20000        // 20 for testing the logic
 
+/* createOrigBlock generates a `FileBlock` from a subset of a given `filesArray`.
+It takes start and end indices to determine the subset, and a datasetId to associate with the FileBlock.
+The function calculates the total size of all Datafiles in the subset and includes this in the FileBlock.
+
+Parameters:
+start: The starting index of the subset in the filesArray.
+end: The ending index of the subset in the filesArray.
+filesArray: The array of Datafiles to create the FileBlock from.
+datasetId: The id to associate with the FileBlock.
+
+Returns:
+A FileBlock that includes the total size of the Datafiles in the subset, the subset of Datafiles, and the datasetId. */
 func createOrigBlock(start int, end int, filesArray []Datafile, datasetId string) (fileblock FileBlock) {
 	// accumulate sizes
 	var totalSize int64
@@ -38,6 +50,30 @@ func createOrigBlock(start int, end int, filesArray []Datafile, datasetId string
 	return FileBlock{Size: totalSize, DataFileList: filesArray[start:end], DatasetId: datasetId}
 }
 
+/*
+SendIngestCommand sends an ingest command to the API server to create a new dataset and associated data blocks.
+
+Parameters:
+client: The HTTP client used to send the request.
+APIServer: The URL of the API server.
+metaDataMap: A map containing metadata for the dataset.
+fullFileArray: An array of Datafile objects representing the files in the dataset.
+user: A map containing user information, including the access token.
+
+The function first creates a new dataset by sending a POST request to the appropriate endpoint on the API server, 
+based on the dataset type specified in metaDataMap. The dataset type can be "raw", "derived", or "base". 
+If the dataset type is not one of these, the function logs a fatal error.
+
+The function then creates original data blocks for the dataset. It splits the dataset into blocks if the dataset 
+contains more than a certain number of files or if the total size of the files exceeds a certain limit. 
+Each block is created by calling the createOrigBlock function and then sending a POST request to the "/OrigDatablocks" 
+endpoint on the API server.
+
+If the total number of files in the dataset exceeds the maximum limit, the function logs a fatal error.
+
+Returns:
+The ID of the created dataset.
+*/
 func SendIngestCommand(client *http.Client, APIServer string, metaDataMap map[string]interface{},
 	fullFileArray []Datafile, user map[string]string) (datasetId string) {
 	// create dataset
