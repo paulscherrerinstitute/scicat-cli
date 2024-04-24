@@ -58,7 +58,7 @@ func TestSendIngestCommand(t *testing.T) {
 			"accessToken": "test-access-token",
 	}	
 	
-// Mock metaDataMap
+	// Mock metaDataMap
 	metaDataMap := map[string]interface{}{
 			"accessGroups":         []string{},
 			"contactEmail":         "testuser@example.com",
@@ -76,6 +76,7 @@ func TestSendIngestCommand(t *testing.T) {
 			"sourceFolderHost":     "PC162.psi.ch",
 			"type":                 "raw",
 	}
+	
 	// Mock datafiles
 	datafiles := []Datafile{
 		{Size: 100},
