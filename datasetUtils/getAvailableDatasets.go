@@ -5,6 +5,8 @@ import (
 	"log"
 	"os/exec"
 	"strings"
+	version "github.com/mcuadros/go-version"
+	"regexp"
 )
 
 func GetAvailableDatasets(username string, RSYNCServer string, singleDatasetId string) []string {
@@ -21,7 +23,21 @@ func GetAvailableDatasets(username string, RSYNCServer string, singleDatasetId s
 		fmt.Printf("====== (only datasets highlighted in green will be retrieved)\n\n")
 		fmt.Printf("====== If you can not find the dataset in this listing: may be you forgot\n")
 		fmt.Printf("====== to start the necessary retrieve job from the the data catalog first ?\n\n")
-		cmd := exec.Command("rsync", "-e", "ssh -q", "--list-only", username+"@"+RSYNCServer+":retrieve/")
+
+		// Get rsync version
+		versionNumber, err := getRsyncVersion()
+		if err != nil {
+			log.Fatal("Error getting rsync version: ", err)
+		}
+
+		// Check rsync version and adjust command accordingly
+		var cmd *exec.Cmd
+		if version.Compare(versionNumber, "3.2.3", ">=") {
+			cmd = exec.Command("rsync", "-e", "ssh", "--list-only", username+"@"+RSYNCServer+":retrieve/")
+		} else {
+			cmd = exec.Command("rsync", "-e", "ssh -q", "--list-only", username+"@"+RSYNCServer+":retrieve/")
+		}
+
 		out, err := cmd.Output()
 		if err != nil {
 			log.Printf("Running %v.\n", cmd.Args)
@@ -42,4 +58,23 @@ func GetAvailableDatasets(username string, RSYNCServer string, singleDatasetId s
 		}
 	}
 	return datasetList
+}
+
+// Get rsync version
+func getRsyncVersion() (string, error) {
+	cmd := exec.Command("/usr/bin/rsync", "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	version := string(output)
+	
+	// Use a regular expression to find the version number
+	re := regexp.MustCompile(`\d+\.\d+\.\d+`)
+	versionNumber := re.FindString(version)
+	if versionNumber == "" {
+		return "", fmt.Errorf("could not find version number in rsync version string: %s", version)
+	}
+	
+	return versionNumber, nil
 }

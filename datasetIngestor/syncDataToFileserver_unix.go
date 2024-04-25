@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	version "github.com/mcuadros/go-version"
+	"regexp"
 )
 
 // functionality needed for "de-central" data
@@ -21,27 +23,54 @@ func SyncDataToFileserver(datasetId string, user map[string]string, RSYNCServer 
 	// append trailing slash to sourceFolder to indicate that the *contents* of the folder should be copied
 	// no special handling for blanks in sourceFolder needed here
 	fullSourceFolderPath := sourceFolder + "/"
-	// check if filelisting given
-	// rsync can create only one level deep directory structure, here we need more, therefore mkdir -p
-	// This code is no longer needed, sine Edgar has a new rrsync wrapper which craetes the needed directory
-	// cmd := exec.Command("/usr/bin/ssh",RSYNCServer,"mkdir","-p",destFolder)
-	// // show rsync's output
-	// cmd.Stdout = os.Stdout
-	// cmd.Stderr = os.Stderr
-	//
-	// fmt.Printf("Running %v.\n", cmd.Args)
-	// cmd.Run()
-
-	cmd := exec.Command("/usr/bin/rsync", "-e", "ssh -q", "-avxz", "--progress", "--msgs2stderr", fullSourceFolderPath, serverConnectString)
-	// // TODO: create folderstructure mkdir -p also for this case:
-	if absFileListing != "" {
-		cmd = exec.Command("/usr/bin/rsync", "-e", "ssh -q", "-avxzr", "--progress", "--msgs2stderr", "--files-from", absFileListing, fullSourceFolderPath, serverConnectString)
+	
+	versionNumber, err := getRsyncVersion()
+	if err != nil {
+		log.Fatal("Error getting rsync version: ", err)
 	}
-	// show rsync's output
-	// cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	log.Printf("Running %v.\n", cmd.Args)
-	err = cmd.Run()
+	
+	rsyncCmd := buildRsyncCmd(versionNumber, absFileListing, fullSourceFolderPath, serverConnectString)
+		
+	// Show rsync's output	
+	rsyncCmd.Stderr = os.Stderr
+	log.Printf("Running: %v.\n", rsyncCmd.Args)
+	err = rsyncCmd.Run()
 	return err
+}
+
+// Get rsync version
+func getRsyncVersion() (string, error) {
+	cmd := exec.Command("/usr/bin/rsync", "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	version := string(output)
+	
+	// Use a regular expression to find the version number.
+	// It will match the first occurrence of a string in the format "x.y.z" in the `version` string, where "x", "y", and "z" are one or more digits.
+	re := regexp.MustCompile(`\d+\.\d+\.\d+`)
+	versionNumber := re.FindString(version)
+	if versionNumber == "" {
+		return "", fmt.Errorf("could not find version number in rsync version string: %s", version)
+	}
+	
+	return versionNumber, nil
+}
+
+// Check rsync version and adjust command accordingly
+func buildRsyncCmd(versionNumber, absFileListing, fullSourceFolderPath, serverConnectString string) *exec.Cmd {
+	rsyncFlags := []string{"-e", "ssh", "-avxz", "--progress"}
+	if absFileListing != "" {
+		rsyncFlags = append([]string{"-r", "--files-from", absFileListing}, rsyncFlags...)
+	}
+	if version.Compare(versionNumber, "3.2.3", ">=") {
+		rsyncFlags = append(rsyncFlags, "--stderr=error")
+		// Full command: /usr/bin/rsync -e ssh -avxz --progress -r --files-from <absFileListing> --stderr=error <fullSourceFolderPath> <serverConnectString>
+	} else {
+		rsyncFlags = append(rsyncFlags, "-q", "--msgs2stderr")
+		// Full command: /usr/bin/rsync -e ssh -avxz --progress -r --files-from <absFileListing> -q --msgs2stderr <fullSourceFolderPath> <serverConnectString>
+	}
+	rsyncCmd := exec.Command("/usr/bin/rsync", append(rsyncFlags, fullSourceFolderPath, serverConnectString)...)
+	return rsyncCmd
 }
