@@ -145,3 +145,50 @@ func TestSendRegularFile(t *testing.T) {
 	}
 }
 
+// Checks if the function returns an error, if the file content was written to the buffer, and if the directory change commands were written to the buffer
+func TestWalkAndSend(t *testing.T) {
+	client := &Client{
+		PreseveTimes: true,
+		Quiet:        true,
+	}
+	
+	// Create a temporary directory for testing
+	tmpDir, err := os.MkdirTemp("", "example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir) // clean up
+	
+	// Create a file in the temporary directory
+	tmpfile, err := os.CreateTemp(tmpDir, "file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := []byte("This is a test file.")
+	if _, err := tmpfile.Write(text); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+	
+	// Create a buffer to use as the writer
+	var buf bytes.Buffer
+	
+	// Call the function
+	err = client.walkAndSend(&buf, tmpDir)
+	if err != nil {
+		t.Errorf("walkAndSend() error = %v", err)
+	}
+	
+	// Check if the file content was written to the buffer
+	if !bytes.Contains(buf.Bytes(), text) {
+		t.Errorf("walkAndSend() did not write file content to writer")
+	}
+	
+	// Check if the directory change commands were written to the buffer
+	if !bytes.Contains(buf.Bytes(), []byte("D")) || !bytes.Contains(buf.Bytes(), []byte("E")) {
+		t.Errorf("walkAndSend() did not write directory change commands to writer")
+	}
+}
+

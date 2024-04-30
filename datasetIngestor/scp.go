@@ -148,6 +148,13 @@ func (c *Client) sendRegularFile(w io.Writer, path string, fi os.FileInfo) error
 }
 
 // Walk and Send directory
+/* walkAndSend recursively walks through the directory specified by 'src', 
+and sends each file it encounters to the writer 'w'. 
+If 'src' is a regular file, it sends the file directly. 
+If 'src' is a directory, it walks through the directory and sends each file it encounters.
+It also sends directory change commands (push and pop) to the writer.
+If 'c.PreseveTimes' is true, it sends the modification time of each file and directory to the writer.
+It returns an error if any operation fails. */
 func (c *Client) walkAndSend(w io.Writer, src string) error {
 	cleanedPath := filepath.Clean(src)
 
