@@ -2,7 +2,6 @@ package datasetUtils
 
 import (
 	"fmt"
-	"log"
 	"os/exec"
 	"strings"
 	version "github.com/mcuadros/go-version"
@@ -21,58 +20,60 @@ The function first checks if a singleDatasetId is provided. If so, it adds it to
 
 Returns:
 - A slice of strings, where each string is a dataset ID.
-
-Note: The function will log.Fatal if it encounters an error, such as being unable to retrieve the rsync version or connect to the RSYNC server.
 */
-func GetAvailableDatasets(username string, RSYNCServer string, singleDatasetId string) []string {
+func GetAvailableDatasets(username string, RSYNCServer string, singleDatasetId string) ([]string, error) {
 	datasetList := make([]string, 0)
 	if singleDatasetId != "" {
-		// Append missing prefix if needed
-		if strings.HasPrefix(singleDatasetId, "20.500.11935") {
-			datasetList = append(datasetList, singleDatasetId)
-		} else {
-			datasetList = append(datasetList, "20.500.11935/"+singleDatasetId)
-		}
+		datasetList = append(datasetList, formatDatasetId(singleDatasetId))
 	} else {
-		fmt.Printf("\n\n\n====== Checking for available datasets on archive cache server %s:\n", RSYNCServer)
-		fmt.Printf("====== (only datasets highlighted in green will be retrieved)\n\n")
-		fmt.Printf("====== If you can not find the dataset in this listing: may be you forgot\n")
-		fmt.Printf("====== to start the necessary retrieve job from the the data catalog first ?\n\n")
-
-		// Get rsync version
-		versionNumber, err := getRsyncVersion()
+		datasets, err := fetchDatasetsFromServer(username, RSYNCServer)
 		if err != nil {
-			log.Fatal("Error getting rsync version: ", err)
+			return nil, err
 		}
+		datasetList = append(datasetList, datasets...)
+	}
+	return datasetList, nil
+}
 
-		// Check rsync version and adjust command accordingly
-		var cmd *exec.Cmd
-		if version.Compare(versionNumber, "3.2.3", ">=") {
-			cmd = exec.Command("rsync", "-e", "ssh", "--list-only", username+"@"+RSYNCServer+":retrieve/")
-		} else {
-			cmd = exec.Command("rsync", "-e", "ssh -q", "--list-only", username+"@"+RSYNCServer+":retrieve/")
-		}
+func formatDatasetId(datasetId string) string {
+	if strings.HasPrefix(datasetId, "20.500.11935") {
+		return datasetId
+	}
+	return "20.500.11935/" + datasetId
+}
 
-		out, err := cmd.Output()
-		if err != nil {
-			log.Printf("Running %v.\n", cmd.Args)
-			log.Fatal(err)
-		}
+func fetchDatasetsFromServer(username string, RSYNCServer string) ([]string, error) {
+	versionNumber, err := getRsyncVersion()
+	if err != nil {
+		return nil, fmt.Errorf("error getting rsync version: %w", err)
+	}
+	
+	cmd := buildRsyncCommand(username, RSYNCServer, versionNumber)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	
+	return parseRsyncOutput(out), nil
+}
 
-		remoteListing := strings.Split(string(out), "\n")
-		// fmt.Println("Remote Listing:",remoteListing)
-		for _, fileLine := range remoteListing {
-			columns := strings.Fields(fileLine)
-			if len(columns) == 5 {
-				if strings.HasPrefix(columns[0], "d") {
-					if len(columns[4]) == 36 {
-						datasetList = append(datasetList, "20.500.11935/"+columns[4])
-					}
-				}
-			}
+func buildRsyncCommand(username string, RSYNCServer string, versionNumber string) *exec.Cmd {
+	if version.Compare(versionNumber, "3.2.3", ">=") {
+		return exec.Command("rsync", "-e", "ssh", "--list-only", username+"@"+RSYNCServer+":retrieve/")
+	}
+	return exec.Command("rsync", "-e", "ssh -q", "--list-only", username+"@"+RSYNCServer+":retrieve/")
+}
+
+func parseRsyncOutput(output []byte) []string {
+	remoteListing := strings.Split(string(output), "\n")
+	datasets := make([]string, 0)
+	for _, fileLine := range remoteListing {
+		columns := strings.Fields(fileLine)
+		if len(columns) == 5 && strings.HasPrefix(columns[0], "d") && len(columns[4]) == 36 {
+			datasets = append(datasets, "20.500.11935/"+columns[4])
 		}
 	}
-	return datasetList
+	return datasets
 }
 
 // Get rsync version

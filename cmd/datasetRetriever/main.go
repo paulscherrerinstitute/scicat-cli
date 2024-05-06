@@ -122,7 +122,10 @@ func main() {
 
 	user, _ := datasetUtils.Authenticate(client, APIServer, token, userpass)
 
-	datasetList := datasetUtils.GetAvailableDatasets(user["username"], RSYNCServer, *datasetId)
+	datasetList, err := datasetUtils.GetAvailableDatasets(user["username"], RSYNCServer, *datasetId)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if len(datasetList) == 0 {
 		fmt.Printf("\n\nNo datasets found on intermediate cache server.\n")
