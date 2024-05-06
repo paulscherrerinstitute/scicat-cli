@@ -96,27 +96,50 @@ func TestSendJobRequest(t *testing.T) {
 	}
 }
 
-// Checks if the function returns a job ID and no error when it's called with a valid response.
+// Checks for a successful response, a response with a non-200 status code, and a response with invalid JSON.
 func TestHandleJobResponse(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		rw.Write([]byte(`{"id": "12345"}`))
-	}))
-	defer server.Close()
-	
-	client := server.Client()
-	resp, _ := client.Get(server.URL)
 	user := map[string]string{
 		"mail":     "test@example.com",
 		"username": "testuser",
 	}
 	
+	// Test successful response
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Write([]byte(`{"id": "12345"}`))
+	}))
+	client := server.Client()
+	resp, _ := client.Get(server.URL)
 	jobId, err := handleJobResponse(resp, user)
-	
 	if err != nil {
 		t.Errorf("handleJobResponse() returned an error: %v", err)
 	}
-	
 	if jobId != "12345" {
 		t.Errorf("handleJobResponse() returned job ID %v, want 12345", jobId)
 	}
+	server.Close()
+	
+	// Test non-200 status code
+	server = httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.WriteHeader(http.StatusInternalServerError)
+		rw.Write([]byte(`{"id": "12345"}`))
+	}))
+	client = server.Client()
+	resp, _ = client.Get(server.URL)
+	jobId, err = handleJobResponse(resp, user)
+	if err == nil {
+		t.Errorf("handleJobResponse() did not return an error for non-200 status code")
+	}
+	server.Close()
+	
+	// Test invalid JSON in response
+	server = httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Write([]byte(`invalid JSON`))
+	}))
+	client = server.Client()
+	resp, _ = client.Get(server.URL)
+	jobId, err = handleJobResponse(resp, user)
+	if err == nil {
+		t.Errorf("handleJobResponse() did not return an error for invalid JSON")
+	}
+	server.Close()
 }
