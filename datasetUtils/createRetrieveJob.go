@@ -8,6 +8,21 @@ import (
 	"time"
 )
 
+/*
+CreateRetrieveJob creates a job to retrieve a dataset from an API server.
+
+Parameters:
+- client: An *http.Client object that is used to send the HTTP request.
+- APIServer: A string representing the URL of the API server.
+- user: A map[string]string containing user information. It should have keys "mail", "username", and "accessToken".
+- datasetList: A slice of strings representing the list of datasets to be retrieved.
+
+The function constructs a job request with the provided parameters and sends it to the API server. If the job is successfully created, it returns the job ID as a string. If the job creation fails, it returns an empty string.
+
+The function logs the status of the job creation and sends a confirmation email to the user if the job is successfully created.
+
+Note: The function will terminate the program if it encounters an error while sending the HTTP request or decoding the job ID from the response.
+*/
 func CreateRetrieveJob(client *http.Client, APIServer string, user map[string]string, datasetList []string) (jobId string) {
 	// important: define field with capital names and rename fields via 'json' constructs
 	// otherwise the marshaling will omit the fields !
