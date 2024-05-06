@@ -4,6 +4,10 @@ import (
 	"testing"
 	"reflect"
 	"os/exec"
+	"os"
+	"bytes"
+	"io"
+	"strings"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -73,6 +77,34 @@ func TestFormatDatasetId(t *testing.T) {
 	actual = formatDatasetId(datasetId)
 	
 	if expected != actual {
+		t.Errorf("Expected %s, but got %s", expected, actual)
+	}
+}
+
+func TestPrintMessage(t *testing.T) {
+	RSYNCServer := "testServer"
+	
+	expected := "\n\n\n====== Checking for available datasets on archive cache server testServer:\n"
+	expected += "====== (only datasets highlighted in green will be retrieved)\n\n"
+	expected += "====== If you can not find the dataset in this listing: may be you forgot\n"
+	expected += "====== to start the necessary retrieve job from the the data catalog first?\n\n"
+	
+	// Redirect standard output to a buffer
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	
+	printMessage(RSYNCServer)
+	
+	// Restore standard output
+	w.Close()
+	os.Stdout = old
+	
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	actual := buf.String()
+	
+	if !strings.EqualFold(expected, actual) {
 		t.Errorf("Expected %s, but got %s", expected, actual)
 	}
 }

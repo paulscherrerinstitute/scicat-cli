@@ -26,6 +26,7 @@ func GetAvailableDatasets(username string, RSYNCServer string, singleDatasetId s
 	if singleDatasetId != "" {
 		datasetList = append(datasetList, formatDatasetId(singleDatasetId))
 	} else {
+		printMessage(RSYNCServer)
 		datasets, err := fetchDatasetsFromServer(username, RSYNCServer)
 		if err != nil {
 			return nil, err
@@ -93,4 +94,14 @@ var getRsyncVersion = func() (string, error) {
 	}
 	
 	return versionNumber, nil
+}
+
+func printMessage(RSYNCServer string) {
+	var message strings.Builder
+	message.WriteString("\n\n\n====== Checking for available datasets on archive cache server ")
+	message.WriteString(RSYNCServer)
+	message.WriteString(":\n====== (only datasets highlighted in green will be retrieved)\n\n")
+	message.WriteString("====== If you can not find the dataset in this listing: may be you forgot\n")
+	message.WriteString("====== to start the necessary retrieve job from the the data catalog first?\n\n")
+	fmt.Print(message.String())
 }
