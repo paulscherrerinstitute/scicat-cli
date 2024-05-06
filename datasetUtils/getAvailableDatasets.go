@@ -9,6 +9,21 @@ import (
 	"regexp"
 )
 
+/*
+GetAvailableDatasets retrieves a list of available datasets from a remote RSYNC server.
+
+Parameters:
+- username: The username to use when connecting to the RSYNC server.
+- RSYNCServer: The address of the RSYNC server to connect to.
+- singleDatasetId: An optional parameter. If provided, the function will return a list containing only this dataset ID. If the ID does not start with "20.500.11935", this prefix will be added. If this parameter is an empty string, the function will retrieve a list of all available datasets from the RSYNC server.
+
+The function first checks if a singleDatasetId is provided. If so, it adds it to the dataset list, with the necessary prefix if needed. If not, it connects to the RSYNC server and retrieves a list of all available datasets. The function checks the version of rsync and adjusts the command accordingly. It then parses the output, adding each dataset ID to the list.
+
+Returns:
+- A slice of strings, where each string is a dataset ID.
+
+Note: The function will log.Fatal if it encounters an error, such as being unable to retrieve the rsync version or connect to the RSYNC server.
+*/
 func GetAvailableDatasets(username string, RSYNCServer string, singleDatasetId string) []string {
 	datasetList := make([]string, 0)
 	if singleDatasetId != "" {
@@ -61,7 +76,7 @@ func GetAvailableDatasets(username string, RSYNCServer string, singleDatasetId s
 }
 
 // Get rsync version
-func getRsyncVersion() (string, error) {
+var getRsyncVersion = func() (string, error) {
 	cmd := exec.Command("/usr/bin/rsync", "--version")
 	output, err := cmd.Output()
 	if err != nil {
