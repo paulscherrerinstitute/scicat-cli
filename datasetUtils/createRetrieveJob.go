@@ -62,7 +62,7 @@ func handleJobResponse(resp *http.Response, user map[string]string) (string, err
 		var j Job
 		err := decoder.Decode(&j)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("could not decode id from job: %v", err)
 		}
 		return j.Id, nil
 	} else {
