@@ -8,11 +8,11 @@ For testing, just build `main.go` for each command:
 go build -o cmd/datasetIngestor/datasetIngestor cmd/datasetIngestor/main.go
 ```
 
-To build all applications and target architectures, use the build script:
+All applications are built automatically and can be downloaded from the [Releases](https://github.com/paulscherrerinstitute/scicat-cli/releases) section of this repo.
 
-```
-cmd/build.sh
-```
+To build the applications and target architectures locally, use GoReleaser. Check `.goreleaser.yaml` to see the configurations.
+To use GoReleaser, you can run the command `goreleaser release --snapshot --clean` in your terminal. This will build the binaries, create the archives and generate the changelog. The `--snapshot flag` ensures that no publishing will happen.
+Before running this command, you should ensure that you have [installed GoReleaser](https://goreleaser.com/install/).
 
 Tools are compiled for the following architectures:
 
@@ -24,39 +24,30 @@ These can be cross-compiled from any system.
 
 ## Deployment
 
-Tools are deployed by committing the binaries to this repository.
+* Deploy linux versions to online beamline consoles (you need to have write access rights):
 
-1. Run `deploy.sh`. This script
-
-   1. Builds executables for all targets
-   2. Commits all changes to the git *rollout* repository.
-
-   After this step the version numbers are out of sync until the deploy steps below are performed.
-
-2. Deploy to the scicat tools repo. This is the public deployment
-   - Following this step the commands can be fetched via curl from
-     https://gitlab.psi.ch/scicat/tools/$OS
-
-3. Deploy linux versions to online beamline consoles (you need to have write access rights):
-
-```
+```bash
 cd linux
 scp datasetArchiver datasetIngestor datasetRetriever  datasetGetProposal datasetCleaner SciCat egli@gfa-lc.psi.ch:/work/sls/bin/
 ```
 
-4. Deploy linux versions to the ingest server pbaingest01
+* Deploy linux versions to the ingest server pbaingest01
 
-```
+```bash
 ssh egli@pbaingest01.psi.ch
 cd bin/
-curl -O  https://gitlab.psi.ch/scicat/tools/raw/master/linux/datasetIngestor;chmod +x datasetIngestor
-curl -O  https://gitlab.psi.ch/scicat/tools/raw/master/linux/datasetArchiver;chmod +x datasetArchiver 
-curl -O  https://gitlab.psi.ch/scicat/tools/raw/master/linux/datasetGetProposal;chmod +x datasetGetProposal
+curl -s https://api.github.com/repos/paulscherrerinstitute/scicat-cli/releases/latest \
+| grep "browser_download_url.*Linux*tar.gz" \
+| cut -d : -f 2,3 \
+| tr -d \" \
+| wget -qi -
+tar -xzf scicat-cli_*_Linux_x86_64.tar.gz
+chmod +x datasetIngestor datasetArchiver datasetGetProposal
 ```
 
-5. Deploy to Ra cluster as a pmodule
+* Deploy to Ra cluster as a pmodule
 
-```
+```bash
 cd pmodules/buildblocks/Tools/datacatalog
 kinit
 aklog
