@@ -47,9 +47,9 @@ func fetchLatestVersion(client *http.Client) (string, error) {
 // Make sure the version number is stripped of the 'v' prefix. That's required for `strconv.Atoi` to work.
 func generateDownloadURL(deployLocation, latestVersion, osName string) string {
 	if strings.ToLower(osName) == "windows" {
-		return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.zip", deployLocation, latestVersion, latestVersion, strings.Title(osName))
+		return fmt.Sprintf("%s/v%s/scicat-cli_v%s_%s_x86_64.zip", deployLocation, latestVersion, latestVersion, strings.Title(osName))
 	}
-	return fmt.Sprintf("%s/v%s/scicat-cli_.%s_%s_x86_64.tar.gz", deployLocation, latestVersion, latestVersion, strings.Title(osName))
+	return fmt.Sprintf("%s/v%s/scicat-cli_v%s_%s_x86_64.tar.gz", deployLocation, latestVersion, latestVersion, strings.Title(osName))
 }
 
 func CheckForNewVersion(client *http.Client, APP string, VERSION string)  {
@@ -88,9 +88,9 @@ func CheckForNewVersion(client *http.Client, APP string, VERSION string)  {
 		log.Println("You can either download the file using the browser or use the following command:")
 
 		if strings.ToLower(osName) == "windows" {
-			log.Printf("Browser: %s\nCommand: curl -L -O %s; unzip scicat-cli_.%s_%s_x86_64.zip; cd scicat-cli\n", downloadURL, downloadURL, latestVersion, strings.Title(osName))
+			log.Printf("Browser: %s\nCommand: curl -L -O %s; unzip scicat-cli_v%s_%s_x86_64.zip; cd scicat-cli\n", downloadURL, downloadURL, latestVersion, strings.Title(osName))
 		} else {
-			log.Printf("Browser: %s\nCommand: curl -L -O %s; tar xzf scicat-cli_.%s_%s_x86_64.tar.gz; cd scicat-cli; chmod +x %s\n", downloadURL, downloadURL, latestVersion, strings.Title(osName), APP)
+			log.Printf("Browser: %s\nCommand: curl -L -O %s; tar xzf scicat-cli_v%s_%s_x86_64.tar.gz; cd scicat-cli; chmod +x %s\n", downloadURL, downloadURL, latestVersion, strings.Title(osName), APP)
 		}
 	} else {
 		log.Println("Your version of this program is up-to-date")
