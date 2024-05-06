@@ -104,7 +104,10 @@ func TestAddResult(t *testing.T) {
 			accessToken := "testToken"
 			
 			// Call our function
-			datasetList := addResult(client, APIServer, tt.filter, accessToken, tt.datasetList)
+			datasetList, err := addResult(client, APIServer, tt.filter, accessToken, tt.datasetList)
+			if err != nil {
+				t.Errorf("Error: %v", err)
+			}
 			
 			// Check if the function results match our expectations
 			if len(datasetList) != len(tt.expected) {

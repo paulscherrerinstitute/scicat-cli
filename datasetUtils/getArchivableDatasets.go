@@ -3,11 +3,12 @@ package datasetUtils
 import (
 	"encoding/json"
 	"github.com/fatih/color"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
+	"fmt"
 )
 
 type DatasetInfo struct {
@@ -40,47 +41,49 @@ The function returns the updated datasetList.
 
 Note: The function logs a fatal error and terminates the program if it fails to send the GET request or unmarshal the response body.
 */
-func addResult(client *http.Client, APIServer string, filter string, accessToken string, datasetList []string) []string {
+func addResult(client *http.Client, APIServer string, filter string, accessToken string, datasetList []string) ([]string, error) {
 	v := url.Values{}
 	v.Set("filter", filter)
 	v.Add("access_token", accessToken)
 
-	var myurl = APIServer + "/Datasets?" + v.Encode()
-	//fmt.Println("Url:", myurl)
+	myurl := fmt.Sprintf("%s/Datasets?%s", APIServer, v.Encode())
 
 	resp, err := client.Get(myurl)
 	if err != nil {
-		log.Fatal("Get dataset details failed:", err)
+		return nil, fmt.Errorf("get dataset details failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == 200 {
-		body, _ := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
 
-		var respObj QueryResult
-		err = json.Unmarshal(body, &respObj)
-		if err != nil {
-			log.Fatal(err)
-		}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body failed: %w", err)
+	}
 
-		if len(respObj) > 0 {
-			log.Printf("Found the following datasets in state archivable: (size=0 datasets are removed)")
-			var item DatasetInfo
-			for _, item = range respObj {
-				if item.Size > 0 {
-					log.Printf("Folder: %v, size: %v, PID: %v", item.SourceFolder, item.Size, item.Pid)
-					datasetList = append(datasetList, item.Pid)
-				} else {
-					color.Set(color.FgRed)
-					log.Printf("Folder: %v, size: %v, PID: %v will be ignored !", item.SourceFolder, item.Size, item.Pid)
-					color.Unset()
-				}
+	var respObj QueryResult
+	err = json.Unmarshal(body, &respObj)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal response body failed: %w", err)
+	}
+
+	if len(respObj) > 0 {
+		log.Printf("Found the following datasets in state archivable: (size=0 datasets are removed)")
+		for _, item := range respObj {
+			if item.Size > 0 {
+				log.Printf("Folder: %v, size: %v, PID: %v", item.SourceFolder, item.Size, item.Pid)
+				datasetList = append(datasetList, item.Pid)
+			} else {
+				color.Set(color.FgRed)
+				log.Printf("Folder: %v, size: %v, PID: %v will be ignored !", item.SourceFolder, item.Size, item.Pid)
+				color.Unset()
 			}
 		}
-	} else {
-		log.Printf("Statuscode:%v", resp.StatusCode)
 	}
-	return datasetList
+
+	return datasetList, nil
 }
 
 /*
@@ -107,7 +110,11 @@ func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup str
 	filter := ""
 	if ownerGroup != "" {
 		filter = `{"where":{"ownerGroup":"` + ownerGroup + `","datasetlifecycle.archivable":true},"fields": {"pid":1,"size":1,"sourceFolder":1}}`
-		datasetList = addResult(client, APIServer, filter, accessToken, datasetList)
+		var err error
+		datasetList, err = addResult(client, APIServer, filter, accessToken, datasetList)
+		if err != nil {
+			log.Fatalf("Error: %v", err)
+		}
 	} else {
 		// split large request into chunks
 		chunkSize := 100
@@ -118,7 +125,11 @@ func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup str
 			}
 			quotedList := strings.Join(inputdatasetList[i:end], "\",\"")
 			filter = `{"where":{"pid":{"inq":["` + quotedList + `"]},"datasetlifecycle.archivable":true},"fields": {"pid":1,"size":1,"sourceFolder":1}}`
-			datasetList = addResult(client, APIServer, filter, accessToken, datasetList)
+			var err error
+			datasetList, err = addResult(client, APIServer, filter, accessToken, datasetList)
+			if err != nil {
+				log.Fatalf("Error: %v", err)
+			}
 		}
 	}
 	return datasetList
