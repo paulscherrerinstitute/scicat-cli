@@ -20,6 +20,26 @@ type QueryResult []DatasetInfo
 // function that assembles the datasetIds to be fetched in chunks
 // see https://blog.golang.org/slices for explanation why datasetList slice should be a return parameter
 
+/*
+addResult is a helper function that sends a GET request to the API server to fetch dataset details and appends the IDs of the datasets that are archivable to the datasetList.
+
+Parameters:
+- client: An instance of http.Client used to send the request.
+- APIServer: The URL of the API server.
+- filter: The filter query to be used in the GET request.
+- accessToken: The access token used for authentication.
+- datasetList: The list of dataset IDs to which the IDs of the archivable datasets will be appended.
+
+The function first constructs the URL for the GET request by appending the filter and access token to the APIServer URL. It then sends the GET request and reads the response.
+
+If the status code of the response is 200, the function reads the body of the response and unmarshals it into a QueryResult object. It then iterates over the datasets in the QueryResult. If a dataset's size is greater than 0, the function logs the dataset's details and appends its ID to the datasetList. If a dataset's size is 0, the function logs the dataset's details in red and does not append its ID to the datasetList.
+
+If the status code of the response is not 200, the function logs the status code.
+
+The function returns the updated datasetList.
+
+Note: The function logs a fatal error and terminates the program if it fails to send the GET request or unmarshal the response body.
+*/
 func addResult(client *http.Client, APIServer string, filter string, accessToken string, datasetList []string) []string {
 	v := url.Values{}
 	v.Set("filter", filter)
