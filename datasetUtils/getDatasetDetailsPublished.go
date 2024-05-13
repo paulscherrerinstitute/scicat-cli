@@ -3,7 +3,7 @@ package datasetUtils
 import (
 	"encoding/json"
 	"github.com/fatih/color"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -12,8 +12,22 @@ import (
 
 const PUBLISHServer string = "doi2.psi.ch"
 
-// get dataset details and filter by ownergroup
+/*
+GetDatasetDetailsPublished retrieves details of published datasets from a given API server. 
 
+Parameters:
+- client: An HTTP client used to send requests.
+- APIServer: The URL of the API server from which to retrieve dataset details.
+- datasetList: A list of dataset IDs for which to retrieve details.
+
+The function sends HTTP GET requests to the API server, querying for details of datasets in chunks of 100 at a time. 
+For each dataset, it checks if the details were found and if so, it logs the details, adds the dataset to the output list, 
+and constructs a URL for the dataset. If the details were not found, it logs a message indicating that the dataset will not be copied.
+
+The function returns two lists:
+- A list of Dataset objects for which details were found.
+- A list of URLs for the datasets.
+*/
 func GetDatasetDetailsPublished(client *http.Client, APIServer string, datasetList []string) ([]Dataset, []string) {
 	outputDatasetDetails := make([]Dataset, 0)
 	urls := make([]string, 0)
@@ -49,7 +63,7 @@ func GetDatasetDetailsPublished(client *http.Client, APIServer string, datasetLi
 		defer resp.Body.Close()
 
 		if resp.StatusCode == 200 {
-			body, _ := ioutil.ReadAll(resp.Body)
+			body, _ := io.ReadAll(resp.Body)
 
 			datasetDetails := make([]Dataset, 0)
 
