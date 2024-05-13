@@ -23,7 +23,7 @@ func TestGetProposal(t *testing.T) {
 	user["accessToken"] = "testToken"
 	
 	// Call GetProposal
-	proposal := GetProposal(client, server.URL, "testOwnerGroup", user, []string{"testAccessGroup"})
+	proposal, _ := GetProposal(client, server.URL, "testOwnerGroup", user, []string{"testAccessGroup"})
 	
 	// Check the proposal
 	if proposal["proposal"] != "test proposal" {

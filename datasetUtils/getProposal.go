@@ -3,7 +3,7 @@ package datasetUtils
 import (
 	"encoding/json"
 	"io"
-	"log"
+	"fmt"
 	"net/http"
 )
 
@@ -25,51 +25,39 @@ Returns:
 - A map representing the proposal. If no proposal is found, an empty map is returned.
 */
 func GetProposal(client *http.Client, APIServer string, ownerGroup string, user map[string]string,
-	accessGroups []string) (proposal map[string]interface{}) {
-	// Check if ownerGroup is in accessGroups list. No longer needed, done on server side and
-	//  takes also accessGroup for beamline accounts into account
-
-	// if user["displayName"] != "ingestor" {
-	// 	validOwner := false
-	// 	for _, b := range accessGroups {
-	// 		if b == ownerGroup {
-	// 			validOwner = true
-	// 			break
-	// 		}
-	// 	}
-	// 	if validOwner {
-	// 		log.Printf("OwnerGroup information %s verified successfully.\n", ownerGroup)
-	// 	} else {
-	// 		log.Fatalf("You are not member of the ownerGroup %s which is needed to access this data", ownerGroup)
-	// 	}
-	// }
-
-	filter := `{"where":{"ownerGroup":"` + ownerGroup + `"}}`
-	url := APIServer + "/Proposals?access_token=" + user["accessToken"]
-
-	// fmt.Printf("=== resulting filter:%s\n", filter)
+	accessGroups []string) (map[string]interface{}, error) {
+		
+	filter := fmt.Sprintf(`{"where":{"ownerGroup":"%s"}}`, ownerGroup)
+	url := fmt.Sprintf("%s/Proposals?access_token=%s", APIServer, user["accessToken"])
+	
 	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("filter", filter)
-
+	
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-
-	// fmt.Printf("response Object:\n%v\n", string(body))
-
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	
 	var respObj []map[string]interface{}
 	err = json.Unmarshal(body, &respObj)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	// the first element contains the actual map
+	
 	respMap := make(map[string]interface{})
 	if len(respObj) > 0 {
 		respMap = respObj[0]
 	}
-	return respMap
+	
+	return respMap, nil
 }
