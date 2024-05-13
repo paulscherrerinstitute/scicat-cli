@@ -3,11 +3,12 @@ package datasetUtils
 import (
 	"encoding/json"
 	"github.com/fatih/color"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
+	"fmt"
 )
 
 type Dataset struct {
@@ -33,7 +34,7 @@ The function sends HTTP GET requests to the API server in chunks of 100 datasets
 Returns:
 - A slice of Dataset structs containing the details of the datasets that match the owner group filter.
 */
-func GetDatasetDetails(client *http.Client, APIServer string, accessToken string, datasetList []string, ownerGroup string) []Dataset {
+func GetDatasetDetails(client *http.Client, APIServer string, accessToken string, datasetList []string, ownerGroup string) ([]Dataset, error) {
 	outputDatasetDetails := make([]Dataset, 0)
 	log.Println("Dataset ID                                         Size[MB]  Owner                      SourceFolder")
 	log.Println("====================================================================================================")
@@ -45,55 +46,67 @@ func GetDatasetDetails(client *http.Client, APIServer string, accessToken string
 		if end > len(datasetList) {
 			end = len(datasetList)
 		}
-
-		var filter = `{"where":{"pid":{"inq":["` +
-			strings.Join(datasetList[i:end], `","`) +
-			`"]}},"fields":{"pid":true,"sourceFolder":true,"size":true,"ownerGroup":true}}`
-
+		
+		filter := `{"where":{"pid":{"inq":["` +
+		strings.Join(datasetList[i:end], `","`) +
+		`"]}},"fields":{"pid":true,"sourceFolder":true,"size":true,"ownerGroup":true}}`
+		
 		v := url.Values{}
 		v.Set("filter", filter)
 		v.Add("access_token", accessToken)
-
-		var myurl = APIServer + "/Datasets?" + v.Encode()
-		//log.Println("Url:", myurl)
-
-		resp, err := client.Get(myurl)
+		
+		myurl := APIServer + "/Datasets?" + v.Encode()
+		
+		datasetDetails, err := fetchDatasetDetails(client, myurl)
 		if err != nil {
-			log.Fatal("Get dataset details failed:", err)
+			return nil, err
 		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode == 200 {
-			body, _ := ioutil.ReadAll(resp.Body)
-
-			datasetDetails := make([]Dataset, 0)
-
-			_ = json.Unmarshal(body, &datasetDetails)
-
-			// verify if details were actually found for all available Datasets
-			for _, datasetId := range datasetList[i:end] {
-				detailsFound := false
-				for _, datasetDetail := range datasetDetails {
-					if datasetDetail.Pid == datasetId {
-						detailsFound = true
-						if ownerGroup == "" || ownerGroup == datasetDetail.OwnerGroup {
-							outputDatasetDetails = append(outputDatasetDetails, datasetDetail)
-							color.Set(color.FgGreen)
-						}
-						log.Printf("%s %9d %v %v\n", datasetId, datasetDetail.Size/1024./1024., datasetDetail.OwnerGroup, datasetDetail.SourceFolder)
-						color.Unset()
-						break
+		
+		for _, datasetId := range datasetList[i:end] {
+			detailsFound := false
+			for _, datasetDetail := range datasetDetails {
+				if datasetDetail.Pid == datasetId {
+					detailsFound = true
+					if ownerGroup == "" || ownerGroup == datasetDetail.OwnerGroup {
+						outputDatasetDetails = append(outputDatasetDetails, datasetDetail)
+						color.Set(color.FgGreen)
 					}
-				}
-				if !detailsFound {
-					color.Set(color.FgRed)
-					log.Printf("Dataset %s no infos found in catalog - will not be copied !\n", datasetId)
+					log.Printf("%s %9d %v %v\n", datasetId, datasetDetail.Size/1024./1024., datasetDetail.OwnerGroup, datasetDetail.SourceFolder)
 					color.Unset()
+					break
 				}
 			}
-		} else {
-			log.Printf("Querying dataset details failed with status code %v\n", resp.StatusCode)
+			if !detailsFound {
+				color.Set(color.FgRed)
+				log.Printf("Dataset %s no infos found in catalog - will not be copied !\n", datasetId)
+				color.Unset()
+			}
 		}
 	}
-	return outputDatasetDetails
+	return outputDatasetDetails, nil
+}
+
+func fetchDatasetDetails(client *http.Client, url string) ([]Dataset, error) {
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("querying dataset details failed with status code %v", resp.StatusCode)
+	}
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	
+	datasetDetails := make([]Dataset, 0)
+	err = json.Unmarshal(body, &datasetDetails)
+	if err != nil {
+		return nil, err
+	}
+	
+	return datasetDetails, nil
 }

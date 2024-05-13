@@ -25,7 +25,7 @@ func TestGetDatasetDetails_EmptyList(t *testing.T) {
 	client := &http.Client{}
 	
 	// Call the function to be tested
-	datasets := GetDatasetDetails(client, APIServer, accessToken, datasetList, ownerGroup)
+	datasets, _ := GetDatasetDetails(client, APIServer, accessToken, datasetList, ownerGroup)
 	
 	// Check the result
 	if len(datasets) != 0 {
@@ -52,7 +52,7 @@ func TestGetDatasetDetails_Non200StatusCode(t *testing.T) {
 	client := &http.Client{}
 	
 	// Call the function to be tested
-	datasets := GetDatasetDetails(client, APIServer, accessToken, datasetList, ownerGroup)
+	datasets, _ := GetDatasetDetails(client, APIServer, accessToken, datasetList, ownerGroup)
 	
 	// Check the result
 	if len(datasets) != 0 {
@@ -79,7 +79,7 @@ func TestGetDatasetDetails_DatasetNotFound(t *testing.T) {
 	client := &http.Client{}
 	
 	// Call the function to be tested
-	datasets := GetDatasetDetails(client, APIServer, accessToken, datasetList, ownerGroup)
+	datasets, _ := GetDatasetDetails(client, APIServer, accessToken, datasetList, ownerGroup)
 	
 	// Check the result
 	if len(datasets) != 0 {
