@@ -29,11 +29,6 @@ The function returns two lists:
 - A list of URLs for the datasets.
 */
 func GetDatasetDetailsPublished(client *http.Client, APIServer string, datasetList []string) ([]Dataset, []string) {
-	outputDatasetDetails := make([]Dataset, 0)
-	urls := make([]string, 0)
-	sizeArray := make([]int, 0)
-	numFilesArray := make([]int, 0)
-
 	log.Println("Dataset ID                                         Size[MB]  Owner                      SourceFolder")
 	log.Println("====================================================================================================")
 
@@ -44,58 +39,72 @@ func GetDatasetDetailsPublished(client *http.Client, APIServer string, datasetLi
 		if end > len(datasetList) {
 			end = len(datasetList)
 		}
-
-		var filter = `{"where":{"pid":{"inq":["` +
-			strings.Join(datasetList[i:end], `","`) +
-			`"]}},"fields":{"pid":true,"sourceFolder":true,"size":true,"ownerGroup":true,"numberOfFiles":true}}`
-
-		v := url.Values{}
-		v.Set("filter", filter)
-		v.Add("isPublished", "true")
-
-		var myurl = APIServer + "/Datasets?" + v.Encode()
-		// log.Println("Url:", myurl)
-
-		resp, err := client.Get(myurl)
+		
+		filter := createFilter(datasetList[i:end])
+		
+		resp, err := makeRequest(client, APIServer, filter)
 		if err != nil {
 			log.Fatal("Get dataset details failed:", err)
 		}
 		defer resp.Body.Close()
-
+		
 		if resp.StatusCode == 200 {
-			body, _ := io.ReadAll(resp.Body)
-
-			datasetDetails := make([]Dataset, 0)
-
-			_ = json.Unmarshal(body, &datasetDetails)
-
-			// verify if details were actually found for all available Datasets
-			for _, datasetId := range datasetList[i:end] {
-				detailsFound := false
-				for _, datasetDetail := range datasetDetails {
-					if datasetDetail.Pid == datasetId {
-						detailsFound = true
-						outputDatasetDetails = append(outputDatasetDetails, datasetDetail)
-						color.Set(color.FgGreen)
-						log.Printf("%s %9d %v %v\n", datasetId, datasetDetail.Size/1024./1024., datasetDetail.OwnerGroup, datasetDetail.SourceFolder)
-						color.Unset()
-						//https: //doi2.psi.ch/datasets/das/work/p16/p16628/20181012_lungs/large_volume_360/R2-6/stitching/data_final_volume_fullresolution/
-						url := "https://" + PUBLISHServer + "/datasets" + datasetDetail.SourceFolder
-						urls = append(urls, url)
-						sizeArray = append(sizeArray, datasetDetail.Size)
-						numFilesArray = append(numFilesArray, datasetDetail.NumberOfFiles)
-						break
-					}
-				}
-				if !detailsFound {
-					color.Set(color.FgRed)
-					log.Printf("Dataset %s no infos found in catalog - will not be copied !\n", datasetId)
-					color.Unset()
-				}
-			}
+			outputDatasetDetails, urls := processDatasetDetails(resp, datasetList[i:end])
+			return outputDatasetDetails, urls
 		} else {
 			log.Printf("Querying dataset details failed with status code %v\n", resp.StatusCode)
 		}
 	}
+			
+	return nil, nil
+}
+
+func createFilter(datasetList []string) string {
+	return `{"where":{"pid":{"inq":["` +
+	strings.Join(datasetList, `","`) +
+	`"]}},"fields":{"pid":true,"sourceFolder":true,"size":true,"ownerGroup":true,"numberOfFiles":true}}`
+}
+
+func makeRequest(client *http.Client, APIServer string, filter string) (*http.Response, error) {
+	v := url.Values{}
+	v.Set("filter", filter)
+	v.Add("isPublished", "true")
+	
+	var myurl = APIServer + "/Datasets?" + v.Encode()
+	
+	return client.Get(myurl)
+}
+
+func processDatasetDetails(resp *http.Response, datasetList []string) ([]Dataset, []string) {
+	outputDatasetDetails := make([]Dataset, 0)
+	urls := make([]string, 0)
+	
+	body, _ := io.ReadAll(resp.Body)
+	
+	datasetDetails := make([]Dataset, 0)
+	
+	_ = json.Unmarshal(body, &datasetDetails)
+	
+	for _, datasetId := range datasetList {
+		detailsFound := false
+		for _, datasetDetail := range datasetDetails {
+			if datasetDetail.Pid == datasetId {
+				detailsFound = true
+				outputDatasetDetails = append(outputDatasetDetails, datasetDetail)
+				color.Set(color.FgGreen)
+				log.Printf("%s %9d %v %v\n", datasetId, datasetDetail.Size/1024./1024., datasetDetail.OwnerGroup, datasetDetail.SourceFolder)
+				color.Unset()
+				url := "https://" + PUBLISHServer + "/datasets" + datasetDetail.SourceFolder
+				urls = append(urls, url)
+				break
+			}
+		}
+		if !detailsFound {
+			color.Set(color.FgRed)
+			log.Printf("Dataset %s no infos found in catalog - will not be copied !\n", datasetId)
+			color.Unset()
+		}
+	}
+	
 	return outputDatasetDetails, urls
 }

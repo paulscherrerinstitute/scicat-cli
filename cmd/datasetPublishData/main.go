@@ -141,6 +141,9 @@ func main() {
 
 	// get sourceFolder and other dataset related info for all Datasets
 	datasetDetails, urls := datasetUtils.GetDatasetDetailsPublished(client, APIServer, datasetList)
+	if datasetDetails == nil && urls == nil {
+			fmt.Println("No dataset details were retrieved.")
+	}
 
 	// assemble rsync commands to be submitted
 	batchCommands := assembleRsyncCommands(datasetDetails)
