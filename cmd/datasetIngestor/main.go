@@ -42,7 +42,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -217,7 +216,7 @@ func main() {
 		folders = append(folders, sourceFolder)
 	} else {
 		// get folders from file
-		folderlist, err := ioutil.ReadFile(folderlistingPath)
+		folderlist, err := os.ReadFile(folderlistingPath)
 		if err != nil {
 			log.Fatal(err)
 		}
