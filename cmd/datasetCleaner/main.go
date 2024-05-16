@@ -116,7 +116,8 @@ func main() {
 		return
 	}
 
-	user, _ := datasetUtils.Authenticate(client, APIServer, token, userpass)
+	auth := &datasetUtils.RealAuthenticator{}
+	user, _ := datasetUtils.Authenticate(auth, client, APIServer, token, userpass)
 
 	if user["username"] != "archiveManager" {
 		log.Fatalf("You must be archiveManager to be allowed to delete datasets\n")
