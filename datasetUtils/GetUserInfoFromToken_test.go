@@ -18,7 +18,7 @@ func TestGetUserInfoFromToken(t *testing.T) {
 	// Test case: Valid token
 	{
 		client := server.Client()
-		userInfo, groups := GetUserInfoFromToken(client, server.URL, "validToken")
+		userInfo, groups, _ := GetUserInfoFromToken(client, server.URL, "validToken")
 		if userInfo["username"] != "testUser" || userInfo["mail"] != "testUser@example.com" || len(groups) != 2 {
 			t.Errorf("GetUserInfoFromToken failed, expected %v, got %v", "testUser", userInfo["username"])
 		}
