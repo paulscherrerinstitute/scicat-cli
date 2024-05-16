@@ -19,12 +19,7 @@ func TestCreateDatasetEntry(t *testing.T) {
 	
 	// Create a map for the metaData
 	metaDataMap := map[string]interface{}{
-		"principalInvestigator": "testuser@psi.ch",
-		"creationLocation":      "/PSI",
-		"sourceFolder":          "/tmp/",
-		"owner":                 "test user",
 		"type":                  "raw",
-		"ownerGroup":            "p178",
 	}
 	
 	// Create a client
