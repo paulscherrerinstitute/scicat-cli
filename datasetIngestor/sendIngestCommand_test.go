@@ -175,3 +175,57 @@ func TestDecodePid(t *testing.T) {
 		t.Errorf("decodePid() returned pid %q; want %q", pid, "12345")
 	}
 }
+
+func TestCreateOrigDatablocks(t *testing.T) {
+	// keep track of the number of requests
+	var requestCount int
+	
+	// Create a mock HTTP server
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		// Increment the request count for each request
+		requestCount++
+		
+		// Check if the request method is POST
+		if req.Method != http.MethodPost {
+			t.Errorf("Expected POST request, got %s", req.Method)
+		}
+		
+		// Check if the request URL is correct
+		expectedURL := "/OrigDatablocks?access_token=testToken"
+		if req.URL.String() != expectedURL {
+			t.Errorf("Expected request to %s, got %s", expectedURL, req.URL.String())
+		}
+		
+		rw.WriteHeader(http.StatusOK)
+	}))
+	// Close the server when test finishes
+	defer server.Close()
+	
+	// Create a mock HTTP client
+	client := server.Client()
+	
+	// Define test data
+	datafiles := []Datafile{
+		{
+			Size: 100,
+		},
+		{
+			Size: 200,
+		},
+		{
+			Size: 900,
+		},
+	}
+	user := map[string]string{
+		"accessToken": "testToken",
+	}
+	
+	// Call the function with test data
+	createOrigDatablocks(client, server.URL, datafiles, "testDatasetId", user)
+	
+	// Check if the correct number of requests were made
+	expectedRequestCount := (len(datafiles) + BLOCK_MAXFILES - 1) / BLOCK_MAXFILES
+	if requestCount != expectedRequestCount {
+		t.Errorf("Expected %d requests, got %d", expectedRequestCount, requestCount)
+	}
+}

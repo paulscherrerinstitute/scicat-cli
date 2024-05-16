@@ -152,7 +152,23 @@ func decodePid(resp *http.Response) string {
 	
 	return d.Pid
 }
-		
+
+/* createOrigDatablocks sends a series of POST requests to the server to create original data blocks.
+
+It divides the fullFileArray into blocks based on the BLOCK_MAXFILES and BLOCK_MAXBYTES constants, and sends a request for each block.
+
+Parameters:
+
+client: The HTTP client used to send the requests.
+APIServer: The base URL of the API server.
+fullFileArray: An array of Datafile objects representing the files in the dataset.
+datasetId: The ID of the dataset.
+user: A map containing user information. The "accessToken" key should contain the user's access token.
+
+If the total number of files exceeds TOTAL_MAXFILES, the function logs a fatal error.
+If a request receives a response with a status code other than 200, the function logs a fatal error.
+
+The function logs a message for each created data block, including the start and end file, the total size, and the number of files in the block.*/
 func createOrigDatablocks(client *http.Client, APIServer string, fullFileArray []Datafile, datasetId string, user map[string]string) {
 	totalFiles := len(fullFileArray)
 	
