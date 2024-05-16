@@ -47,15 +47,15 @@ func TestGenerateDownloadURL(t *testing.T) {
 		}{
 			{
 				osName:      "Linux",
-				expectedURL: "https://github.com/paulscherrerinstitute/scicat-cli/releases/download/v0.1.0/scicat-cli_.0.1.0_Linux_x86_64.tar.gz",
+				expectedURL: "https://github.com/paulscherrerinstitute/scicat-cli/releases/download/v0.1.0/scicat-cli_v0.1.0_Linux_x86_64.tar.gz",
 			},
 			{
 				osName:      "Windows",
-				expectedURL: "https://github.com/paulscherrerinstitute/scicat-cli/releases/download/v0.1.0/scicat-cli_.0.1.0_Windows_x86_64.zip",
+				expectedURL: "https://github.com/paulscherrerinstitute/scicat-cli/releases/download/v0.1.0/scicat-cli_v0.1.0_Windows_x86_64.zip",
 			},
 			{
 				osName:      "Darwin",
-				expectedURL: "https://github.com/paulscherrerinstitute/scicat-cli/releases/download/v0.1.0/scicat-cli_.0.1.0_Darwin_x86_64.tar.gz",
+				expectedURL: "https://github.com/paulscherrerinstitute/scicat-cli/releases/download/v0.1.0/scicat-cli_v0.1.0_Darwin_x86_64.tar.gz",
 			},
 		}
 		
