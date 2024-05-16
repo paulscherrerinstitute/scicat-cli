@@ -38,7 +38,7 @@ func TestBuildRsyncCmd(t *testing.T) {
 			absFileListing:   "/path/to/file",
 			fullSourceFolder: "/source/folder",
 			serverConnectStr: "user@server:/dest/folder",
-			expectedCmd:      "/usr/bin/rsync -r --files-from /path/to/file -e ssh -avxz --progress --stderr=error /source/folder user@server:/dest/folder",
+			expectedCmd:      "/usr/bin/rsync -r --files-from /path/to/file -e ssh -avx --progress --stderr=error /source/folder user@server:/dest/folder",
 		},
 		{
 			name:             "rsync version < 3.2.3, absFileListing not empty",
@@ -46,7 +46,7 @@ func TestBuildRsyncCmd(t *testing.T) {
 			absFileListing:   "/path/to/file",
 			fullSourceFolder: "/source/folder",
 			serverConnectStr: "user@server:/dest/folder",
-			expectedCmd:      "/usr/bin/rsync -r --files-from /path/to/file -e ssh -avxz --progress -q --msgs2stderr /source/folder user@server:/dest/folder",
+			expectedCmd:      "/usr/bin/rsync -r --files-from /path/to/file -e ssh -avx --progress -q --msgs2stderr /source/folder user@server:/dest/folder",
 		},
 		{
 			name:             "rsync version >= 3.2.3, absFileListing empty",
@@ -54,7 +54,7 @@ func TestBuildRsyncCmd(t *testing.T) {
 			absFileListing:   "",
 			fullSourceFolder: "/source/folder",
 			serverConnectStr: "user@server:/dest/folder",
-			expectedCmd:      "/usr/bin/rsync -e ssh -avxz --progress --stderr=error /source/folder user@server:/dest/folder",
+			expectedCmd:      "/usr/bin/rsync -e ssh -avx --progress --stderr=error /source/folder user@server:/dest/folder",
 		},
 		{
 			name:             "rsync version < 3.2.3, absFileListing empty",
@@ -62,7 +62,7 @@ func TestBuildRsyncCmd(t *testing.T) {
 			absFileListing:   "",
 			fullSourceFolder: "/source/folder",
 			serverConnectStr: "user@server:/dest/folder",
-			expectedCmd:      "/usr/bin/rsync -e ssh -avxz --progress -q --msgs2stderr /source/folder user@server:/dest/folder",
+			expectedCmd:      "/usr/bin/rsync -e ssh -avx --progress -q --msgs2stderr /source/folder user@server:/dest/folder",
 		},
 	}
 		
