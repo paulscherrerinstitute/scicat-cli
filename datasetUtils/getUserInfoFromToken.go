@@ -2,7 +2,7 @@ package datasetUtils
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 )
@@ -13,6 +13,13 @@ type UserInfo struct {
 	CurrentGroups    []string `json:"currentGroups"`
 }
 
+/* GetUserInfoFromToken makes a GET request to the provided APIServer with the provided token to fetch user information.
+
+Parameters: client: An *http.Client object to make the HTTP request. APIServer: A string representing the URL of the API server. token: A string representing the user's access token.
+
+Returns: A map[string]string where the keys are "username", "mail", "displayName", and "accessToken", and the values are the corresponding user information. A slice of strings representing the groups the user is a member of.
+
+If the HTTP request fails or the response status code is not 200, the function will log the error and terminate the program. If the user information cannot be unmarshalled into the UserInfo struct or the user cannot be mapped to the token, the function will log the error and terminate the program. */
 func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (map[string]string, []string) {
 	u := make(map[string]string)
 	accessGroups := make([]string, 0)
@@ -26,7 +33,7 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != 200 {
 		log.Fatalf("Could not login with token:%v, status %v", token, resp.StatusCode)
