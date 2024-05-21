@@ -177,55 +177,82 @@ func TestDecodePid(t *testing.T) {
 }
 
 func TestCreateOrigDatablocks(t *testing.T) {
-	// keep track of the number of requests
-	var requestCount int
-	
-	// Create a mock HTTP server
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		// Increment the request count for each request
-		requestCount++
-		
-		// Check if the request method is POST
-		if req.Method != http.MethodPost {
-			t.Errorf("Expected POST request, got %s", req.Method)
-		}
-		
-		// Check if the request URL is correct
-		expectedURL := "/OrigDatablocks?access_token=testToken"
-		if req.URL.String() != expectedURL {
-			t.Errorf("Expected request to %s, got %s", expectedURL, req.URL.String())
-		}
-		
-		rw.WriteHeader(http.StatusOK)
-	}))
-	// Close the server when test finishes
-	defer server.Close()
-	
-	// Create a mock HTTP client
-	client := server.Client()
-	
-	// Define test data
-	datafiles := []Datafile{
+	// Define test cases
+	testCases := []struct {
+		name           string
+		blockMaxFiles  int
+		datafiles      []Datafile
+		expectedRequests int
+		}{
 		{
-			Size: 100,
+			name:          "Case 1: BLOCK_MAXFILES > len(datafiles)",
+			blockMaxFiles: 20000,
+			datafiles:     make([]Datafile, 10000),
+			expectedRequests: 1,
 		},
 		{
-			Size: 200,
+			name:          "Case 2: BLOCK_MAXFILES < len(datafiles)",
+			blockMaxFiles: 5000,
+			datafiles:     makeDatafiles(10000, BLOCK_MAXBYTES/5000 + 1), // Create 10000 data files with size BLOCK_MAXBYTES/5000 + 1
+			expectedRequests: 2,
 		},
 		{
-			Size: 900,
+			name:          "Case 3: BLOCK_MAXFILES = len(datafiles)",
+			blockMaxFiles: 10000,
+			datafiles:     make([]Datafile, 10000),
+			expectedRequests: 1,
 		},
 	}
-	user := map[string]string{
-		"accessToken": "testToken",
+		
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Keep track of the number of requests
+			var numRequests int
+
+			// Create a mock HTTP server
+			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+					// Increment the request count for each request
+					numRequests++
+
+				// Check if the request method is POST
+				if req.Method != http.MethodPost {
+					t.Errorf("Expected POST request, got %s", req.Method)
+				}
+				
+				// Check if the request URL is correct
+				expectedURL := "/OrigDatablocks?access_token=testToken"
+				if req.URL.String() != expectedURL {
+					t.Errorf("Expected request to %s, got %s", expectedURL, req.URL.String())
+				}
+				
+				rw.WriteHeader(http.StatusOK)
+			}))
+			// Close the server when test finishes
+			defer server.Close()
+			
+			// Create a mock HTTP client
+			client := server.Client()
+			
+			// Define user data
+			user := map[string]string{
+				"accessToken": "testToken",
+			}
+			
+			// Call the function with test data
+			createOrigDatablocks(client, server.URL, tc.datafiles, "testDatasetId", user)
+			
+			// Check if the correct number of requests were made
+			if numRequests != tc.expectedRequests {
+					t.Errorf("Expected %d requests, got %d", tc.expectedRequests, numRequests)
+			}
+		})
 	}
-	
-	// Call the function with test data
-	createOrigDatablocks(client, server.URL, datafiles, "testDatasetId", user)
-	
-	// Check if the correct number of requests were made
-	expectedRequestCount := (len(datafiles) + BLOCK_MAXFILES - 1) / BLOCK_MAXFILES
-	if requestCount != expectedRequestCount {
-		t.Errorf("Expected %d requests, got %d", expectedRequestCount, requestCount)
+}
+
+func makeDatafiles(numFiles, size int) []Datafile {
+	datafiles := make([]Datafile, numFiles)
+	for i := range datafiles {
+		datafiles[i] = Datafile{Size: int64(size)}
 	}
+	return datafiles
 }
