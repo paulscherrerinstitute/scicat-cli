@@ -5,7 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"encoding/json"
-	"strings"
+	"reflect"
+	"sort"
 )
 
 // Checks if the function returns a job ID when it successfully creates a job.
@@ -59,13 +60,54 @@ func TestConstructJobRequest(t *testing.T) {
 	if err := json.Unmarshal(bmm, &data); err != nil {
 		t.Errorf("constructJobRequest() returned invalid JSON: %v", err)
 	}
-
-	// Check if the JSON byte array contains the user email and username
-	if !strings.Contains(string(bmm), user["mail"]) {
-		t.Errorf("constructJobRequest() did not include the user email in the request")
+	
+	// Remove the creationTime field from the actual JSON
+	delete(data, "creationTime")
+	
+	// Define the expected data
+	expectedData := map[string]interface{}{
+		"emailJobInitiator": user["mail"],
+		"jobParams": map[string]interface{}{
+			"username": user["username"],
+			"destinationPath": "/archive/retrieve",
+		},
+		"datasetList": []interface{}{
+			map[string]interface{}{"pid": datasetList[0], "files": []interface{}{}},
+			map[string]interface{}{"pid": datasetList[1], "files": []interface{}{}},
+		},
+		"jobStatusMessage": "jobSubmitted",
+		"type": "retrieve",
 	}
-	if !strings.Contains(string(bmm), user["username"]) {
-		t.Errorf("constructJobRequest() did not include the username in the request")
+	
+	// Compare individual fields
+	for key, expectedValue := range expectedData {
+		if actualValue, ok := data[key]; ok {
+			if key == "datasetList" {
+				// Assert the underlying type of actualValue and expectedValue to []interface{}
+				actualList, ok1 := actualValue.([]interface{})
+				expectedList, ok2 := expectedValue.([]interface{})
+				if !ok1 || !ok2 {
+					t.Errorf("constructJobRequest() returned unexpected type for key %v: got %T want %T", key, actualValue, expectedValue)
+					continue
+				}
+				
+				// Sort the datasetList slice before comparing
+				sort.Slice(actualList, func(i, j int) bool {
+					return actualList[i].(map[string]interface{})["pid"].(string) < actualList[j].(map[string]interface{})["pid"].(string)
+				})
+				sort.Slice(expectedList, func(i, j int) bool {
+					return expectedList[i].(map[string]interface{})["pid"].(string) < expectedList[j].(map[string]interface{})["pid"].(string)
+				})
+				
+				actualValue = actualList
+				expectedValue = expectedList
+			}
+			if !reflect.DeepEqual(actualValue, expectedValue) {
+				t.Errorf("constructJobRequest() returned unexpected JSON for key %v: got %v want %v", key, actualValue, expectedValue)
+			}
+		} else {
+			t.Errorf("constructJobRequest() did not return expected key in JSON: %v", key)
+		}
 	}
 }
 
