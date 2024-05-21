@@ -180,26 +180,22 @@ func TestCreateOrigDatablocks(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
 		name           string
-		blockMaxFiles  int
 		datafiles      []Datafile
 		expectedRequests int
 		}{
 		{
 			name:          "Case 1: BLOCK_MAXFILES > len(datafiles)",
-			blockMaxFiles: 20000,
-			datafiles:     make([]Datafile, 10000),
+			datafiles:     makeDatafiles(10000, BLOCK_MAXBYTES/10000),
 			expectedRequests: 1,
 		},
 		{
 			name:          "Case 2: BLOCK_MAXFILES < len(datafiles)",
-			blockMaxFiles: 5000,
-			datafiles:     makeDatafiles(10000, BLOCK_MAXBYTES/5000 + 1), // Create 10000 data files with size BLOCK_MAXBYTES/5000 + 1
-			expectedRequests: 2,
+			datafiles:     makeDatafiles(40000, BLOCK_MAXBYTES/10000),
+			expectedRequests: 4,
 		},
 		{
 			name:          "Case 3: BLOCK_MAXFILES = len(datafiles)",
-			blockMaxFiles: 10000,
-			datafiles:     make([]Datafile, 10000),
+			datafiles:     makeDatafiles(20000, BLOCK_MAXBYTES/20000),
 			expectedRequests: 1,
 		},
 	}
