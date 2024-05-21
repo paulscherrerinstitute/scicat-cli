@@ -57,28 +57,12 @@ func TestSendIngestCommand(t *testing.T) {
 
 	// Mock user map
 	user := map[string]string{
-		"displayName": "csaxsswissfel",
-		"mail":        "testuser@example.com",
-		"accessToken": "test-access-token",
+		"displayName": "test user",
 	}
 
 	// Mock metaDataMap
 	metaDataMap := map[string]interface{}{
-		"accessGroups":          []string{},
-		"contactEmail":          "testuser@example.com",
-		"creationLocation":      "/PSI/",
-		"creationTime":          "2300-01-01T11:11:11.000Z",
-		"datasetName":           "CMakeCache",
-		"description":           "",
-		"endTime":               "2300-01-01T11:11:11.000Z",
-		"owner":                 "first last",
-		"ownerEmail":            "test@example.com",
-		"ownerGroup":            "group1",
-		"principalInvestigator": "test@example.com",
-		"scientificMetadata":    []map[string]map[string]string{{"sample": {"description": "", "name": "", "principalInvestigator": ""}}},
-		"sourceFolder":          "/usr/share/gnome",
-		"sourceFolderHost":      "PC162.psi.ch",
-		"type":                  "raw",
+		"type": "raw",
 	}
 
 	// Mock datafiles
