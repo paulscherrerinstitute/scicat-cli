@@ -42,7 +42,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -200,7 +199,8 @@ func main() {
 		return
 	}
 
-	user, accessGroups := datasetUtils.Authenticate(client, APIServer, token, userpass)
+	auth := &datasetUtils.RealAuthenticator{}
+	user, accessGroups := datasetUtils.Authenticate(auth, client, APIServer, token, userpass)
 
 	/* TODO Add info about policy settings and that autoarchive will take place or not */
 
@@ -216,7 +216,7 @@ func main() {
 		folders = append(folders, sourceFolder)
 	} else {
 		// get folders from file
-		folderlist, err := ioutil.ReadFile(folderlistingPath)
+		folderlist, err := os.ReadFile(folderlistingPath)
 		if err != nil {
 			log.Fatal(err)
 		}

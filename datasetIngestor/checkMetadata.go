@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/paulscherrerinstitute/scicat/datasetUtils"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -61,7 +61,7 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 
 // readMetadataFromFile reads the metadata from the file and unmarshals it into a map.
 func readMetadataFromFile(metadatafile string) (map[string]interface{}, error) {
-	b, err := ioutil.ReadFile(metadatafile) // just pass the file name
+	b, err := os.ReadFile(metadatafile) // just pass the file name
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -333,7 +333,7 @@ func checkMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	_, err = ioutil.ReadAll(resp.Body)
+	_, err = io.ReadAll(resp.Body)
 	if err != nil {
 			return err
 	}

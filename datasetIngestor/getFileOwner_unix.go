@@ -10,6 +10,10 @@ import (
 	"syscall"
 )
 
+/* GetFileOwner retrieves the owner of a given file. It takes an os.FileInfo object as input
+and returns two strings: the username of the file's owner and the name of the group that owns the file.
+If the user or group cannot be determined, it returns the user ID or group ID as a string.
+If there is an error during the lookup of the user or group, it prefixes the user ID with "e" and uses the group ID as is.*/
 func GetFileOwner(f os.FileInfo) (uidName string, gidName string) {
 	uid := strconv.Itoa(int(f.Sys().(*syscall.Stat_t).Uid))
 	u, err2 := user.LookupId(uid)
