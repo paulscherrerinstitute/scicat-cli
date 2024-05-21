@@ -8,7 +8,12 @@ import (
 	"syscall"
 )
 
-func Authenticate(httpClient *http.Client, APIServer string, token *string, userpass *string) (map[string]string, []string) {
+// Authenticate handles user authentication by prompting the user for their credentials,
+// validating these credentials against the authentication server, 
+// and returning an authentication token if the credentials are valid. 
+// This token can then be used for authenticated requests to the server.
+// If the credentials are not valid, the function returns an error.
+func Authenticate(auth Authenticator, httpClient *http.Client, APIServer string, token *string, userpass *string) (map[string]string, []string) {
 	user := make(map[string]string)
 	accessGroups := make([]string, 0)
 
@@ -37,13 +42,14 @@ func Authenticate(httpClient *http.Client, APIServer string, token *string, user
 			}
 			username = strings.Split(*userpass, ":")[0]
 		}
-		user, accessGroups = AuthenticateUser(httpClient, APIServer, username, password)
+		user, accessGroups = auth.AuthenticateUser(httpClient, APIServer, username, password)
 	} else {
 		var err error
 		user, accessGroups, err = GetUserInfoFromToken(httpClient, APIServer, *token)
 		if err != nil {
 			log.Fatalf("Failed to get user info from token: %v", err)
 		}
+
 		// extract password if defined in userpass value
 		u := strings.Split(*userpass, ":")
 		if len(u) == 2 {
@@ -51,4 +57,20 @@ func Authenticate(httpClient *http.Client, APIServer string, token *string, user
 		}
 	}
 	return user, accessGroups
+}
+
+// An interface with the methods so that we can mock them in tests
+type Authenticator interface {
+	AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string)
+	GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string)
+}
+
+type RealAuthenticator struct{}
+
+func (r *RealAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string) {
+    return AuthenticateUser(httpClient, APIServer, username, password)
+}
+
+func (r *RealAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string) {
+    return GetUserInfoFromToken(httpClient, APIServer, token)
 }

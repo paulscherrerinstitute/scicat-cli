@@ -60,16 +60,16 @@ func getRsyncVersion() (string, error) {
 
 // Check rsync version and adjust command accordingly
 func buildRsyncCmd(versionNumber, absFileListing, fullSourceFolderPath, serverConnectString string) *exec.Cmd {
-	rsyncFlags := []string{"-e", "ssh", "-avxz", "--progress"}
+	rsyncFlags := []string{"-e", "ssh", "-avx", "--progress"}
 	if absFileListing != "" {
 		rsyncFlags = append([]string{"-r", "--files-from", absFileListing}, rsyncFlags...)
 	}
 	if version.Compare(versionNumber, "3.2.3", ">=") {
 		rsyncFlags = append(rsyncFlags, "--stderr=error")
-		// Full command: /usr/bin/rsync -e ssh -avxz --progress -r --files-from <absFileListing> --stderr=error <fullSourceFolderPath> <serverConnectString>
+		// Full command: /usr/bin/rsync -e ssh -avx --progress -r --files-from <absFileListing> --stderr=error <fullSourceFolderPath> <serverConnectString>
 	} else {
 		rsyncFlags = append(rsyncFlags, "-q", "--msgs2stderr")
-		// Full command: /usr/bin/rsync -e ssh -avxz --progress -r --files-from <absFileListing> -q --msgs2stderr <fullSourceFolderPath> <serverConnectString>
+		// Full command: /usr/bin/rsync -e ssh -avx --progress -r --files-from <absFileListing> -q --msgs2stderr <fullSourceFolderPath> <serverConnectString>
 	}
 	rsyncCmd := exec.Command("/usr/bin/rsync", append(rsyncFlags, fullSourceFolderPath, serverConnectString)...)
 	return rsyncCmd

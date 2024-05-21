@@ -85,7 +85,8 @@ func main() {
 		return
 	}
 
-	user, accessGroups := datasetUtils.Authenticate(client, APIServer, token, userpass)
+	auth := &datasetUtils.RealAuthenticator{}
+	user, accessGroups := datasetUtils.Authenticate(auth, client, APIServer, token, userpass)
 	proposal := datasetUtils.GetProposal(client, APIServer, ownerGroup, user, accessGroups)
 	// proposal is of type map[string]interface{}
 
