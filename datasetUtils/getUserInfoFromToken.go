@@ -24,7 +24,6 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 	u := make(map[string]string)
 	accessGroups := make([]string, 0)
 	
-	// url := APIServer + "/Users/userInfos" # uncomment if you use the Authorization header method
 	url := APIServer + "/Users/userInfos?access_token=" + token
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -32,7 +31,6 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 	}
 	
 	req.Header.Set("Content-Type", "application/json")
-	// req.Header.Set("Authorization", "Bearer "+token)  # NOTE: this is a more secure method, but I am not sure whether the server accepts tokens in the Authorization header.
 	
 	resp, err := client.Do(req)
 	if err != nil {
