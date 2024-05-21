@@ -11,6 +11,14 @@ import (
 	"github.com/fatih/color"
 )
 
+const (
+	Classification = "classification"
+	AVLow = "AV=low"
+	AVMedium = "AV=medium"
+	INMedium = "IN=medium"
+	COLow = "CO=low"
+)
+
 /*
 getAVFromPolicy retrieves the AV (?) from a policy. 
 
@@ -110,49 +118,66 @@ func addFieldIfNotExists(metaDataMap map[string]interface{}, fieldName string, v
 }
 
 func updateClassificationField(client *http.Client, APIServer string, user map[string]string, metaDataMap map[string]interface{}, tapecopies *int) {
-	if _, ok := metaDataMap["classification"]; !ok {
-		// take default from policy settings
-		metaDataMap["classification"] = "IN=medium" + ",AV=" + getAVFromPolicy(client, APIServer, user, metaDataMap["ownerGroup"].(string)) + ",CO=low"
-		log.Printf("classification field added: %v\n", metaDataMap["classification"])
+	if _, ok := metaDataMap[Classification]; !ok {
+		addDefaultClassification(client, APIServer, user, metaDataMap)
 	}
-
+	
 	if *tapecopies == 1 || *tapecopies == 2 {
-		var av string
-		if *tapecopies == 1 {
-			av = "AV=low"
-		}
-		if *tapecopies == 2 {
-			av = "AV=medium"
-		}
-		var newresult []string
-		if val, ok := metaDataMap["classification"]; ok {
-			result := strings.Split(val.(string), ",")
-			// check for AV field and if existing override
-			found := false
-			for _, element := range result {
-				if element == "" {
-					continue
-				}
-				if strings.HasPrefix(element, "AV=") {
-					newresult = append(newresult, av)
-					found = true
-				} else {
-					newresult = append(newresult, element)
-				}
-			}
-			if !found {
-				newresult = append(newresult, av)
-			}
-			metaDataMap["classification"] = strings.Join(newresult, ",")
-		} else {
-			metaDataMap["classification"] = "IN=medium," + av + ",CO=low"
-		}
-		log.Printf("classification field adjusted: %s\n", metaDataMap["classification"])
+		updateAVField(metaDataMap, tapecopies)
 	}
+	
+	if strings.Contains(metaDataMap[Classification].(string), AVMedium) {
+		logAVMediumMessage()
+	}
+}
 
-	if strings.Contains(metaDataMap["classification"].(string), "AV=medium") {
-		color.Set(color.FgYellow)
-		log.Printf("Note: this dataset, if archived, will be copied to two tape copies")
+func addDefaultClassification(client *http.Client, APIServer string, user map[string]string, metaDataMap map[string]interface{}) {
+	metaDataMap[Classification] = INMedium + ",AV=" + getAVFromPolicy(client, APIServer, user, metaDataMap["ownerGroup"].(string)) + "," + COLow
+	log.Printf("classification field added: %v\n", metaDataMap[Classification])
+}
+
+func updateAVField(metaDataMap map[string]interface{}, tapecopies *int) {
+	av := getAVValue(tapecopies)
+	if _, ok := metaDataMap[Classification]; ok {
+		newresult := getUpdatedClassification(metaDataMap, av)
+		metaDataMap[Classification] = strings.Join(newresult, ",")
+	} else {
+		metaDataMap[Classification] = INMedium + "," + av + "," + COLow
 	}
+	log.Printf("classification field adjusted: %s\n", metaDataMap[Classification])
+}
+
+func getAVValue(tapecopies *int) string {
+	if *tapecopies == 1 {
+		return AVLow
+	}
+	return AVMedium
+}
+
+func getUpdatedClassification(metaDataMap map[string]interface{}, av string) []string {
+	result := strings.Split(metaDataMap[Classification].(string), ",")
+	// check for AV field and if existing override it
+	newresult := make([]string, 0, len(result))
+	found := false
+	for _, element := range result {
+		if element == "" {
+			continue
+	}
+	if strings.HasPrefix(element, "AV=") {
+		newresult = append(newresult, av)
+		found = true
+		} else {
+			newresult = append(newresult, element)
+		}
+	}
+	if !found {
+		newresult = append(newresult, av)
+	}
+	return newresult
+}
+
+func logAVMediumMessage() {
+	color.Set(color.FgYellow)
+	log.Printf("Note: this dataset, if archived, will be copied to two tape copies")
 	color.Unset()
 }

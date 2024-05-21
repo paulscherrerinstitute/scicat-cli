@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+	"reflect"
 )
 
 func TestGetAVFromPolicy(t *testing.T) {
@@ -151,6 +152,9 @@ func TestUpdateClassificationField(t *testing.T) {
 	}
 	tapecopies := new(int)
 	*tapecopies = 1
+
+	expectedValue1 := "IN=medium,AV=low,CO=low"
+	expectedValue2 := "IN=medium,AV=medium,CO=low"
 	
 	// Call the function
 	updateClassificationField(client, APIServer, user, metaDataMap, tapecopies)
@@ -158,5 +162,79 @@ func TestUpdateClassificationField(t *testing.T) {
 	// Check results
 	if _, ok := metaDataMap["classification"]; !ok {
 		t.Errorf("Expected classification to be set, got '%v'", metaDataMap["classification"])
+	} else if metaDataMap["classification"] != expectedValue1 {
+		t.Errorf("Expected classification to be '%v', got '%v'", expectedValue1, metaDataMap["classification"])
+	}
+	
+	// Change tapecopies to 2 and call the function again
+	*tapecopies = 2
+	updateClassificationField(client, APIServer, user, metaDataMap, tapecopies)
+	
+	// Check results
+	if _, ok := metaDataMap["classification"]; !ok {
+		t.Errorf("Expected classification to be set, got '%v'", metaDataMap["classification"])
+	} else if metaDataMap["classification"] != expectedValue2 {
+		t.Errorf("Expected classification to be '%v', got '%v'", expectedValue2, metaDataMap["classification"])
+	}
+}
+
+// checks that the function correctly updates the "AV" field in the classification string
+func TestGetUpdatedClassification(t *testing.T) {
+	metaDataMap := map[string]interface{}{
+		"classification": "IN=medium,AV=low,CO=low",
+	}
+	av := "AV=medium"
+	
+	expected := []string{"IN=medium", "AV=medium", "CO=low"}
+	result := getUpdatedClassification(metaDataMap, av)
+	
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("getUpdatedClassification() = %v; want %v", result, expected)
+	}
+}
+
+func TestGetAVValue(t *testing.T) {
+	tapecopies1 := 1
+	tapecopies2 := 2
+	
+	expected1 := AVLow
+	expected2 := AVMedium
+	
+	result1 := getAVValue(&tapecopies1)
+	result2 := getAVValue(&tapecopies2)
+	
+	if result1 != expected1 {
+		t.Errorf("getAVValue() with tapecopies = 1 = %v; want %v", result1, expected1)
+	}
+	
+	if result2 != expected2 {
+		t.Errorf("getAVValue() with tapecopies = 2 = %v; want %v", result2, expected2)
+	}
+}
+
+func TestUpdateAVField(t *testing.T) {
+	tapecopies1 := 1
+	tapecopies2 := 2
+	
+	metaDataMap1 := map[string]interface{}{
+		"classification": "IN=medium,AV=medium,CO=low",
+	}
+	
+	metaDataMap2 := map[string]interface{}{
+		"classification": "IN=medium,AV=low,CO=low",
+	}
+	
+	expected1 := "IN=medium,AV=low,CO=low"
+	expected2 := "IN=medium,AV=medium,CO=low"
+	
+	updateAVField(metaDataMap1, &tapecopies1)
+	updateAVField(metaDataMap2, &tapecopies2)
+	
+	if metaDataMap1["classification"] != expected1 {
+		t.Errorf("updateAVField() with tapecopies = 1 = %v; want %v", metaDataMap1["classification"], expected1)
+	}
+	
+	if metaDataMap2["classification"] != expected2 {
+		t.Errorf("updateAVField() with tapecopies = 2 = %v; want %v", metaDataMap2["classification"], expected2)
 	}
 }
