@@ -8,6 +8,8 @@ import (
 	"regexp"
 )
 
+const DatasetIdPrefix = "20.500.11935"
+
 /*
 GetAvailableDatasets retrieves a list of available datasets from a remote RSYNC server.
 
@@ -37,10 +39,10 @@ func GetAvailableDatasets(username string, RSYNCServer string, singleDatasetId s
 }
 
 func formatDatasetId(datasetId string) string {
-	if strings.HasPrefix(datasetId, "20.500.11935") {
+	if strings.HasPrefix(datasetId, DatasetIdPrefix) {
 		return datasetId
 	}
-	return "20.500.11935/" + datasetId
+	return DatasetIdPrefix + "/" + datasetId
 }
 
 func fetchDatasetsFromServer(username string, RSYNCServer string) ([]string, error) {
@@ -71,7 +73,7 @@ func parseRsyncOutput(output []byte) []string {
 	for _, fileLine := range remoteListing {
 		columns := strings.Fields(fileLine)
 		if len(columns) == 5 && strings.HasPrefix(columns[0], "d") && len(columns[4]) == 36 {
-			datasets = append(datasets, "20.500.11935/"+columns[4])
+			datasets = append(datasets, DatasetIdPrefix+"/"+columns[4])
 		}
 	}
 	return datasets

@@ -19,7 +19,7 @@ func TestGetAvailableDatasets(t *testing.T) {
 	
 	// Test single dataset ID
 	datasetID := "12345"
-	expected := []string{"20.500.11935/" + datasetID}
+	expected := []string{DatasetIdPrefix + "/" + datasetID}
 	result, _ := GetAvailableDatasets("username", "rsyncserver", datasetID)
 	assert.Equal(t, expected, result, "The two slices should be the same.")
 }
@@ -53,8 +53,8 @@ func TestParseRsyncOutput(t *testing.T) {
 	drwxr-xr-x          4,096 2022/01/01 01:01:01 987654321098765432109876543210987654
 	`)
 	expected := []string{
-		"20.500.11935/123456789012345678901234567890123456",
-		"20.500.11935/987654321098765432109876543210987654",
+		DatasetIdPrefix + "/123456789012345678901234567890123456",
+		DatasetIdPrefix + "/987654321098765432109876543210987654",
 	}
 	actual := parseRsyncOutput(output)
 	
@@ -64,8 +64,8 @@ func TestParseRsyncOutput(t *testing.T) {
 }
 
 func TestFormatDatasetId(t *testing.T) {
-	datasetId := "20.500.11935/testId"
-	expected := "20.500.11935/testId"
+	datasetId := DatasetIdPrefix + "/testId"
+	expected := DatasetIdPrefix + "/testId"
 	actual := formatDatasetId(datasetId)
 	
 	if expected != actual {
@@ -73,7 +73,7 @@ func TestFormatDatasetId(t *testing.T) {
 	}
 	
 	datasetId = "testId"
-	expected = "20.500.11935/testId"
+	expected = DatasetIdPrefix + "/testId"
 	actual = formatDatasetId(datasetId)
 	
 	if expected != actual {
