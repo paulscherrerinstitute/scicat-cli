@@ -238,7 +238,10 @@ func augmentMissingMetadata(user map[string]string, metaDataMap map[string]inter
 					if !ok {
 						return fmt.Errorf("ownerGroup is not a string")
 					}
-					proposal := datasetUtils.GetProposal(client, APIServer, ownerGroup, user, accessGroups)
+					proposal, err := datasetUtils.GetProposal(client, APIServer, ownerGroup, user, accessGroups)
+					if err != nil {
+						log.Fatalf("Error: %v\n", err)
+					}
 					if val, ok := proposal["pi_email"]; ok {
 						piEmail, ok := val.(string)
 						if !ok {

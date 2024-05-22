@@ -87,7 +87,11 @@ func main() {
 
 	auth := &datasetUtils.RealAuthenticator{}
 	user, accessGroups := datasetUtils.Authenticate(auth, client, APIServer, token, userpass)
-	proposal := datasetUtils.GetProposal(client, APIServer, ownerGroup, user, accessGroups)
+	proposal, err := datasetUtils.GetProposal(client, APIServer, ownerGroup, user, accessGroups)
+	if err != nil {
+		log.Fatalf("Error: %v\n", err)
+	}
+
 	// proposal is of type map[string]interface{}
 
 	if len(proposal) > 0 {
