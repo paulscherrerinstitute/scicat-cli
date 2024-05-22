@@ -6,7 +6,7 @@ import (
 )
 
 
-
+// GetJson sends a GET request to a specified URL and decodes the JSON response into a target variable.
 func GetJson(client *http.Client, myurl string, target interface{}) error {
 	r, err := client.Get(myurl)
 	if err != nil {
