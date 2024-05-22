@@ -118,7 +118,11 @@ func main() {
 		color.Unset()
 	} else {
 		// create retrieve Job
-		jobId := datasetUtils.CreateRetrieveJob(client, APIServer, user, datasetList)
-		fmt.Println(jobId)
+		jobId, err := datasetUtils.CreateRetrieveJob(client, APIServer, user, datasetList)
+		if err != nil {
+			log.Fatal(err)
+		} else{
+			fmt.Println(jobId)
+		}
 	}
 }

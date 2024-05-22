@@ -6,12 +6,10 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"fmt"
 )
 
-func CreateRetrieveJob(client *http.Client, APIServer string, user map[string]string, datasetList []string) (jobId string) {
-	// important: define field with capital names and rename fields via 'json' constructs
-	// otherwise the marshaling will omit the fields !
-
+func constructJobRequest(user map[string]string, datasetList []string) ([]byte, error) {
 	type datasetStruct struct {
 		Pid   string   `json:"pid"`
 		Files []string `json:"files"`
@@ -32,27 +30,31 @@ func CreateRetrieveJob(client *http.Client, APIServer string, user map[string]st
 	emptyfiles := make([]string, 0)
 
 	var dsMap []datasetStruct
-	for i := 0; i < len(datasetList); i++ {
-		dsMap = append(dsMap, datasetStruct{datasetList[i], emptyfiles})
+	for _, dataset := range datasetList {
+		dsMap = append(dsMap, datasetStruct{dataset, emptyfiles})
 	}
 	jobMap["datasetList"] = dsMap
 
 	// marshal to JSON
-	var bmm []byte
-	bmm, _ = json.Marshal(jobMap)
-	// fmt.Printf("Marshalled job description : %s\n", string(bmm))
+	return json.Marshal(jobMap)
+}
 
-	// now send  archive job request
+func sendJobRequest(client *http.Client, APIServer string, user map[string]string, bmm []byte) (*http.Response, error) {
 	myurl := APIServer + "/Jobs?access_token=" + user["accessToken"]
 	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bmm))
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	defer resp.Body.Close()
+	return resp, nil
+}
 
+func handleJobResponse(resp *http.Response, user map[string]string) (string, error) {
 	if resp.StatusCode == 200 {
 		log.Println("Job response Status: okay")
 		log.Println("A confirmation email will be sent to", user["mail"])
@@ -60,11 +62,46 @@ func CreateRetrieveJob(client *http.Client, APIServer string, user map[string]st
 		var j Job
 		err := decoder.Decode(&j)
 		if err != nil {
-			log.Fatal("Could not decode id from job:", err)
+			return "", fmt.Errorf("could not decode id from job: %v", err)
 		}
-		return j.Id
+		return j.Id, nil
 	} else {
 		log.Println("Job response Status: there are problems:", resp.StatusCode)
-		return ""
+		return "", fmt.Errorf("Job response Status: there are problems: %d", resp.StatusCode)
 	}
+}
+
+/*
+CreateRetrieveJob creates a job to retrieve a dataset from an API server.
+
+Parameters:
+- client: An *http.Client object that is used to send the HTTP request.
+- APIServer: A string representing the URL of the API server.
+- user: A map[string]string containing user information. It should have keys "mail", "username", and "accessToken".
+- datasetList: A slice of strings representing the list of datasets to be retrieved.
+
+The function constructs a job request with the provided parameters and sends it to the API server. If the job is successfully created, it returns the job ID as a string. If the job creation fails, it returns an empty string.
+
+The function logs the status of the job creation and sends a confirmation email to the user if the job is successfully created.
+
+Note: The function will terminate the program if it encounters an error while sending the HTTP request or decoding the job ID from the response.
+*/
+func CreateRetrieveJob(client *http.Client, APIServer string, user map[string]string, datasetList []string) (jobId string, err error) {
+	bmm, err := constructJobRequest(user, datasetList)
+	if err != nil {
+		return "", err
+	}
+	
+	resp, err := sendJobRequest(client, APIServer, user, bmm)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	
+	jobId, err = handleJobResponse(resp, user)
+	if err != nil {
+		return "", err
+	}
+	
+	return jobId, nil
 }
