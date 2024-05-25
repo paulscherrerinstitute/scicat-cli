@@ -133,7 +133,10 @@ func main() {
 		fmt.Println("Did you submit a retrieve job from the data catalog first ?")
 	} else {
 		// get sourceFolder and other dataset related info for all Datasets
-		datasetDetails := datasetUtils.GetDatasetDetails(client, APIServer, user["accessToken"], datasetList, *ownerGroup)
+		datasetDetails, err := datasetUtils.GetDatasetDetails(client, APIServer, user["accessToken"], datasetList, *ownerGroup)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		// assemble rsync commands to be submitted
 		batchCommands, destinationFolders := assembleRsyncCommands(user["username"], datasetDetails, destinationPath)
