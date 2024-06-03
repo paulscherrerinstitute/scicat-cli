@@ -37,37 +37,6 @@ func TestFetchLatestVersion(t *testing.T) {
 	}
 }
 
-func TestGenerateDownloadURL(t *testing.T) {
-	deployLocation := "https://github.com/paulscherrerinstitute/scicat-cli/releases/download"
-	latestVersion := "0.1.0"
-	
-	testCases := []struct {
-		osName      string
-		expectedURL string
-		}{
-			{
-				osName:      "Linux",
-				expectedURL: "https://github.com/paulscherrerinstitute/scicat-cli/releases/download/v0.1.0/scicat-cli_v0.1.0_Linux_x86_64.tar.gz",
-			},
-			{
-				osName:      "Windows",
-				expectedURL: "https://github.com/paulscherrerinstitute/scicat-cli/releases/download/v0.1.0/scicat-cli_v0.1.0_Windows_x86_64.zip",
-			},
-			{
-				osName:      "Darwin",
-				expectedURL: "https://github.com/paulscherrerinstitute/scicat-cli/releases/download/v0.1.0/scicat-cli_v0.1.0_Darwin_x86_64.tar.gz",
-			},
-		}
-		
-	for _, testCase := range testCases {
-		actualURL := generateDownloadURL(deployLocation, latestVersion, testCase.osName)
-		
-		if actualURL != testCase.expectedURL {
-			t.Errorf("Expected URL to be %s, but got %s", testCase.expectedURL, actualURL)
-		}
-	}
-}
-
 type MockUserInput struct {
     Input string
 }
@@ -87,7 +56,7 @@ func TestCheckForNewVersion(t *testing.T) {
 				name:           "New version available, non-interactive mode",
 				currentVersion: "0.9.0",
 				mockResponse:   `{"tag_name": "v1.0.0"}`,
-				expectedLog:    "You should upgrade to a newer version",
+				expectedLog:    "You can find the download instructions here: https://github.com/paulscherrerinstitute/scicat-cli?tab=readme-ov-file#manual-deployment",
 			},
 			{
 				name:           "No new version available, non-interactive mode",
