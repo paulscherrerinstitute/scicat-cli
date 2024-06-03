@@ -47,13 +47,25 @@ module load Pmodules/1.0.0
 ./build 1.1.10 -f
 ```
 
-As descripted in the buildblock README, the
+As described in the buildblock README, the
 [GUI](https://git.psi.ch/MELANIE/rollout/-/tree/master/Software/00-General/SciCatArchiverGUI)
 needs to be compiled separately and manually copied to AFS.
 
-### Manual deployment
+### Manual deployment and upgrade
 
-Some machines need the tools deployed manually. This can be done as follows:
+This can be followed to deploy or upgrade the tool manually:
+
+1. Go to the GitHub [releases page](https://github.com/paulscherrerinstitute/scicat-cli/releases)
+
+2. Choose the release of interest (`latest` is recommended)
+
+3. Download the file from the `Assets` of the chosen release, making sure to select the one compatible with your OS
+
+4. Decompress the asset
+
+5. Open the folder and run the required APP (grant `execute` permissions if required)
+
+#### One liner for Linux systems
 
 ```bash
 curl -s 'https://api.github.com/repos/paulscherrerinstitute/scicat-cli/releases/latest' \
