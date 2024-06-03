@@ -24,36 +24,70 @@ These can be cross-compiled from any system.
 
 ## Deployment
 
-* Deploy linux versions to online beamline consoles (you need to have write access rights):
+PSI deploys tools to the following locations.
+
+### Pmodule
+
+This provides the tools to the PSI clusters (ra and merlin) and linux workstations.
+
+Detailed instructions are provided with the [datacatalog
+buildblock](https://gitlab.psi.ch/Pmodules/buildblocks/-/tree/master/Tools/datacatalog).
+
+The module downloads the latest release. It can be run from any linux system with AFS
+access. Spencer typically uses `pmod7.psi.ch` as his `-adm` user for building modules.
+
+```bash
+cd buildblocks/Tools/datacatalog
+kinit
+aklog
+# optionally update files/variants.Linux to new version
+# the following may be needed first:
+#export PMODULES_TMPDIR=/var/tmp/$USER
+module load Pmodules/1.0.0
+./build 1.1.10 -f
+```
+
+As descripted in the buildblock README, the
+[GUI](https://git.psi.ch/MELANIE/rollout/-/tree/master/Software/00-General/SciCatArchiverGUI)
+needs to be compiled separately and manually copied to AFS.
+
+### Manual deployment
+
+Some machines need the tools deployed manually. This can be done as follows:
+
+```bash
+curl -s 'https://api.github.com/repos/paulscherrerinstitute/scicat-cli/releases/latest' \
+    | jq -r '.assets[].browser_download_url | select(test("Linux"))' \
+    | wget -qi - -O - \
+    | tar -xz
+```
+
+The latest binaries will be downloaded to `scicat-cli_*/`.
+
+### Beamline consoles
+
+*(Outdated)*
+
+Deploy linux versions to online beamline consoles (you need to have write access rights):
 
 ```bash
 cd linux
 scp datasetArchiver datasetIngestor datasetRetriever  datasetGetProposal datasetCleaner SciCat egli@gfa-lc.psi.ch:/work/sls/bin/
 ```
 
-* Deploy linux versions to the ingest server pbaingest01
+### PBAIngest Server
+
+Deploy linux versions to the ingest server pbaingest01. This is usually done by Michael
+Kallmeier-Glanz.
 
 ```bash
 ssh egli@pbaingest01.psi.ch
 cd bin/
 curl -s https://api.github.com/repos/paulscherrerinstitute/scicat-cli/releases/latest \
-| grep "browser_download_url.*Linux*tar.gz" \
+| grep "browser_download_url.*Linux.*tar.gz" \
 | cut -d : -f 2,3 \
 | tr -d \" \
 | wget -qi -
 tar -xzf scicat-cli_*_Linux_x86_64.tar.gz
 chmod +x datasetIngestor datasetArchiver datasetGetProposal
-```
-
-* Deploy to Ra cluster as a pmodule
-
-```bash
-cd pmodules/buildblocks/Tools/datacatalog
-kinit
-aklog
-# optionally update files/variants.Linux to new version
-# the following may be needed first:
-#export PMODULES_TMPDIR=/var/tmp/egli
-module load Pmodules/1.0.0rc13
-./build 1.1.10 -f
 ```
