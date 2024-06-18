@@ -21,9 +21,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"strings"
 	"time"
+
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 
 	"github.com/fatih/color"
 )
@@ -69,11 +70,26 @@ func main() {
 
 	flag.Parse()
 
+	// param test only
+	if datasetUtils.TestFlags != nil {
+		datasetUtils.TestFlags(map[string]interface{}{
+			"retrieve":   *retrieveFlag,
+			"user":       *userpass,
+			"token":      *token,
+			"nochksum":   *nochksumFlag,
+			"dataset":    *datasetId,
+			"ownergroup": *ownerGroup,
+			"testenv":    *testenvFlag,
+			"devenv":     *devenvFlag,
+			"version":    *showVersion})
+		return
+	}
+
 	if *showVersion {
 		fmt.Printf("%s\n", VERSION)
 		return
 	}
-	
+
 	datasetUtils.CheckForNewVersion(client, APP, VERSION)
 
 	var env string
