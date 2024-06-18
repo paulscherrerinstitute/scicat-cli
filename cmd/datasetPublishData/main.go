@@ -28,10 +28,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 
 	"github.com/fatih/color"
 )
@@ -91,6 +92,19 @@ func main() {
 	showVersion := flag.Bool("version", false, "Show version number and exit")
 
 	flag.Parse()
+
+	if datasetUtils.TestFlags != nil {
+		datasetUtils.TestFlags(map[string]interface{}{
+			"publish":       *publishFlag,
+			"publisheddata": *publishedDataId,
+			"user":          *userpass,
+			"token":         *token,
+			"testenv":       *testenvFlag,
+			"devenv":        *devenvFlag,
+			"version":       *showVersion},
+		)
+		return
+	}
 
 	if *showVersion {
 		fmt.Printf("%s\n", VERSION)
