@@ -124,6 +124,30 @@ func main() {
 
 	flag.Parse()
 
+	if datasetUtils.TestFlags != nil {
+		datasetUtils.TestFlags(
+			map[string]interface{}{
+				"ingest":              *ingestFlag,
+				"testenv":             *testenvFlag,
+				"devenv":              *devenvFlag,
+				"localenv":            *localenvFlag,
+				"tunnelenv":           *tunnelenvFlag,
+				"noninteractive":      *noninteractiveFlag,
+				"user":                *userpass,
+				"token":               *token,
+				"copy":                *copyFlag,
+				"nocopy":              *nocopyFlag,
+				"tapecopies":          *tapecopies,
+				"autoarchive":         *autoarchiveFlag,
+				"linkfiles":           *linkfiles,
+				"allowexistingsource": *allowExistingSourceFolder,
+				"addattachment":       *addAttachment,
+				"addcaption":          *addCaption,
+				"version":             *showVersion,
+			})
+		return
+	}
+
 	// to distinguish between defined and undefined flags needed if interactive questions askes
 	if !*noninteractiveFlag {
 		if !isFlagPassed("linkfiles") {
