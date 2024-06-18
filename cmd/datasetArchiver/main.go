@@ -14,9 +14,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"strings"
 	"time"
+
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 
 	"github.com/fatih/color"
 )
@@ -51,7 +52,21 @@ func main() {
 	showVersion := flag.Bool("version", false, "Show version number and exit")
 
 	flag.Parse()
-	
+
+	if datasetUtils.TestFlags != nil {
+		datasetUtils.TestFlags(map[string]interface{}{
+			"user":           *userpass,
+			"token":          *token,
+			"tapecopies":     *tapecopies,
+			"testenv":        *testenvFlag,
+			"localenv":       *localenvFlag,
+			"devenv":         *devenvFlag,
+			"noninteractive": *nonInteractiveFlag,
+			"version":        *showVersion,
+		})
+		return
+	}
+
 	if *showVersion {
 		fmt.Printf("%s\n", VERSION)
 		return
