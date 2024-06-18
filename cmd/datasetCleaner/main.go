@@ -32,8 +32,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"time"
+
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 
 	"github.com/fatih/color"
 )
@@ -75,12 +76,24 @@ func main() {
 	showVersion := flag.Bool("version", false, "Show version number and exit")
 
 	flag.Parse()
-	
+
+	if datasetUtils.TestFlags != nil {
+		datasetUtils.TestFlags(map[string]interface{}{
+			"user":              *userpass,
+			"token":             *token,
+			"testenv":           *testenvFlag,
+			"devenv":            *devenvFlag,
+			"nonInteractive":    *nonInteractiveFlag,
+			"removeFromCatalog": *removeFromCatalogFlag,
+			"version":           *showVersion})
+		return
+	}
+
 	if *showVersion {
 		fmt.Printf("%s\n", VERSION)
 		return
 	}
-	
+
 	// check for program version only if running interactively
 	datasetUtils.CheckForNewVersion(client, APP, VERSION)
 	datasetUtils.CheckForServiceAvailability(client, *testenvFlag, true)
