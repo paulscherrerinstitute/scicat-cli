@@ -2,6 +2,8 @@
 
 ## Building
 
+### General Informations
+
 For testing, just build `main.go` for each command:
 
 ```
@@ -21,6 +23,13 @@ Tools are compiled for the following architectures:
 - macos / universal
 
 These can be cross-compiled from any system.
+
+### Building the CLI based on Cobra
+
+```
+cd cmd
+go build -o scicat-cli
+```
 
 ## Deployment
 
