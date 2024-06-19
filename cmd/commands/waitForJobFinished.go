@@ -1,156 +1,169 @@
-/*
-
-This script polls the status of a given job and returns when Job is finished
-
-*/
-
-package main
+package cmd
 
 import (
 	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/paulscherrerinstitute/scicat/datasetUtils"
-
 	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
+	"github.com/spf13/cobra"
 )
 
-type Job struct {
-	Id               string
-	JobStatusMessage string
-}
+var waitForJobFinishedCmd = &cobra.Command{
+	Use:   "waitForJobFinished (options)",
+	Short: "Waits for job to be finished",
+	Long:  `This script polls the status of a given job and returns when Job is finished`,
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		// consts & vars
+		var client = &http.Client{
+			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
+			Timeout:   10 * time.Second}
 
-var VERSION string
+		const PROD_API_SERVER string = "https://dacat.psi.ch/api/v3"
+		const TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3"
+		const DEV_API_SERVER string = "https://dacat-development.psi.ch/api/v3"
 
-func main() {
-	var client = &http.Client{
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
-		Timeout:   10 * time.Second}
+		var APIServer string
+		var env string
 
-	const PROD_API_SERVER string = "https://dacat.psi.ch/api/v3"
-	const TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3"
-	const DEV_API_SERVER string = "https://dacat-development.psi.ch/api/v3"
+		// structs
+		type Job struct {
+			Id               string
+			JobStatusMessage string
+		}
 
-	const MANUAL string = "http://melanie.gitpages.psi.ch/SciCatPages"
-	const APP = "waitForJobFinished"
+		// funcs
+		handlePollResponse := func(resp *http.Response) (stopPolling bool, err error) {
+			if resp.StatusCode != 200 {
+				return true, fmt.Errorf("querying dataset details failed with status code %v", resp.StatusCode)
+			}
+			defer resp.Body.Close()
 
-	var APIServer string
-	var env string
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return true, err
+			}
 
-	// pass parameters
-	userpass := flag.String("user", "", "Defines optional username and password")
-	token := flag.String("token", "", "Defines optional API token instead of username:password")
-	jobId := flag.String("job", "", "Defines the job id to poll")
-	testenvFlag := flag.Bool("testenv", false, "Use test environment (qa) instead or production")
-	devenvFlag := flag.Bool("devenv", false, "Use development environment instead or production")
-	showVersion := flag.Bool("version", false, "Show version number and exit")
+			var jobDetails []Job
+			err = json.Unmarshal(body, &jobDetails)
+			if err != nil {
+				return true, err
+			}
+			if len(jobDetails) == 0 {
+				return false, nil
+			}
+			if jobDetails[0].JobStatusMessage == "finished" {
+				return true, nil
+			} else {
+				return false, nil
+			}
+		}
 
-	flag.Parse()
+		// retrieve flags
+		userpass, _ := cmd.Flags().GetString("user")
+		token, _ := cmd.Flags().GetString("token")
+		jobId, _ := cmd.Flags().GetString("job")
+		testenvFlag, _ := cmd.Flags().GetBool("testenv")
+		devenvFlag, _ := cmd.Flags().GetBool("devenv")
+		showVersion, _ := cmd.Flags().GetBool("version")
 
-	// param test only
-	if datasetUtils.TestFlags != nil {
-		datasetUtils.TestFlags(map[string]interface{}{
-			"user":    *userpass,
-			"token":   *token,
-			"job":     *jobId,
-			"testenv": *testenvFlag,
-			"devenv":  *devenvFlag,
-			"version": *showVersion})
+		// command
+		if showVersion {
+			fmt.Printf("%s\n", VERSION)
+			return
+		}
 
-		return
-	}
+		if testenvFlag {
+			APIServer = TEST_API_SERVER
+			env = "test"
+		} else if devenvFlag {
+			APIServer = DEV_API_SERVER
+			env = "dev"
+		} else {
+			APIServer = PROD_API_SERVER
+			env = "production"
+		}
 
-	if *showVersion {
-		fmt.Printf("%s\n", VERSION)
-		return
-	}
+		color.Set(color.FgGreen)
+		log.Printf("You are about to wait for a job to be finished from the === %s === API server...", env)
+		color.Unset()
 
-	if *testenvFlag {
-		APIServer = TEST_API_SERVER
-		env = "test"
-	} else if *devenvFlag {
-		APIServer = DEV_API_SERVER
-		env = "dev"
-	} else {
-		APIServer = PROD_API_SERVER
-		env = "production"
-	}
+		if jobId == "" { /* && *datasetId == "" && *ownerGroup == "" */
+			fmt.Println("\n\nTool to wait for job to be finished")
+			fmt.Printf("Run script without arguments, but specify options:\n\n")
+			fmt.Printf("waitForJobFinished [options] \n\n")
+			fmt.Printf("Use -job option to define the job that should be polled.\n\n")
+			fmt.Printf("For example:\n")
+			fmt.Printf("./waitForJobFinished -job ... \n\n")
+			flag.PrintDefaults()
+			return
+		}
 
-	color.Set(color.FgGreen)
-	log.Printf("You are about to wait for a job to be finished from the === %s === API server...", env)
-	color.Unset()
+		auth := &datasetUtils.RealAuthenticator{}
+		user, _ := datasetUtils.Authenticate(auth, client, APIServer, &token, &userpass)
 
-	if *jobId == "" { /* && *datasetId == "" && *ownerGroup == "" */
-		fmt.Println("\n\nTool to wait for job to be finished")
-		fmt.Printf("Run script without arguments, but specify options:\n\n")
-		fmt.Printf("waitForJobFinished [options] \n\n")
-		fmt.Printf("Use -job option to define the job that should be polled.\n\n")
-		fmt.Printf("For example:\n")
-		fmt.Printf("./waitForJobFinished -job ... \n\n")
-		flag.PrintDefaults()
-		return
-	}
+		filter := `{"where":{"id":"` + jobId + `"}}`
 
-	auth := &datasetUtils.RealAuthenticator{}
-	user, _ := datasetUtils.Authenticate(auth, client, APIServer, token, userpass)
+		v := url.Values{}
+		v.Set("filter", filter)
+		v.Add("access_token", user["accessToken"])
 
-	filter := `{"where":{"id":"` + *jobId + `"}}`
+		var myurl = APIServer + "/Jobs?" + v.Encode()
 
-	v := url.Values{}
-	v.Set("filter", filter)
-	v.Add("access_token", user["accessToken"])
-
-	var myurl = APIServer + "/Jobs?" + v.Encode()
-
-	timeoutchan := make(chan bool)
-	ticker := time.NewTicker(5 * time.Second)
-	quit := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				resp, err := client.Get(myurl)
-				if err != nil {
-					log.Fatal("Get Job failed:", err)
-				}
-				defer resp.Body.Close()
-
-				if resp.StatusCode == 200 {
-					body, _ := ioutil.ReadAll(resp.Body)
-					jobDetails := make([]Job, 0)
-					_ = json.Unmarshal(body, &jobDetails)
-					if len(jobDetails) > 0 {
-						// log.Printf("Job:%v", jobDetails[0].JobStatusMessage)
-						message := jobDetails[0].JobStatusMessage
-						if message[0:8] == "finished" {
-							fmt.Println(message)
-							ticker.Stop()
-							timeoutchan <- true
-						}
+		timeoutchan := make(chan bool)
+		ticker := time.NewTicker(5 * time.Second)
+		quit := make(chan struct{})
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					resp, err := client.Get(myurl)
+					if err != nil {
+						log.Fatal("Get Job failed:", err)
 					}
-				} else {
-					fmt.Printf("Querying dataset details failed with status code %v\n", resp.StatusCode)
+					stopPolling, err := handlePollResponse(resp)
+					if stopPolling {
+						if err != nil {
+							fmt.Println(err)
+						} else {
+							fmt.Println("finished")
+						}
+						ticker.Stop()
+						timeoutchan <- true
+					}
+				case <-quit:
 					ticker.Stop()
 					timeoutchan <- true
 				}
-			case <-quit:
-				ticker.Stop()
-				timeoutchan <- true
 			}
-		}
-	}()
+		}()
 
-	select {
-	case <-timeoutchan:
-		break
-	case <-time.After(time.Hour * 24):
-		break
-	}
+		select {
+		case <-timeoutchan:
+			break
+		case <-time.After(time.Hour * 24):
+			break
+		}
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(waitForJobFinishedCmd)
+
+	waitForJobFinishedCmd.Flags().String("user", "", "Defines optional username and password")
+	waitForJobFinishedCmd.Flags().String("token", "", "Defines optional API token instead of username:password")
+	waitForJobFinishedCmd.Flags().String("job", "", "Defines the job id to poll")
+	waitForJobFinishedCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead or production")
+	waitForJobFinishedCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
+	waitForJobFinishedCmd.Flags().Bool("version", false, "Show version number and exit")
+
+	waitForJobFinishedCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }
