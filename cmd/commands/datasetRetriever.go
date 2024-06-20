@@ -117,6 +117,21 @@ For further help see "` + MANUAL + `"`,
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
+		if datasetUtils.TestFlags != nil {
+			datasetUtils.TestFlags(map[string]interface{}{
+				"retrieve":   retrieveFlag,
+				"testenv":    testenvFlag,
+				"devenv":     devenvFlag,
+				"user":       userpass,
+				"token":      token,
+				"nochksum":   nochksumFlag,
+				"dataset":    datasetId,
+				"ownergroup": ownerGroup,
+				"version":    showVersion,
+			})
+			return
+		}
+
 		// execute command
 		if showVersion {
 			fmt.Printf("%s\n", VERSION)

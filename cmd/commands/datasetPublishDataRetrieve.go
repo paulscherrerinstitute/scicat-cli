@@ -39,6 +39,19 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
+		if datasetUtils.TestFlags != nil {
+			datasetUtils.TestFlags(map[string]interface{}{
+				"retrieve":      retrieveFlag,
+				"publisheddata": publishedDataId,
+				"testenv":       testenvFlag,
+				"devenv":        devenvFlag,
+				"user":          userpass,
+				"token":         token,
+				"version":       showVersion,
+			})
+			return
+		}
+
 		// execute command
 		if showVersion {
 			fmt.Printf("%s\n", VERSION)

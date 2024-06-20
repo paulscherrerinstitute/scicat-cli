@@ -4,13 +4,14 @@
 
 ### General Informations
 
-For testing, just build `main.go` for each command:
+For testing, build the CLI tool as follows:
 
 ```
-go build -o cmd/datasetIngestor/datasetIngestor cmd/datasetIngestor/main.go
+cd cmd
+go build -o scicat-cli
 ```
 
-All applications are built automatically and can be downloaded from the [Releases](https://github.com/paulscherrerinstitute/scicat-cli/releases) section of this repo.
+The CLI is built automatically and can be downloaded from the [Releases](https://github.com/paulscherrerinstitute/scicat-cli/releases) section of this repo.
 
 To build the applications and target architectures locally, use GoReleaser. Check `.goreleaser.yaml` to see the configurations.
 To use GoReleaser, you can run the command `goreleaser release --snapshot --clean` in your terminal. This will build the binaries, create the archives and generate the changelog. The `--snapshot flag` ensures that no publishing will happen.
@@ -23,13 +24,6 @@ Tools are compiled for the following architectures:
 - macos / universal
 
 These can be cross-compiled from any system.
-
-### Building the CLI based on Cobra
-
-```
-cd cmd
-go build -o scicat-cli
-```
 
 ## Deployment
 

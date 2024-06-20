@@ -49,6 +49,20 @@ For further help see "` + MANUAL + `"`,
 		nonInteractiveFlag, _ := cmd.Flags().GetBool("noninteractive")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
+		if datasetUtils.TestFlags != nil {
+			datasetUtils.TestFlags(map[string]interface{}{
+				"user":           userpass,
+				"token":          token,
+				"tapecopies":     tapecopies,
+				"testenv":        testenvFlag,
+				"localenv":       localenvFlag,
+				"devenv":         devenvFlag,
+				"noninteractive": nonInteractiveFlag,
+				"version":        showVersion,
+			})
+			return
+		}
+
 		// execute command
 		if showVersion {
 			fmt.Printf("%s\n", VERSION)
@@ -127,4 +141,6 @@ func init() {
 	datasetArchiverCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
 	datasetArchiverCmd.Flags().Bool("noninteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
 	datasetArchiverCmd.Flags().Bool("version", false, "Show version number and exit")
+
+	datasetArchiverCmd.MarkFlagsMutuallyExclusive("testenv", "localenv", "devenv")
 }

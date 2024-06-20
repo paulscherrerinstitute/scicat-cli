@@ -252,6 +252,19 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
+		if datasetUtils.TestFlags != nil {
+			datasetUtils.TestFlags(map[string]interface{}{
+				"publish":       publishFlag,
+				"publisheddata": publishedDataId,
+				"testenv":       testenvFlag,
+				"devenv":        devenvFlag,
+				"user":          userpass,
+				"token":         token,
+				"version":       showVersion,
+			})
+			return
+		}
+
 		// ===== execute command =====
 		if showVersion {
 			fmt.Printf("%s\n", VERSION)

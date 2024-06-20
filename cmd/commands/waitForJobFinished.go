@@ -75,6 +75,18 @@ var waitForJobFinishedCmd = &cobra.Command{
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
+		if datasetUtils.TestFlags != nil {
+			datasetUtils.TestFlags(map[string]interface{}{
+				"user":    userpass,
+				"token":   token,
+				"job":     jobId,
+				"testenv": testenvFlag,
+				"devenv":  devenvFlag,
+				"version": showVersion,
+			})
+			return
+		}
+
 		// command
 		if showVersion {
 			fmt.Printf("%s\n", VERSION)
