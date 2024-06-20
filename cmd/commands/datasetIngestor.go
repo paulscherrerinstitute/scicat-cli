@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -78,7 +77,28 @@ For Windows you need instead to specify -user username:password on the command l
 		addCaption, _ := cmd.Flags().GetString("addcaption")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
-		flag.Parse()
+		if datasetUtils.TestFlags != nil {
+			datasetUtils.TestFlags(map[string]interface{}{
+				"ingest":              ingestFlag,
+				"testenv":             testenvFlag,
+				"devenv":              devenvFlag,
+				"localenv":            localenvFlag,
+				"tunnelenv":           tunnelenvFlag,
+				"noninteractive":      noninteractiveFlag,
+				"user":                userpass,
+				"token":               token,
+				"copy":                copyFlag,
+				"nocopy":              nocopyFlag,
+				"tapecopies":          tapecopies,
+				"autoarchive":         autoarchiveFlag,
+				"linkfiles":           linkfiles,
+				"allowexistingsource": allowExistingSourceFolder,
+				"addattachment":       addAttachment,
+				"addcaption":          addCaption,
+				"version":             showVersion,
+			})
+			return
+		}
 
 		// functions use this flag in a way where "nil -> unset"
 		var allowExistingSourceFolderPtr *bool = &allowExistingSourceFolder

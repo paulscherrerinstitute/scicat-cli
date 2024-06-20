@@ -40,6 +40,18 @@ For further help see "` + MANUAL + `"`,
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
+		if datasetUtils.TestFlags != nil {
+			datasetUtils.TestFlags(map[string]interface{}{
+				"user":    userpass,
+				"token":   token,
+				"field":   fieldname,
+				"testenv": testenvFlag,
+				"devenv":  devenvFlag,
+				"version": showVersion,
+			})
+			return
+		}
+
 		// execute command
 		if showVersion {
 			fmt.Printf("%s\n", VERSION)
@@ -107,4 +119,6 @@ func init() {
 	datasetGetProposalCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead or production")
 	datasetGetProposalCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
 	datasetGetProposalCmd.Flags().Bool("version", false, "Show version number and exit")
+
+	datasetGetProposalCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }

@@ -49,6 +49,19 @@ For further help see "` + MANUAL + `"`,
 		token, _ := cmd.Flags().GetString("token")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
+		if datasetUtils.TestFlags != nil {
+			datasetUtils.TestFlags(map[string]interface{}{
+				"user":              userpass,
+				"token":             token,
+				"testenv":           testenvFlag,
+				"devenv":            devenvFlag,
+				"nonInteractive":    nonInteractiveFlag,
+				"removeFromCatalog": removeFromCatalogFlag,
+				"version":           showVersion,
+			})
+			return
+		}
+
 		// execute command
 		if showVersion {
 			fmt.Printf("%s\n", VERSION)
@@ -113,4 +126,6 @@ func init() {
 	datasetCleanerCmd.Flags().String("user", "", "Defines optional username:password string")
 	datasetCleanerCmd.Flags().String("token", "", "Defines optional API token instead of username:password")
 	datasetCleanerCmd.Flags().Bool("version", false, "Show version number and exit")
+
+	datasetCleanerCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }
