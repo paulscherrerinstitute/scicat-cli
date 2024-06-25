@@ -33,7 +33,7 @@ For further help see "` + MANUAL + `"
 Special hints for the decentral use case, where data is copied first to intermediate storage:
 For Linux you need to have a valid Kerberos tickets, which you can get via the kinit command.
 For Windows you need instead to specify -user username:password on the command line.`,
-	Args: cobra.RangeArgs(1, 2),
+	Args: rangeArgsWithVersionException(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		var tooLargeDatasets = 0
 		var emptyDatasets = 0

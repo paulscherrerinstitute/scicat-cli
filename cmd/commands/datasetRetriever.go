@@ -31,7 +31,7 @@ Per default all available datasets on the retrieve server will be fetched.\n")
 Use option -dataset or -ownerGroup to restrict the datasets which should be fetched.
 
 For further help see "` + MANUAL + `"`,
-	Args: cobra.ExactArgs(1),
+	Args: exactArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		//consts & vars
 		const PROD_API_SERVER string = "https://dacat.psi.ch/api/v3"

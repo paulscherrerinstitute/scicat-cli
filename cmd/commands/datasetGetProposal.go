@@ -20,7 +20,7 @@ var datasetGetProposalCmd = &cobra.Command{
 	Long: `Tool to retrieve proposal information for a given ownerGroup.
 	
 For further help see "` + MANUAL + `"`,
-	Args: cobra.ExactArgs(1),
+	Args: exactArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// vars and constants
 		var client = &http.Client{

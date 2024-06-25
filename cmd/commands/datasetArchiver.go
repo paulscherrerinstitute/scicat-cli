@@ -26,7 +26,7 @@ Or you choose a (list of) datasetIds, in which case all archivable datasets
 of this list not yet archived will be archived. 
 
 For further help see "` + MANUAL + `"`,
-	Args: cobra.MinimumNArgs(1),
+	Args: minArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// consts & vars
 		var client = &http.Client{

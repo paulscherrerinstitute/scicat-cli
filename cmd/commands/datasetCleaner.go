@@ -28,7 +28,7 @@ and only then it will be deleted in the data catalog.
 Note: these actions can not be un-done! Be careful!
 
 For further help see "` + MANUAL + `"`,
-	Args: cobra.ExactArgs(1),
+	Args: exactArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// vars & consts
 		var client = &http.Client{
