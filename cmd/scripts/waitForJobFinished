@@ -1,0 +1,11 @@
+#!/bin/bash
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR"/argconverter.sh
+
+modified_args=$(arg_conversion "$@")
+
+# Call `echo` with the modified arguments
+"$SCRIPT_DIR"/scicat-cli waitForJobFinished "${modified_args[@]}"
