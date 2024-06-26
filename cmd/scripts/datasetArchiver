@@ -7,5 +7,4 @@ source "$SCRIPT_DIR"/argconverter.sh
 
 modified_args=$(arg_conversion "$@")
 
-# Call `echo` with the modified arguments
 "$SCRIPT_DIR"/scicat-cli datasetArchiver "${modified_args[@]}"
