@@ -25,6 +25,12 @@ Tools are compiled for the following architectures:
 
 These can be cross-compiled from any system.
 
+### Backwards compatibility with v2
+A set of shell scripts are included with the Linux and Mac versions of releases in order to maintain compatibility with preexisting automation scripts. 
+As these are written in BASH, Windows is not supported unless WSL2 is used.
+
+The scripts and the scicat-cli executable should be kept in the same folder for them to work.
+
 ## Deployment
 
 PSI deploys tools to the following locations.
