@@ -21,14 +21,14 @@ before:
     - go generate ./...
 
 builds:
-  - id: "datasetIngestor"
+  - id: "scicat-cli"
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X main.VERSION={{.Version}} # This will set the VERSION variable in the binary to the github tag
+      - "-s -w -X 'github.com/paulscherrerinstitute/scicat/cmd/commands.VERSION={{.Version}}'"
     env:
       - CGO_ENABLED=0
-    dir: ./cmd/datasetIngestor/
+    dir: ./cmd/
     goos:
       - linux
       - windows
@@ -36,75 +36,7 @@ builds:
     goarch:
       - amd64
     main: .
-    binary: datasetIngestor
-
-  - id: "datasetArchiver"
-    flags:
-      - -trimpath
-    ldflags:
-      - -s -w -X main.VERSION={{.Version}}
-    env:
-      - CGO_ENABLED=0
-    dir: ./cmd/datasetArchiver/
-    goos:
-      - linux
-      - windows
-      - darwin
-    goarch:
-      - amd64
-    main: .
-    binary: datasetArchiver
-
-  - id: "datasetRetriever"
-    flags:
-      - -trimpath
-    ldflags:
-      - -s -w -X main.VERSION={{.Version}}
-    env:
-      - CGO_ENABLED=0
-    dir: ./cmd/datasetRetriever/
-    goos:
-      - linux
-      - windows
-      - darwin
-    goarch:
-      - amd64
-    main: .
-    binary: datasetRetriever
-
-  - id: "datasetCleaner"
-    flags:
-      - -trimpath
-    ldflags:
-      - -s -w -X main.VERSION={{.Version}}
-    env:
-      - CGO_ENABLED=0
-    dir: ./cmd/datasetCleaner/
-    goos:
-      - linux
-      - windows
-      - darwin
-    goarch:
-      - amd64
-    main: .
-    binary: datasetCleaner
-
-  - id: "datasetGetProposal"
-    flags:
-      - -trimpath
-    ldflags:
-      - -s -w -X main.VERSION={{.Version}}
-    env:
-      - CGO_ENABLED=0
-    dir: ./cmd/datasetGetProposal/
-    goos:
-      - linux
-      - windows
-      - darwin
-    goarch:
-      - amd64
-    main: .
-    binary: datasetGetProposal
+    binary: scicat-cli
 
 
 archives:
@@ -129,3 +61,6 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+
+release:
+  prerelease: auto
