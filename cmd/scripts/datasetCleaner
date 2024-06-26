@@ -3,8 +3,8 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # shellcheck source=/dev/null
-source "$SCRIPT_DIR"/argconverter.sh
+source "$SCRIPT_DIR"/common.sh
 
+echo -e "${WARN_STRING}"
 modified_args=$(arg_conversion "$@")
-
 "$SCRIPT_DIR"/scicat-cli datasetCleaner "${modified_args[@]}"
