@@ -11,7 +11,7 @@
 # Now you can run GoReleaser at the root of your repository: `goreleaser release`
 # For dry run, see https://goreleaser.com/quick-start/#dry-run
 
-version: 1
+version: 2
 
 before:
   hooks:
@@ -31,21 +31,8 @@ builds:
     dir: ./cmd/
     goos:
       - linux
-      - darwin
-    goarch:
-      - amd64
-    main: .
-    binary: scicat-cli
-  - id: "scicat-cli-win"
-    flags:
-      - -trimpath
-    ldflags:
-      - "-s -w -X 'github.com/paulscherrerinstitute/scicat/cmd/commands.VERSION={{.Version}}'"
-    env:
-      - CGO_ENABLED=0
-    dir: ./cmd/
-    goos:
       - windows
+      - darwin
     goarch:
       - amd64
     main: .
@@ -53,10 +40,7 @@ builds:
 
 
 archives:
-  - id: scicat-cli
-    format: tar.gz
-    builds:
-      - scicat-cli
+  - format: tar.gz
     wrap_in_directory: true
     name_template: >-
       {{ .ProjectName }}_
@@ -66,23 +50,19 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        format: zip
+  - id: scicat-cli-scripts
+    format: tar.gz
+    wrap_in_directory: true
+    name_template: >-
+      {{ .ProjectName }}_V2Scripts_{{- .Version }}
     files:
       - src: cmd/scripts/*
         strip_parent: true
-  - id: scicat-cli-win
-    format: zip
-    builds:
-      - scicat-cli-win
-    wrap_in_directory: true
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- .Version }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-
+    meta: true
 changelog:
   sort: asc
   filters:
