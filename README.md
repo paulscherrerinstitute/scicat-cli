@@ -33,15 +33,14 @@ These commands bear the same names as the former executables. The general syntax
  Furthermore, the use of single hyphen, multi-letter flags is now discontinued, as it went against general convention. So, in practical terms, `-[long_flag_name]` and `--[long_flag_name]` were both accepted, but now only the latter is accepted.
 
 ### Backwards compatibility with v2
-A set of shell scripts are included with the Linux and Mac versions of releases in order to maintain compatibility with preexisting automation scripts. 
+A set of shell scripts are included with releases that are compatible with Linux and Mac executables in order to maintain compatibility with preexisting automation scripts. 
 As these are written in BASH, Windows is not supported unless WSL2 is used.
 
-Useful informations:
- - The scripts can be found on the [Releases](https://github.com/paulscherrerinstitute/scicat-cli/releases) page, under scicat-cli_V2Scripts-[VERSION].tar.gz. 
-
- - The scripts and the scicat-cli executable **must** be kept in the **same folder** for them to work.
-
- - The scripts will still accept single hyphen flags as well.
+Usage informations:
+ - The scripts can be found on the [Releases](https://github.com/paulscherrerinstitute/scicat-cli/releases) page, under scicat-cli_V2Scripts-[VERSION].tar.gz
+ - Just extract the archive into the folder with the scicat-cli executable
+ - The scripts and the scicat-cli executable **must** be kept in the **same folder** for them to work
+ - The scripts will still accept single hyphen flags as well
 
 ## Deployment
 
