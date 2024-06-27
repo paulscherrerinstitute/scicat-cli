@@ -28,9 +28,9 @@ These can be cross-compiled from any system.
 ### V3 Changes
 The separate executables (like `datasetIngestor`, `datasetRetriever`...) were combined into one `scicat-cli` executable, with each executable's features available as commands given as the first parameter to this executable. 
 
-These commands bare the same names as the former executables. For example, if you called `./datasetIngestor [flags]` before, now it's `./scicat-cli datasetIngestor [flags]`.
+These commands bear the same names as the former executables. The general syntax change is that if you called `./[COMMAND] [flags]` before, now it's `./scicat-cli [COMMAND] [flags]`.
 
- Furthermore, the use of single hyphen, multi-letter flags is now discontinued (as it does not follow convention). 
+ Furthermore, the use of single hyphen, multi-letter flags is now discontinued, as it went against general convention. So, in practical terms, `-[long_flag_name]` and `--[long_flag_name]` were both accepted, but now only the latter is accepted.
 
 ### Backwards compatibility with v2
 A set of shell scripts are included with the Linux and Mac versions of releases in order to maintain compatibility with preexisting automation scripts. 
