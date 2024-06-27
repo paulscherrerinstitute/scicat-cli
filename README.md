@@ -25,11 +25,23 @@ Tools are compiled for the following architectures:
 
 These can be cross-compiled from any system.
 
+### V3 Changes
+The separate executables (like `datasetIngestor`, `datasetRetriever`...) were combined into one `scicat-cli` executable, with each executable's features available as commands given as the first parameter to this executable. 
+
+These commands bare the same names as the former executables. For example, if you called `./datasetIngestor [flags]` before, now it's `./scicat-cli datasetIngestor [flags]`.
+
+ Furthermore, the use of single hyphen, multi-letter flags is now discontinued (as it does not follow convention). 
+
 ### Backwards compatibility with v2
 A set of shell scripts are included with the Linux and Mac versions of releases in order to maintain compatibility with preexisting automation scripts. 
 As these are written in BASH, Windows is not supported unless WSL2 is used.
 
-The scripts and the scicat-cli executable should be kept in the same folder for them to work.
+Useful informations:
+ - The scripts can be found on the [Releases](https://github.com/paulscherrerinstitute/scicat-cli/releases) page, under scicat-cli_V2Scripts-[VERSION].tar.gz. 
+
+ - The scripts and the scicat-cli executable **must** be kept in the **same folder** for them to work.
+
+ - The scripts will still accept single hyphen flags as well.
 
 ## Deployment
 
