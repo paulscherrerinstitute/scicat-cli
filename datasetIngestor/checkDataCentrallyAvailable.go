@@ -14,6 +14,8 @@ var execCommand = exec.Command
 // CheckDataCentrallyAvailable checks if a specific directory (sourceFolder) is available on a remote server (ARCHIVEServer)
 // using the provided username for SSH connection. It returns an error if the directory is not available or if there's an issue with the SSH connection.
 func CheckDataCentrallyAvailable(username string, ARCHIVEServer string, sourceFolder string) (err error) {
+	// NOTE why not use crypto/ssh ???
+	// NOTE is this even a reliable method for people outside PSI?
 	var cmd *exec.Cmd
 
 	// Check the operating system

@@ -54,9 +54,9 @@ For Windows you need instead to specify -user username:password on the command l
 
 		var scanner = bufio.NewScanner(os.Stdin)
 
-		var APIServer string
-		var RSYNCServer string
-		var env string
+		var APIServer string = PROD_API_SERVER
+		var RSYNCServer string = PROD_RSYNC_ARCHIVE_SERVER
+		var env string = "production"
 
 		// pass parameters
 		ingestFlag, _ := cmd.Flags().GetBool("ingest")
@@ -68,7 +68,7 @@ For Windows you need instead to specify -user username:password on the command l
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
 		copyFlag, _ := cmd.Flags().GetBool("copy")
-		nocopyFlag, _ := cmd.Flags().GetBool("nocopy")
+		nocopyFlag, _ := cmd.Flags().GetBool("nocopy") // TODO why is there even a "no copy" flag?
 		tapecopies, _ := cmd.Flags().GetInt("tapecopies")
 		autoarchiveFlag, _ := cmd.Flags().GetBool("autoarchive")
 		linkfiles, _ := cmd.Flags().GetString("linkfiles")
@@ -115,26 +115,26 @@ For Windows you need instead to specify -user username:password on the command l
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 		datasetUtils.CheckForServiceAvailability(client, testenvFlag, autoarchiveFlag)
 
+		// environment overrides
+		if tunnelenvFlag {
+			APIServer = TUNNEL_API_SERVER
+			RSYNCServer = TUNNEL_RSYNC_ARCHIVE_SERVER
+			env = "dev"
+		}
+		if localenvFlag {
+			APIServer = LOCAL_API_SERVER
+			RSYNCServer = LOCAL_RSYNC_ARCHIVE_SERVER
+			env = "local"
+		}
+		if devenvFlag {
+			APIServer = DEV_API_SERVER
+			RSYNCServer = DEV_RSYNC_ARCHIVE_SERVER
+			env = "dev"
+		}
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			RSYNCServer = TEST_RSYNC_ARCHIVE_SERVER
 			env = "test"
-		} else if devenvFlag {
-			APIServer = DEV_API_SERVER
-			RSYNCServer = DEV_RSYNC_ARCHIVE_SERVER
-			env = "dev"
-		} else if localenvFlag {
-			APIServer = LOCAL_API_SERVER
-			RSYNCServer = LOCAL_RSYNC_ARCHIVE_SERVER
-			env = "local"
-		} else if tunnelenvFlag {
-			APIServer = TUNNEL_API_SERVER
-			RSYNCServer = TUNNEL_RSYNC_ARCHIVE_SERVER
-			env = "dev"
-		} else {
-			APIServer = PROD_API_SERVER
-			RSYNCServer = PROD_RSYNC_ARCHIVE_SERVER
-			env = "production"
 		}
 
 		color.Set(color.FgGreen)
@@ -146,38 +146,38 @@ For Windows you need instead to specify -user username:password on the command l
 		folderlistingPath := ""
 		absFileListing := ""
 
-		if len(args) == 1 {
-			metadatafile = args[0]
-		} else if len(args) == 2 {
-			metadatafile = args[0]
-			if args[1] == "folderlisting.txt" {
-				folderlistingPath = args[1]
-			} else {
-				filelistingPath = args[1]
-				absFileListing, _ = filepath.Abs(filelistingPath)
-			}
-		} else {
+		if len(args) <= 0 || len(args) >= 3 {
 			log.Println("invalid number of args")
 			return
 		}
 
-		// TODO: change pointer parameter types to regular forms as they're unnecessary to be
-		//   as pointers
+		metadatafile = args[0]
+		if len(args) == 2 {
+			if args[1] == "folderlisting.txt" {
+				folderlistingPath = args[1]
+			} else {
+				// NOTE filelistingPath is some kind of path to which the sourceFolder path should be relative
+				filelistingPath = args[1]
+				absFileListing, _ = filepath.Abs(filelistingPath)
+			}
+		}
+
+		// TODO: change pointer parameter types to values as they shouldn't be modified by the function
 		auth := &datasetUtils.RealAuthenticator{}
 		user, accessGroups := datasetUtils.Authenticate(auth, client, APIServer, &token, &userpass)
 
 		/* TODO Add info about policy settings and that autoarchive will take place or not */
 
-		metaDataMap, sourceFolder, beamlineAccount, err := datasetIngestor.CheckMetadata(client, APIServer, metadatafile, user, accessGroups)
+		metaDataMap, metaSourceFolder, beamlineAccount, err := datasetIngestor.CheckMetadata(client, APIServer, metadatafile, user, accessGroups)
 		if err != nil {
 			log.Fatal("Error in CheckMetadata function: ", err)
 		}
 		//log.Printf("metadata object: %v\n", metaDataMap)
 
-		// assemble list of folders (=datasets) to created
-		var folders []string
+		// assemble list of datasetFolders (=datasets) to be created
+		var datasetFolders []string
 		if folderlistingPath == "" {
-			folders = append(folders, sourceFolder)
+			datasetFolders = append(datasetFolders, metaSourceFolder)
 		} else {
 			// get folders from file
 			folderlist, err := os.ReadFile(folderlistingPath)
@@ -186,21 +186,22 @@ For Windows you need instead to specify -user username:password on the command l
 			}
 			lines := strings.Split(string(folderlist), "\n")
 			// remove all empty and comment lines
-			for _, sourceFolder := range lines {
-				if sourceFolder != "" && string(sourceFolder[0]) != "#" {
+			for _, line := range lines {
+				if line != "" && string(line[0]) != "#" {
+					// NOTE what is this special third level "data" folder that needs to be unsymlinked?
 					// convert into canonical form only for certain online data linked from eaccounts home directories
-					var parts = strings.Split(sourceFolder, "/")
+					var parts = strings.Split(line, "/")
 					if len(parts) > 3 && parts[3] == "data" {
-						realSourceFolder, err := filepath.EvalSymlinks(sourceFolder)
+						realSourceFolder, err := filepath.EvalSymlinks(line)
 						if err != nil {
-							log.Fatalf("Failed to find canonical form of sourceFolder:%v %v", sourceFolder, err)
+							log.Fatalf("Failed to find canonical form of sourceFolder:%v %v", line, err)
 						}
 						color.Set(color.FgYellow)
-						log.Printf("Transform sourceFolder %v to canonical form: %v", sourceFolder, realSourceFolder)
+						log.Printf("Transform sourceFolder %v to canonical form: %v", line, realSourceFolder)
 						color.Unset()
-						folders = append(folders, realSourceFolder)
+						datasetFolders = append(datasetFolders, realSourceFolder)
 					} else {
-						folders = append(folders, sourceFolder)
+						datasetFolders = append(datasetFolders, line)
 					}
 				}
 			}
@@ -208,7 +209,7 @@ For Windows you need instead to specify -user username:password on the command l
 		// log.Printf("Selected folders: %v\n", folders)
 
 		// test if a sourceFolder already used in the past and give warning
-		datasetIngestor.TestForExistingSourceFolder(folders, client, APIServer, user["accessToken"], allowExistingSourceFolderPtr)
+		datasetIngestor.TestForExistingSourceFolder(datasetFolders, client, APIServer, user["accessToken"], allowExistingSourceFolderPtr)
 
 		// TODO ask archive system if sourcefolder is known to them. If yes no copy needed, otherwise
 		// a destination location is defined by the archive system
@@ -229,9 +230,10 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 
 		var datasetList []string
-		for _, sourceFolder := range folders {
+		for _, sourceFolder := range datasetFolders {
 			// ignore empty lines
 			if sourceFolder == "" {
+				// NOTE if there are empty source folder(s), shouldn't we raise an error?
 				continue
 			}
 			metaDataMap["sourceFolder"] = sourceFolder
@@ -262,7 +264,7 @@ For Windows you need instead to specify -user username:password on the command l
 
 				// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
 				// and unless copy flag defined via command line
-				if !copyFlag && !nocopyFlag {
+				if !copyFlag && !nocopyFlag { // NOTE this whole copyFlag, nocopyFlag ordeal makes no sense whatsoever
 					if !beamlineAccount {
 						err := datasetIngestor.CheckDataCentrallyAvailable(user["username"], RSYNCServer, sourceFolder)
 						if err != nil {
@@ -287,10 +289,12 @@ For Windows you need instead to specify -user username:password on the command l
 							}
 						}
 					} else {
-						copyFlag = false
+						copyFlag = false // beamline accounts don't need copying then, but is beamline account checking needed outside PSI?
 					}
 				} else {
 					if !copyFlag {
+						// NOTE *in this case* copyflag is ALWAYS false, nocopyFlag is ALWAYS true
+						//   why is this not just an assignment to FALSE then?
 						copyFlag = !nocopyFlag
 					}
 				}
@@ -304,14 +308,14 @@ For Windows you need instead to specify -user username:password on the command l
 						// do not override existing fields
 						metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = false
 						metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "filesNotYetAvailable"
-						metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = archivable
+						metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = false
 					} else {
 						archivable = true
 						metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
 						metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
-						metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = archivable
+						metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = true
 					}
-					datasetId := datasetIngestor.SendIngestCommand(client, APIServer, metaDataMap, fullFileArray, user)
+					datasetId := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user)
 					// add attachment optionally
 					if addAttachment != "" {
 						datasetIngestor.AddAttachment(client, APIServer, datasetId, metaDataMap, user["accessToken"], addAttachment, addCaption)
@@ -321,7 +325,7 @@ For Windows you need instead to specify -user username:password on the command l
 						if err == nil {
 							// delayed enabling
 							archivable = true
-							datasetIngestor.SendFilesReadyCommand(client, APIServer, datasetId, user)
+							datasetIngestor.MarkFilesReady(client, APIServer, datasetId, user)
 						} else {
 							color.Set(color.FgRed)
 							log.Printf("The  command to copy files exited with error %v \n", err)
