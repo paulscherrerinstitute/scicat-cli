@@ -3,7 +3,8 @@ package datasetIngestor
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/paulscherrerinstitute/scicat/datasetUtils"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -11,64 +12,66 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"errors"
+
 	"github.com/fatih/color"
-	"fmt"
+	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 )
 
 const (
 	ErrIllegalKeys = "metadata contains keys with illegal characters (., [], $, or <>)"
-	DUMMY_TIME = "2300-01-01T11:11:11.000Z"
-	DUMMY_OWNER = "x12345"
+	DUMMY_TIME     = "2300-01-01T11:11:11.000Z"
+	DUMMY_OWNER    = "x12345"
 )
 
-const unknown	= "unknown"
-const raw	= "raw"
+const unknown = "unknown"
+const raw = "raw"
 
 func CheckMetadata(client *http.Client, APIServer string, metadatafile string, user map[string]string, accessGroups []string) (metaDataMap map[string]interface{}, sourceFolder string, beamlineAccount bool, err error) {
 	metaDataMap, err = readMetadataFromFile(metadatafile)
+	// TODO this error handler doesn't make sense for now considering the "readMetadataFromFile" directly shuts down execution, instead of returning an error.
 	if err != nil {
-			return nil, "", false, err
+		return nil, "", false, err
 	}
 
 	if containsIllegalKeys(metaDataMap) {
-			return nil, "", false, errors.New(ErrIllegalKeys)
+		return nil, "", false, errors.New(ErrIllegalKeys)
 	}
 
 	beamlineAccount, err = checkUserAndOwnerGroup(user, accessGroups, metaDataMap)
 	if err != nil {
-			return nil, "", false, err
+		return nil, "", false, err
 	}
 
 	err = augmentMissingMetadata(user, metaDataMap, client, APIServer, accessGroups)
 	if err != nil {
-			return nil, "", false, err
+		return nil, "", false, err
 	}
 
 	err = checkMetadataValidity(client, APIServer, metaDataMap, metaDataMap["type"].(string))
 	if err != nil {
-			return nil, "", false, err
+		return nil, "", false, err
 	}
 
 	sourceFolder, err = getSourceFolder(metaDataMap)
 	if err != nil {
-			return nil, "", false, err
+		return nil, "", false, err
 	}
 
 	return metaDataMap, sourceFolder, beamlineAccount, nil
 }
 
-
 // readMetadataFromFile reads the metadata from the file and unmarshals it into a map.
 func readMetadataFromFile(metadatafile string) (map[string]interface{}, error) {
 	b, err := os.ReadFile(metadatafile) // just pass the file name
 	if err != nil {
+		// TODO convert this into return
 		log.Fatal(err)
 	}
 	// Unmarshal the JSON metadata into an interface{} object.
 	var metadataObj interface{} // Using interface{} allows metadataObj to hold any type of data, since it has no defined methods.
 	err = json.Unmarshal(b, &metadataObj)
 	if err != nil {
+		// TODO convert this into return
 		log.Fatal(err)
 	}
 
@@ -77,6 +80,7 @@ func readMetadataFromFile(metadatafile string) (map[string]interface{}, error) {
 	return metaDataMap, err
 }
 
+// NOTE the only keys that are invalid are the ones with illegal chars., uses recursion, doesn't return error info (eg. which key)...
 func containsIllegalKeys(metadata map[string]interface{}) bool {
 	for key, value := range metadata {
 		if containsIllegalCharacters(key) {
@@ -115,10 +119,9 @@ func containsIllegalCharacters(s string) bool {
 }
 
 // checkUserAndOwnerGroup checks the user and owner group and returns whether the user is a beamline account.
-// checkUserAndOwnerGroup checks the user and owner group and returns whether the user is a beamline account.
 func checkUserAndOwnerGroup(user map[string]string, accessGroups []string, metaDataMap map[string]interface{}) (bool, error) {
 	beamlineAccount := false
-	
+
 	if user["displayName"] != "ingestor" {
 		// Check if the metadata contains the "ownerGroup" key.
 		if ownerGroup, ok := metaDataMap["ownerGroup"]; ok { // type assertion with a comma-ok idiom
@@ -130,8 +133,8 @@ func checkUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 					break
 				}
 			}
-		if validOwner {
-			log.Printf("OwnerGroup information %s verified successfully.\n", ownerGroup)
+			if validOwner {
+				log.Printf("OwnerGroup information %s verified successfully.\n", ownerGroup)
 			} else {
 				// If the owner group is not valid, check for beamline-specific accounts.
 				if creationLocation, ok := metaDataMap["creationLocation"]; ok {
@@ -145,25 +148,25 @@ func checkUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 					if user["displayName"] == expectedAccount {
 						log.Printf("Beamline specific dataset %s - ingest granted.\n", expectedAccount)
 						beamlineAccount = true
-						} else {
-							return false, fmt.Errorf("you are neither member of the ownerGroup %s nor the needed beamline account %s", ownerGroup, expectedAccount)
-						}
-						} else {
-							// for other data just check user name
-							// this is a quick and dirty test. Should be replaced by test for "globalaccess" role. TODO
-							// facilities: ["SLS", "SINQ", "SWISSFEL", "SmuS"],
-							u := user["displayName"]
-							if strings.HasPrefix(u, "sls") ||
-							strings.HasPrefix(u, "swissfel") ||
-							strings.HasPrefix(u, "sinq") ||
-							strings.HasPrefix(u, "smus") {
-								beamlineAccount = true
-							}
-						}
+					} else {
+						return false, fmt.Errorf("you are neither member of the ownerGroup %s nor the needed beamline account %s", ownerGroup, expectedAccount)
+					}
+				} else {
+					// for other data just check user name
+					// this is a quick and dirty test. Should be replaced by test for "globalaccess" role. TODO
+					// facilities: ["SLS", "SINQ", "SWISSFEL", "SmuS"],
+					u := user["displayName"]
+					if strings.HasPrefix(u, "sls") ||
+						strings.HasPrefix(u, "swissfel") ||
+						strings.HasPrefix(u, "sinq") ||
+						strings.HasPrefix(u, "smus") {
+						beamlineAccount = true
 					}
 				}
 			}
-			
+		}
+	}
+
 	return beamlineAccount, nil
 }
 
@@ -199,7 +202,7 @@ func getHost() string {
 }
 
 // augmentMissingMetadata augments missing metadata fields.
-func augmentMissingMetadata(user map[string]string, metaDataMap map[string]interface{}, client *http.Client, APIServer string, accessGroups []string) error {	
+func augmentMissingMetadata(user map[string]string, metaDataMap map[string]interface{}, client *http.Client, APIServer string, accessGroups []string) error {
 	color.Set(color.FgGreen)
 	// optionally augment missing owner metadata
 	if _, ok := metaDataMap["owner"]; !ok {
@@ -249,30 +252,30 @@ func augmentMissingMetadata(user map[string]string, metaDataMap map[string]inter
 						}
 						metaDataMap["principalInvestigator"] = piEmail
 						log.Printf("principalInvestigator field added: %s", metaDataMap["principalInvestigator"])
-						} else {
-							log.Printf("principalInvestigator field missing for raw data and could not be added from proposal data.")
-							log.Printf("Please add the field explicitly to metadata file")
-						}
+					} else {
+						log.Printf("principalInvestigator field missing for raw data and could not be added from proposal data.")
+						log.Printf("Please add the field explicitly to metadata file")
 					}
 				}
 			}
 		}
+	}
 	return nil
 }
 
 // checkMetadataValidity checks the validity of the metadata by calling the appropriate API.
 func checkMetadataValidity(client *http.Client, APIServer string, metaDataMap map[string]interface{}, dstype string) error {
-    myurl := ""
-    switch dstype {
-    case raw:
-        myurl = APIServer + "/RawDatasets/isValid"
-    case "derived":
-        myurl = APIServer + "/DerivedDatasets/isValid"
-    case "base":
-        myurl = APIServer + "/Datasets/isValid"
-    default:
-        return fmt.Errorf("unknown dataset type encountered: %s", dstype)
-    }
+	myurl := ""
+	switch dstype {
+	case raw:
+		myurl = APIServer + "/RawDatasets/isValid"
+	case "derived":
+		myurl = APIServer + "/DerivedDatasets/isValid"
+	case "base":
+		myurl = APIServer + "/Datasets/isValid"
+	default:
+		return fmt.Errorf("unknown dataset type encountered: %s", dstype)
+	}
 
 	// add dummy data for fields which can only be filled after file scan to pass the validity test
 
@@ -311,31 +314,30 @@ func checkMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 		metaDataMap["accessGroups"] = groups
 	}
 
-
 	bmm, err := json.Marshal(metaDataMap)
 	if err != nil {
-			return err
+		return err
 	}
 
 	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bmm))
 	if err != nil {
-			return err
+		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-			return err
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	_, err = io.ReadAll(resp.Body)
 	if err != nil {
-			return err
+		return err
 	}
 
 	return nil
@@ -343,27 +345,27 @@ func checkMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 
 // getSourceFolder gets the source folder from the metadata.
 func getSourceFolder(metaDataMap map[string]interface{}) (string, error) {
-    sourceFolder := ""
-    val, ok := metaDataMap["sourceFolder"]
-    if !ok {
-        return "", errors.New("undefined sourceFolder field")
-    }
+	sourceFolder := ""
+	val, ok := metaDataMap["sourceFolder"]
+	if !ok {
+		return "", errors.New("undefined sourceFolder field")
+	}
 
-    sourceFolder, ok = val.(string)
-    if !ok {
-        return "", errors.New("sourceFolder is not a string")
-    }
+	sourceFolder, ok = val.(string)
+	if !ok {
+		return "", errors.New("sourceFolder is not a string")
+	}
 
-    parts := strings.Split(sourceFolder, "/")
-    if len(parts) > 3 && parts[3] == "data" && parts[1] == "sls" {
-        var err error
-        sourceFolder, err = filepath.EvalSymlinks(sourceFolder)
-        if err != nil {
-            return "", fmt.Errorf("failed to find canonical form of sourceFolder:%v %v", sourceFolder, err)
-        }
-        log.Printf("Transform sourceFolder %v to canonical form: %v", val, sourceFolder)
-        metaDataMap["sourceFolder"] = sourceFolder
-    }
+	parts := strings.Split(sourceFolder, "/")
+	if len(parts) > 3 && parts[3] == "data" && parts[1] == "sls" {
+		var err error
+		sourceFolder, err = filepath.EvalSymlinks(sourceFolder)
+		if err != nil {
+			return "", fmt.Errorf("failed to find canonical form of sourceFolder:%v %v", sourceFolder, err)
+		}
+		log.Printf("Transform sourceFolder %v to canonical form: %v", val, sourceFolder)
+		metaDataMap["sourceFolder"] = sourceFolder
+	}
 
-    return sourceFolder, nil
+	return sourceFolder, nil
 }

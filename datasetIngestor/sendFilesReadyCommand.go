@@ -10,7 +10,7 @@ import (
 )
 
 /*
-SendFilesReadyCommand is a function that sends a PUT request to a specified API server to update the dataset lifecycle status. 
+MarkFilesReady is a function that sends a PUT request to a specified API server to update the dataset lifecycle status.
 
 Parameters:
 - client: An *http.Client object, used to send the HTTP request.
@@ -18,14 +18,14 @@ Parameters:
 - datasetId: A string representing the ID of the dataset to be updated.
 - user: A map[string]string containing user information, specifically the access token.
 
-The function constructs a metadata map with the dataset lifecycle status set to "datasetCreated" and archivable set to true. 
-This metadata is then converted to JSON and sent in the body of the PUT request. 
+The function constructs a metadata map with the dataset lifecycle status set to "datasetCreated" and archivable set to true.
+This metadata is then converted to JSON and sent in the body of the PUT request.
 The URL for the request is constructed using the APIServer and datasetId parameters, and the user's access token is appended as a query parameter.
 
-If the request is successful (HTTP status code 200), the function logs a success message along with the response body. 
+If the request is successful (HTTP status code 200), the function logs a success message along with the response body.
 If the request fails, the function logs a failure message along with the status code and metadata map.
 */
-func SendFilesReadyCommand(client *http.Client, APIServer string, datasetId string, user map[string]string) {
+func MarkFilesReady(client *http.Client, APIServer string, datasetId string, user map[string]string) {
 	var metaDataMap = map[string]interface{}{}
 	metaDataMap["datasetlifecycle"] = map[string]interface{}{}
 	metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"

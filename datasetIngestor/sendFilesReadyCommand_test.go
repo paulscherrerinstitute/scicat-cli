@@ -18,31 +18,31 @@ func TestSendFilesReadyCommand(t *testing.T) {
 		if req.Method != "PUT" {
 			t.Errorf("Expected method 'PUT', got '%s'", req.Method)
 		}
-		
+
 		// Test headers
 		if req.Header.Get("Content-Type") != "application/json" {
 			t.Errorf("Expected header 'Content-Type: application/json', got '%s'", req.Header.Get("Content-Type"))
 		}
-		
+
 		// Test body
 		body, _ := io.ReadAll(req.Body)
 		expectedBody := `{"datasetlifecycle":{"archivable":true,"archiveStatusMessage":"datasetCreated"}}`
 		if strings.TrimSpace(string(body)) != expectedBody {
-				t.Errorf("Expected body '%s', got '%s'", expectedBody, strings.TrimSpace(string(body)))
+			t.Errorf("Expected body '%s', got '%s'", expectedBody, strings.TrimSpace(string(body)))
 		}
-		
+
 		rw.Write([]byte(`OK`))
 	}))
 	// Close the server when test finishes
 	defer server.Close()
-	
+
 	// Create a map for user info
 	user := make(map[string]string)
 	user["accessToken"] = "testToken"
-	
+
 	// Create a http client
 	client := &http.Client{}
-	
+
 	// Call the function
-	SendFilesReadyCommand(client, server.URL, "testDatasetId", user)
+	MarkFilesReady(client, server.URL, "testDatasetId", user)
 }
