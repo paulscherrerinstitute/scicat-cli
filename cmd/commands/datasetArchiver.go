@@ -36,8 +36,8 @@ For further help see "` + MANUAL + `"`,
 		const CMD = "datasetArchiver"
 		var scanner = bufio.NewScanner(os.Stdin)
 
-		var APIServer string
-		var env string
+		var APIServer string = PROD_API_SERVER
+		var env string = "production"
 
 		// pass parameters
 		userpass, _ := cmd.Flags().GetString("user")
@@ -72,18 +72,17 @@ For further help see "` + MANUAL + `"`,
 		// check for program version only if running interactively
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 
+		if localenvFlag {
+			APIServer = LOCAL_API_SERVER
+			env = "local"
+		}
+		if devenvFlag {
+			APIServer = DEV_API_SERVER
+			env = "dev"
+		}
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			env = "test"
-		} else if devenvFlag {
-			APIServer = DEV_API_SERVER
-			env = "dev"
-		} else if localenvFlag {
-			APIServer = LOCAL_API_SERVER
-			env = "local"
-		} else {
-			APIServer = PROD_API_SERVER
-			env = "production"
 		}
 
 		color.Set(color.FgGreen)
@@ -94,10 +93,11 @@ For further help see "` + MANUAL + `"`,
 		inputdatasetList := make([]string, 0)
 
 		// argsWithoutProg := os.Args[1:]
-		if len(args) == 0 {
-			log.Println("invalid number of args")
-			return
-		} else if len(args) == 1 && !strings.Contains(args[0], "/") {
+		if len(args) <= 0 {
+			log.Fatalln("invalid number of args")
+		}
+
+		if len(args) == 1 && !strings.Contains(args[0], "/") {
 			ownerGroup = args[0]
 		} else {
 			inputdatasetList = args[0:]
@@ -107,26 +107,27 @@ For further help see "` + MANUAL + `"`,
 		user, _ := datasetUtils.Authenticate(auth, client, APIServer, &token, &userpass)
 
 		archivableDatasets := datasetUtils.GetArchivableDatasets(client, APIServer, ownerGroup, inputdatasetList, user["accessToken"])
-		if len(archivableDatasets) > 0 {
-			archive := ""
-			if nonInteractiveFlag {
-				archive = "y"
-			} else {
-				fmt.Printf("\nDo you want to archive these %v datasets (y/N) ? ", len(archivableDatasets))
-				scanner.Scan()
-				archive = scanner.Text()
-			}
-			if archive != "y" {
-				log.Fatalf("Okay the archive process is stopped here, no datasets will be archived\n")
-			} else {
-				log.Printf("You chose to archive the new datasets\n")
-				log.Printf("Submitting Archive Job for the ingested datasets.\n")
-				jobId := datasetUtils.CreateJob(client, APIServer, user, archivableDatasets, &tapecopies)
-				fmt.Println(jobId)
-			}
-		} else {
+		if len(archivableDatasets) <= 0 {
 			log.Fatalf("No archivable datasets remaining")
 		}
+
+		archive := ""
+		if nonInteractiveFlag {
+			archive = "y"
+		} else {
+			fmt.Printf("\nDo you want to archive these %v datasets (y/N) ? ", len(archivableDatasets))
+			scanner.Scan()
+			archive = scanner.Text()
+		}
+
+		if archive != "y" {
+			log.Fatalf("Okay the archive process is stopped here, no datasets will be archived\n")
+		}
+
+		log.Printf("You chose to archive the new datasets\n")
+		log.Printf("Submitting Archive Job for the ingested datasets.\n")
+		jobId := datasetUtils.CreateJob(client, APIServer, user, archivableDatasets, &tapecopies)
+		fmt.Println(jobId)
 	},
 }
 
