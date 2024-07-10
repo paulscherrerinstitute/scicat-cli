@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/fatih/color"
@@ -29,8 +28,8 @@ For further help see "` + MANUAL + `"`,
 
 		const APP = "datasetGetProposal"
 
-		var APIServer string
-		var env string
+		var APIServer string = PROD_API_SERVER
+		var env string = "production"
 
 		// pass parameters
 		userpass, _ := cmd.Flags().GetString("user")
@@ -61,30 +60,24 @@ For further help see "` + MANUAL + `"`,
 		// check for program version only if running interactively
 		datasetUtils.CheckForNewVersion(client, APP, VERSION)
 
+		if devenvFlag {
+			APIServer = DEV_API_SERVER
+			env = "dev"
+		}
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			env = "test"
-		} else if devenvFlag {
-			APIServer = DEV_API_SERVER
-			env = "dev"
-		} else {
-			APIServer = PROD_API_SERVER
-			env = "production"
 		}
 
 		color.Set(color.FgGreen)
 		log.Printf("You are about to retrieve the proposal information from the === %s === data catalog environment...", env)
 		color.Unset()
 
-		ownerGroup := ""
-
 		//TODO cleanup text formatting:
-		if len(args) == 1 {
-			ownerGroup = args[0]
-		} else {
-			log.Println("invalid number of args")
-			return
+		if len(args) < 1 || len(args) > 1 {
+			log.Fatalln("invalid number of args")
 		}
+		ownerGroup := args[0]
 
 		auth := &datasetUtils.RealAuthenticator{}
 		user, accessGroups := datasetUtils.Authenticate(auth, client, APIServer, &token, &userpass)
@@ -95,17 +88,15 @@ For further help see "` + MANUAL + `"`,
 
 		// proposal is of type map[string]interface{}
 
-		if len(proposal) > 0 {
-			if fieldname != "" {
-				fmt.Println(proposal[fieldname])
-			} else {
-				pretty, _ := json.MarshalIndent(proposal, "", "    ")
-				fmt.Printf("%s\n", pretty)
-			}
-			os.Exit(0)
+		if len(proposal) <= 0 {
+			log.Fatalf("No Proposal information found for group %v\n", ownerGroup)
+		}
+
+		if fieldname != "" {
+			fmt.Println(proposal[fieldname])
 		} else {
-			log.Printf("No Proposal information found for group %v\n", ownerGroup)
-			os.Exit(1)
+			pretty, _ := json.MarshalIndent(proposal, "", "    ")
+			fmt.Printf("%s\n", pretty)
 		}
 	},
 }
