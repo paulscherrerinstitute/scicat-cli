@@ -25,6 +25,7 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 		const DEV_API_SERVER string = "https://dacat-development.psi.ch/api/v3"
 
 		var APIServer string = PROD_API_SERVER
+		var env string = "production"
 
 		var client = &http.Client{
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
@@ -32,7 +33,7 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 
 		// retrieve params
 		retrieveFlag, _ := cmd.Flags().GetBool("retrieve")
-		publishedDataId, _ := cmd.Flags().GetString("publisheddata")
+		publishedDataId, _ := cmd.Flags().GetString("publisheddata") // NOTE shouldn't this be a positional argument? it's obligatory
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
@@ -58,16 +59,13 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 			return
 		}
 
-		var env string
+		if devenvFlag {
+			APIServer = DEV_API_SERVER
+			env = "dev"
+		}
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			env = "test"
-		} else if devenvFlag {
-			APIServer = DEV_API_SERVER
-			env = "dev"
-		} else {
-			APIServer = PROD_API_SERVER
-			env = "production"
 		}
 
 		color.Set(color.FgGreen)
