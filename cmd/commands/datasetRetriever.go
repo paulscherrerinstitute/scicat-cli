@@ -51,6 +51,7 @@ For further help see "` + MANUAL + `"`,
 
 		var APIServer string = PROD_API_SERVER
 		var RSYNCServer string = PROD_RSYNC_RETRIEVE_SERVER
+		var env string = "production"
 
 		var client = &http.Client{
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
@@ -140,19 +141,15 @@ For further help see "` + MANUAL + `"`,
 
 		datasetUtils.CheckForNewVersion(client, APP, VERSION)
 
-		var env string
+		if devenvFlag {
+			APIServer = DEV_API_SERVER
+			RSYNCServer = DEV_RSYNC_RETRIEVE_SERVER
+			env = "dev"
+		}
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			RSYNCServer = TEST_RSYNC_RETRIEVE_SERVER
 			env = "test"
-		} else if devenvFlag {
-			APIServer = DEV_API_SERVER
-			RSYNCServer = DEV_RSYNC_RETRIEVE_SERVER
-			env = "dev"
-		} else {
-			APIServer = PROD_API_SERVER
-			RSYNCServer = PROD_RSYNC_RETRIEVE_SERVER
-			env = "production"
 		}
 
 		color.Set(color.FgGreen)
@@ -168,12 +165,10 @@ For further help see "` + MANUAL + `"`,
 
 		destinationPath := ""
 
-		if len(args) == 1 {
-			destinationPath = args[0]
-		} else {
-			log.Println("invalid number of args")
-			return
+		if len(args) < 1 || len(args) > 1 {
+			log.Fatalln("invalid number of args")
 		}
+		destinationPath = args[0]
 
 		auth := &datasetUtils.RealAuthenticator{}
 		user, _ := datasetUtils.Authenticate(auth, client, APIServer, &token, &userpass)
@@ -184,29 +179,29 @@ For further help see "` + MANUAL + `"`,
 		}
 
 		if len(datasetList) == 0 {
-			fmt.Printf("\n\nNo datasets found on intermediate cache server.\n")
-			fmt.Println("Did you submit a retrieve job from the data catalog first ?")
+			log.Printf("\n\nNo datasets found on intermediate cache server.\n")
+			log.Fatalln("Did you submit a retrieve job from the data catalog first ?")
+		}
+
+		// get sourceFolder and other dataset related info for all Datasets
+		datasetDetails, err := datasetUtils.GetDatasetDetails(client, APIServer, user["accessToken"], datasetList, ownerGroup)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// assemble rsync commands to be submitted
+		batchCommands, destinationFolders := assembleRsyncCommands(user["username"], datasetDetails, destinationPath)
+		// log.Printf("%v\n", batchCommands)
+
+		if !retrieveFlag {
+			color.Set(color.FgRed)
+			log.Printf("\n\nNote: you run in 'dry' mode to simply check what would happen.")
+			log.Printf("Use the -retrieve flag to actually retrieve datasets.")
+			color.Unset()
 		} else {
-			// get sourceFolder and other dataset related info for all Datasets
-			datasetDetails, err := datasetUtils.GetDatasetDetails(client, APIServer, user["accessToken"], datasetList, ownerGroup)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			// assemble rsync commands to be submitted
-			batchCommands, destinationFolders := assembleRsyncCommands(user["username"], datasetDetails, destinationPath)
-			// log.Printf("%v\n", batchCommands)
-
-			if !retrieveFlag {
-				color.Set(color.FgRed)
-				log.Printf("\n\nNote: you run in 'dry' mode to simply check what would happen.")
-				log.Printf("Use the -retrieve flag to actually retrieve datasets.")
-				color.Unset()
-			} else {
-				executeCommands(batchCommands)
-				if !nochksumFlag {
-					checkSumVerification(destinationFolders)
-				}
+			executeCommands(batchCommands)
+			if !nochksumFlag {
+				checkSumVerification(destinationFolders)
 			}
 		}
 	},
