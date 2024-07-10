@@ -147,8 +147,7 @@ For Windows you need instead to specify -user username:password on the command l
 		absFileListing := ""
 
 		if len(args) <= 0 || len(args) >= 3 {
-			log.Println("invalid number of args")
-			return
+			log.Fatal("invalid number of args")
 		}
 
 		metadatafile = args[0]
