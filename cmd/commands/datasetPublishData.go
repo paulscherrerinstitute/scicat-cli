@@ -49,6 +49,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 
 		// ===== variables =====
 		var APIServer string = PROD_API_SERVER
+		var env string = "production"
 
 		var client = &http.Client{
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
@@ -271,16 +272,13 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 			return
 		}
 
-		var env string
+		if devenvFlag {
+			APIServer = DEV_API_SERVER
+			env = "dev"
+		}
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			env = "test"
-		} else if devenvFlag {
-			APIServer = DEV_API_SERVER
-			env = "dev"
-		} else {
-			APIServer = PROD_API_SERVER
-			env = "production"
 		}
 
 		color.Set(color.FgGreen)
