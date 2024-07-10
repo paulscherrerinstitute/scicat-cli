@@ -37,8 +37,8 @@ For further help see "` + MANUAL + `"`,
 
 		const CMD = "datasetCleaner"
 
-		var APIServer string
-		var env string
+		var APIServer string = PROD_API_SERVER
+		var env string = "production"
 
 		// pass parameters
 		removeFromCatalogFlag, _ := cmd.Flags().GetBool("removeFromCatalog")
@@ -75,29 +75,24 @@ For further help see "` + MANUAL + `"`,
 
 		//}
 
+		if devenvFlag {
+			APIServer = DEV_API_SERVER
+			env = "dev"
+		}
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			env = "test"
-		} else if devenvFlag {
-			APIServer = DEV_API_SERVER
-			env = "dev"
-		} else {
-			APIServer = PROD_API_SERVER
-			env = "production"
 		}
 
 		color.Set(color.FgRed)
 		log.Printf("You are about to remove a dataset from the === %s === data catalog environment...", env)
 		color.Unset()
 
-		pid := ""
-
-		if len(args) == 1 {
-			pid = args[0]
-		} else {
+		if len(args) < 1 || len(args) > 1 {
 			log.Println("invalid number of args")
 			return
 		}
+		pid := args[0]
 
 		auth := &datasetUtils.RealAuthenticator{}
 		user, _ := datasetUtils.Authenticate(auth, client, APIServer, &token, &userpass)
