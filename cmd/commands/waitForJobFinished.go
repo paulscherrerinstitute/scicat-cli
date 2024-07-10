@@ -31,8 +31,8 @@ var waitForJobFinishedCmd = &cobra.Command{
 		const TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3"
 		const DEV_API_SERVER string = "https://dacat-development.psi.ch/api/v3"
 
-		var APIServer string
-		var env string
+		var APIServer string = PROD_API_SERVER
+		var env string = "production"
 
 		// structs
 		type Job struct {
@@ -70,7 +70,7 @@ var waitForJobFinishedCmd = &cobra.Command{
 		// retrieve flags
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
-		jobId, _ := cmd.Flags().GetString("job")
+		jobId, _ := cmd.Flags().GetString("job") // shouldn't jobID be a positional argument? it's obligatory
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
@@ -93,15 +93,13 @@ var waitForJobFinishedCmd = &cobra.Command{
 			return
 		}
 
+		if devenvFlag {
+			APIServer = DEV_API_SERVER
+			env = "dev"
+		}
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			env = "test"
-		} else if devenvFlag {
-			APIServer = DEV_API_SERVER
-			env = "dev"
-		} else {
-			APIServer = PROD_API_SERVER
-			env = "production"
 		}
 
 		color.Set(color.FgGreen)
