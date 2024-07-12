@@ -100,6 +100,29 @@ For Windows you need instead to specify -user username:password on the command l
 			return
 		}
 
+		if len(args) <= 0 || len(args) >= 3 {
+			log.Fatal("invalid number of args")
+		}
+
+		metadatafile := args[0]
+		filelistingPath := ""
+		folderlistingPath := ""
+		absFileListing := ""
+		if len(args) == 2 {
+			if args[1] == "folderlisting.txt" {
+				folderlistingPath = args[1]
+			} else {
+				// NOTE filelistingPath is some kind of path to which the sourceFolder path should be relative
+				filelistingPath = args[1]
+				absFileListing, _ = filepath.Abs(filelistingPath)
+			}
+		}
+
+		if datasetUtils.TestArgs != nil {
+			datasetUtils.TestArgs([]interface{}{metadatafile, filelistingPath, folderlistingPath})
+			return
+		}
+
 		// functions use this flag in a way where "nil -> unset"
 		var allowExistingSourceFolderPtr *bool = &allowExistingSourceFolder
 		if !noninteractiveFlag && !cmd.Flags().Lookup("allowexistingsource").Changed {
@@ -140,26 +163,6 @@ For Windows you need instead to specify -user username:password on the command l
 		color.Set(color.FgGreen)
 		log.Printf("You are about to add a dataset to the === %s === data catalog environment...", env)
 		color.Unset()
-
-		metadatafile := ""
-		filelistingPath := ""
-		folderlistingPath := ""
-		absFileListing := ""
-
-		if len(args) <= 0 || len(args) >= 3 {
-			log.Fatal("invalid number of args")
-		}
-
-		metadatafile = args[0]
-		if len(args) == 2 {
-			if args[1] == "folderlisting.txt" {
-				folderlistingPath = args[1]
-			} else {
-				// NOTE filelistingPath is some kind of path to which the sourceFolder path should be relative
-				filelistingPath = args[1]
-				absFileListing, _ = filepath.Abs(filelistingPath)
-			}
-		}
 
 		// TODO: change pointer parameter types to values as they shouldn't be modified by the function
 		auth := &datasetUtils.RealAuthenticator{}
