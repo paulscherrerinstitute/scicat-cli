@@ -74,7 +74,7 @@ For further help see "` + MANUAL + `"`,
 		color.Unset()
 
 		//TODO cleanup text formatting:
-		if len(args) < 1 || len(args) > 1 {
+		if len(args) != 1 {
 			log.Fatalln("invalid number of args")
 		}
 		ownerGroup := args[0]

@@ -88,7 +88,7 @@ For further help see "` + MANUAL + `"`,
 		log.Printf("You are about to remove a dataset from the === %s === data catalog environment...", env)
 		color.Unset()
 
-		if len(args) < 1 || len(args) > 1 {
+		if len(args) != 1 {
 			log.Println("invalid number of args")
 			return
 		}
