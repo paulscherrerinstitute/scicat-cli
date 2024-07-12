@@ -165,7 +165,7 @@ For further help see "` + MANUAL + `"`,
 
 		destinationPath := ""
 
-		if len(args) < 1 || len(args) > 1 {
+		if len(args) != 1 {
 			log.Fatalln("invalid number of args")
 		}
 		destinationPath = args[0]
