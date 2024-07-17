@@ -44,7 +44,12 @@ func Authenticate(auth Authenticator, httpClient *http.Client, APIServer string,
 		}
 		user, accessGroups = auth.AuthenticateUser(httpClient, APIServer, username, password)
 	} else {
-		user, accessGroups = auth.GetUserInfoFromToken(httpClient, APIServer, *token)
+		var err error
+		user, accessGroups, err = GetUserInfoFromToken(httpClient, APIServer, *token)
+		if err != nil {
+			log.Fatalf("Failed to get user info from token: %v", err)
+		}
+
 		// extract password if defined in userpass value
 		u := strings.Split(*userpass, ":")
 		if len(u) == 2 {
