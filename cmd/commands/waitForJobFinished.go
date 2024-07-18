@@ -168,8 +168,6 @@ var waitForJobFinishedCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(waitForJobFinishedCmd)
 
-	waitForJobFinishedCmd.Flags().String("user", "", "Defines optional username and password")
-	waitForJobFinishedCmd.Flags().String("token", "", "Defines optional API token instead of username:password")
 	waitForJobFinishedCmd.Flags().String("job", "", "Defines the job id to poll")
 	waitForJobFinishedCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead or production")
 	waitForJobFinishedCmd.Flags().Bool("devenv", false, "Use development environment instead or production")

@@ -392,8 +392,6 @@ func init() {
 	datasetIngestorCmd.Flags().Bool("localenv", false, "Use local environment instead of production environment (developers only)")
 	datasetIngestorCmd.Flags().Bool("tunnelenv", false, "Use tunneled API server at port 5443 to access development instance (developers only)")
 	datasetIngestorCmd.Flags().Bool("noninteractive", false, "If set no questions will be asked and the default settings for all undefined flags will be assumed")
-	datasetIngestorCmd.Flags().String("user", "", "Defines optional username:password string. This can be used both for access to the data catalog API and for access to the intermediate storage server for the decentral use case")
-	datasetIngestorCmd.Flags().String("token", "", "Defines API token for access to the data catalog API. It is now mandatory for normal user accounts, but optional for functional accounts. It takes precedence over username/pw.")
 	datasetIngestorCmd.Flags().Bool("copy", false, "Defines if files should be copied from your local system to a central server before ingest (i.e. your data is not centrally available and therefore needs to be copied ='decentral' case). copyFlag has higher priority than nocopyFlag. If neither flag is defined the tool will try to make the best guess.")
 	datasetIngestorCmd.Flags().Bool("nocopy", false, "Defines if files should *not* be copied from your local system to a central server before ingest (i.e. your data is centrally available and therefore does not need to be copied ='central' case).")
 	datasetIngestorCmd.Flags().Int("tapecopies", 0, "Number of tapecopies to be used for archiving")

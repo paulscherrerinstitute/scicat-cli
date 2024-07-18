@@ -335,8 +335,6 @@ func init() {
 	datasetPublishDataCmd.Flags().String("publisheddata", "", "Defines to publish data froma given publishedData document ID")
 	// datasetPublishDataCmd.Flags().String("dataset", "", "Defines single datasetId to publish")
 	// datasetPublishDataCmd.Flags().String("ownergroup", "", "Defines to publish only datasets of the specified ownerGroup")
-	datasetPublishDataCmd.Flags().String("user", "", "Defines optional username:password string")
-	datasetPublishDataCmd.Flags().String("token", "", "Defines optional API token instead of username:password")
 	datasetPublishDataCmd.Flags().Bool("testenv", false, "Use test environment (qa) (default is to use production system)")
 	datasetPublishDataCmd.Flags().Bool("devenv", false, "Use development environment (default is to use production system)")
 	datasetPublishDataCmd.Flags().Bool("version", false, "Show version number and exit")

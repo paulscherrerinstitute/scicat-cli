@@ -211,8 +211,6 @@ func init() {
 	rootCmd.AddCommand(datasetRetrieverCmd)
 
 	datasetRetrieverCmd.Flags().Bool("retrieve", false, "Defines if this command is meant to actually copy data to the local system (default nothing is done)")
-	datasetRetrieverCmd.Flags().String("user", "", "Defines optional username and password (default is to prompt for username and password)")
-	datasetRetrieverCmd.Flags().String("token", "", "Defines optional API token instead of username:password")
 	datasetRetrieverCmd.Flags().Bool("nochksum", false, "Switch off chksum verification step (default checksum tests are done)")
 	datasetRetrieverCmd.Flags().String("dataset", "", "Defines single dataset to retrieve (default all available datasets)")
 	datasetRetrieverCmd.Flags().String("ownergroup", "", "Defines to fetch only datasets of the specified ownerGroup (default is to fetch all available datasets)")

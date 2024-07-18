@@ -25,4 +25,8 @@ func Execute() {
 
 func init() {
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	rootCmd.PersistentFlags().StringP("user", "u", "", "Defines optional username:password string")
+	rootCmd.PersistentFlags().String("token", "", "Defines optional API token instead of username:password")
+	rootCmd.PersistentFlags().StringP("config", "c", "", "A path to a config file for connecting to SciCat and transfer services")
 }

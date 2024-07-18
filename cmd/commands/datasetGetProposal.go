@@ -104,8 +104,6 @@ For further help see "` + MANUAL + `"`,
 func init() {
 	rootCmd.AddCommand(datasetGetProposalCmd)
 
-	datasetGetProposalCmd.Flags().String("user", "", "Defines optional username and password")
-	datasetGetProposalCmd.Flags().String("token", "", "Defines optional API token instead of username:password")
 	datasetGetProposalCmd.Flags().String("field", "", "Defines optional field name , whose value should be returned instead of full information")
 	datasetGetProposalCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead or production")
 	datasetGetProposalCmd.Flags().Bool("devenv", false, "Use development environment instead or production")

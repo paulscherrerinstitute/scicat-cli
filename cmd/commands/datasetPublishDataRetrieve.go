@@ -120,8 +120,6 @@ func init() {
 
 	datasetPublishDataRetrieveCmd.Flags().Bool("retrieve", false, "Defines if this command is meant to actually retrieve data (default: retrieve actions are only displayed)")
 	datasetPublishDataRetrieveCmd.Flags().String("publisheddata", "", "Defines to publish data from a given publishedData document ID")
-	datasetPublishDataRetrieveCmd.Flags().String("user", "", "Defines optional username:password string")
-	datasetPublishDataRetrieveCmd.Flags().String("token", "", "Defines optional API token instead of username:password")
 	datasetPublishDataRetrieveCmd.Flags().Bool("testenv", false, "Use test environment (qa) (default is to use production system)")
 	datasetPublishDataRetrieveCmd.Flags().Bool("devenv", false, "Use development environment (default is to use production system)")
 	datasetPublishDataRetrieveCmd.Flags().Bool("version", false, "Show version number and exit")
