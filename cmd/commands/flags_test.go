@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/paulscherrerinstitute/scicat/datasetUtils"
+	"github.com/spf13/pflag"
 )
 
 func TestMainFlags(t *testing.T) {
@@ -379,6 +380,11 @@ func TestMainFlags(t *testing.T) {
 					t.Fail()
 				}
 			}
+
+			rootCmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
+				flag.Value.Set(flag.DefValue)
+				flag.Changed = false
+			})
 
 			rootCmd.SetArgs(test.args)
 			Execute()

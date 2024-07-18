@@ -49,7 +49,7 @@ func TestArgs(t *testing.T) {
 			//flag.CommandLine = flag.NewFlagSet(test.name, flag.ExitOnError)
 			datasetUtils.TestArgs = func(args []interface{}) {
 				passing := true
-				for i, _ := range test.expectedArgs {
+				for i := range test.expectedArgs {
 					if test.expectedArgs[i] != args[i] {
 						t.Logf("'%v' is not correct, expected: '%s'", args[i], test.expectedArgs[i])
 						passing = false

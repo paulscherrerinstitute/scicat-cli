@@ -134,8 +134,6 @@ For further help see "` + MANUAL + `"`,
 func init() {
 	rootCmd.AddCommand(datasetArchiverCmd)
 
-	datasetArchiverCmd.Flags().String("user", "", "Defines optional username and password")
-	datasetArchiverCmd.Flags().String("token", "", "Defines optional API token instead of username:password")
 	datasetArchiverCmd.Flags().Int("tapecopies", 1, "Number of tapecopies to be used for archiving")
 	datasetArchiverCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead or production")
 	datasetArchiverCmd.Flags().Bool("localenv", false, "Use local environment (local) instead or production")
