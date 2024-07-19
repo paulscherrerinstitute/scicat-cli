@@ -103,8 +103,7 @@ For further help see "` + MANUAL + `"`,
 			inputdatasetList = args[0:]
 		}
 
-		auth := &datasetUtils.RealAuthenticator{}
-		user, _ := datasetUtils.Authenticate(auth, client, APIServer, &token, &userpass)
+		user, _ := authenticate(datasetUtils.RealAuthenticator{}, client, APIServer, userpass, token)
 
 		archivableDatasets := datasetUtils.GetArchivableDatasets(client, APIServer, ownerGroup, inputdatasetList, user["accessToken"])
 		if len(archivableDatasets) <= 0 {

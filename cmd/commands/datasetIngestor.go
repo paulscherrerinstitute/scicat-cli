@@ -165,8 +165,7 @@ For Windows you need instead to specify -user username:password on the command l
 		color.Unset()
 
 		// TODO: change pointer parameter types to values as they shouldn't be modified by the function
-		auth := &datasetUtils.RealAuthenticator{}
-		user, accessGroups := datasetUtils.Authenticate(auth, client, APIServer, &token, &userpass)
+		user, accessGroups := authenticate(datasetUtils.RealAuthenticator{}, client, APIServer, userpass, token)
 
 		/* TODO Add info about policy settings and that autoarchive will take place or not */
 
