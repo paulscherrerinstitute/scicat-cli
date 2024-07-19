@@ -337,7 +337,6 @@ func init() {
 	// datasetPublishDataCmd.Flags().String("ownergroup", "", "Defines to publish only datasets of the specified ownerGroup")
 	datasetPublishDataCmd.Flags().Bool("testenv", false, "Use test environment (qa) (default is to use production system)")
 	datasetPublishDataCmd.Flags().Bool("devenv", false, "Use development environment (default is to use production system)")
-	datasetPublishDataCmd.Flags().Bool("version", false, "Show version number and exit")
 
 	datasetPublishDataCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }

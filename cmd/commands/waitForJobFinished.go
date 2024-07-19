@@ -171,7 +171,6 @@ func init() {
 	waitForJobFinishedCmd.Flags().String("job", "", "Defines the job id to poll")
 	waitForJobFinishedCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead or production")
 	waitForJobFinishedCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
-	waitForJobFinishedCmd.Flags().Bool("version", false, "Show version number and exit")
 
 	waitForJobFinishedCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }

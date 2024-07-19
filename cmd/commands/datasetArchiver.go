@@ -139,7 +139,6 @@ func init() {
 	datasetArchiverCmd.Flags().Bool("localenv", false, "Use local environment (local) instead or production")
 	datasetArchiverCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
 	datasetArchiverCmd.Flags().Bool("noninteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
-	datasetArchiverCmd.Flags().Bool("version", false, "Show version number and exit")
 
 	datasetArchiverCmd.MarkFlagsMutuallyExclusive("testenv", "localenv", "devenv")
 }

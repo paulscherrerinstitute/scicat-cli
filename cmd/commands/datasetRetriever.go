@@ -216,7 +216,6 @@ func init() {
 	datasetRetrieverCmd.Flags().String("ownergroup", "", "Defines to fetch only datasets of the specified ownerGroup (default is to fetch all available datasets)")
 	datasetRetrieverCmd.Flags().Bool("testenv", false, "Use test environment (qa) (default is to use production system)")
 	datasetRetrieverCmd.Flags().Bool("devenv", false, "Use development environment (default is to use production system)")
-	datasetRetrieverCmd.Flags().Bool("version", false, "Show version number and exit")
 
 	datasetRetrieverCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }
