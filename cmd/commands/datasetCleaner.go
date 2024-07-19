@@ -118,7 +118,6 @@ func init() {
 	datasetCleanerCmd.Flags().Bool("nonInteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
 	datasetCleanerCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead of production environment")
 	datasetCleanerCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
-	datasetCleanerCmd.Flags().Bool("version", false, "Show version number and exit")
 
 	datasetCleanerCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }

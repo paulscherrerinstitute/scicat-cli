@@ -400,7 +400,6 @@ func init() {
 	datasetIngestorCmd.Flags().Bool("allowexistingsource", false, "Defines if existing sourceFolders can be reused")
 	datasetIngestorCmd.Flags().String("addattachment", "", "Filename of image to attach (single dataset case only)")
 	datasetIngestorCmd.Flags().String("addcaption", "", "Optional caption to be stored with attachment (single dataset case only)")
-	datasetIngestorCmd.Flags().Bool("version", false, "Show version number and exit")
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 }

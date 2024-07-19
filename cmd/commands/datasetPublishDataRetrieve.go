@@ -122,7 +122,6 @@ func init() {
 	datasetPublishDataRetrieveCmd.Flags().String("publisheddata", "", "Defines to publish data from a given publishedData document ID")
 	datasetPublishDataRetrieveCmd.Flags().Bool("testenv", false, "Use test environment (qa) (default is to use production system)")
 	datasetPublishDataRetrieveCmd.Flags().Bool("devenv", false, "Use development environment (default is to use production system)")
-	datasetPublishDataRetrieveCmd.Flags().Bool("version", false, "Show version number and exit")
 
 	datasetPublishDataRetrieveCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }

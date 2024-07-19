@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -12,8 +13,15 @@ var rootCmd = &cobra.Command{
 	Long: `This library comprises a few subcommands for managing SciCat
 and datasets on it, as well as interacting with the archival system connected
 to it.`,
-	// uncomment the next line if there's a default action
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Run: func(cmd *cobra.Command, args []string) {
+		version, _ := cmd.Flags().GetBool("version")
+		if version {
+			fmt.Printf("%s\n", VERSION)
+			return
+		}
+		fmt.Print("No action was specified.\n\n")
+		cmd.Help()
+	},
 }
 
 func Execute() {
@@ -29,4 +37,5 @@ func init() {
 	rootCmd.PersistentFlags().StringP("user", "u", "", "Defines optional username:password string")
 	rootCmd.PersistentFlags().String("token", "", "Defines optional API token instead of username:password")
 	rootCmd.PersistentFlags().StringP("config", "c", "", "A path to a config file for connecting to SciCat and transfer services")
+	rootCmd.PersistentFlags().BoolP("version", "v", false, "Show version")
 }
