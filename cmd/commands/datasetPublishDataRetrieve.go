@@ -91,7 +91,7 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 			return
 		}
 
-		user, _ := authenticate(datasetUtils.RealAuthenticator{}, client, APIServer, userpass, token)
+		user, _ := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 
 		datasetList, _, _ := datasetUtils.GetDatasetsOfPublication(client, APIServer, publishedDataId)
 

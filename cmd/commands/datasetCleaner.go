@@ -94,7 +94,7 @@ For further help see "` + MANUAL + `"`,
 		}
 		pid := args[0]
 
-		user, _ := authenticate(datasetUtils.RealAuthenticator{}, client, APIServer, userpass, token)
+		user, _ := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 
 		if user["username"] != "archiveManager" {
 			log.Fatalf("You must be archiveManager to be allowed to delete datasets\n")
