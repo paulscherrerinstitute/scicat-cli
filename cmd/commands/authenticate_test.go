@@ -1,4 +1,4 @@
-package datasetUtils
+package cmd
 
 import (
 	"net/http"
@@ -23,12 +23,15 @@ func (m *MockAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APISer
 
 func TestAuthenticate(t *testing.T) {
 	var auth Authenticator = &MockAuthenticator{}
+	noExit := func(v ...any) {
+
+	}
 	// Mock HTTP server
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Write([]byte(`{"username": "testuser", "accessGroups": ["group1", "group2"]}`))
 	}))
 	defer server.Close()
-	
+
 	// Test cases
 	tests := []struct {
 		name      string
@@ -36,7 +39,7 @@ func TestAuthenticate(t *testing.T) {
 		userpass  string
 		wantUser  map[string]string
 		wantGroup []string
-		}{
+	}{
 		{
 			name:     "Test with token",
 			token:    "testtoken",
@@ -48,10 +51,10 @@ func TestAuthenticate(t *testing.T) {
 			wantGroup: []string{"group3", "group4"},
 		},
 		{
-			name:     "Test with empty token and userpass",
-			token:    "",
-			userpass: "",
-			wantUser: map[string]string{},
+			name:      "Test with empty token and userpass",
+			token:     "",
+			userpass:  "",
+			wantUser:  map[string]string{},
 			wantGroup: []string{},
 		},
 		{
@@ -75,16 +78,16 @@ func TestAuthenticate(t *testing.T) {
 			wantGroup: []string{"group3", "group4"},
 		},
 	}
-		
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			httpClient := server.Client()
-			user, group := Authenticate(auth, httpClient, server.URL, &tt.token, &tt.userpass)
-			
+			user, group := authenticate(auth, httpClient, server.URL, tt.userpass, tt.token, noExit)
+
 			if !reflect.DeepEqual(user, tt.wantUser) {
 				t.Errorf("got %v, want %v", user, tt.wantUser)
 			}
-			
+
 			if !reflect.DeepEqual(group, tt.wantGroup) {
 				t.Errorf("got %v, want %v", group, tt.wantGroup)
 			}
