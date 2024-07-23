@@ -3,7 +3,7 @@ package datasetUtils
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -26,6 +26,9 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 	// try functional accounts first
 
 	req, err := http.NewRequest("POST", APIServer+"/Users/login", bytes.NewBuffer(cred))
+	if err != nil {
+		log.Fatal(err)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
@@ -59,6 +62,9 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 	} else {
 		// then try normal user account
 		req, err = http.NewRequest("POST", strings.Replace(APIServer, "api/v3", "auth/msad", 1), bytes.NewBuffer(cred))
+		if err != nil {
+			log.Fatal(err)
+		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err = client.Do(req)
 		if err != nil {
@@ -81,8 +87,11 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 			// now get email from UserIdentity collections
 			var myurl = APIServer + "/UserIdentities?filter=%7B%22where%22%3A%7B%22userId%22%3A%22" + auth2.UserId + "%22%7D%7D&access_token=" + auth2.Access_token
 			resp, err := client.Get(myurl)
+			if err != nil {
+				log.Fatal(err)
+			}
 			defer resp.Body.Close()
-			body, _ := ioutil.ReadAll(resp.Body)
+			body, _ := io.ReadAll(resp.Body)
 			//fmt.Printf("Result:%s",string(body))
 			type NormalUser struct {
 				Profile struct {
