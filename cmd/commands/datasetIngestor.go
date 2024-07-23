@@ -123,12 +123,6 @@ For Windows you need instead to specify -user username:password on the command l
 			return
 		}
 
-		// functions use this flag in a way where "nil -> unset"
-		var allowExistingSourceFolderPtr *bool = &allowExistingSourceFolder
-		if !noninteractiveFlag && !cmd.Flags().Lookup("allowexistingsource").Changed {
-			allowExistingSourceFolderPtr = nil
-		}
-
 		if showVersion {
 			fmt.Printf("%s\n", VERSION)
 			return
@@ -195,10 +189,10 @@ For Windows you need instead to specify -user username:password on the command l
 					if len(parts) > 3 && parts[3] == "data" {
 						realSourceFolder, err := filepath.EvalSymlinks(line)
 						if err != nil {
-							log.Fatalf("Failed to find canonical form of sourceFolder:%v %v", line, err)
+							log.Fatalf("Failed to find canonical form of sourceFolder:%v %v\n", line, err)
 						}
 						color.Set(color.FgYellow)
-						log.Printf("Transform sourceFolder %v to canonical form: %v", line, realSourceFolder)
+						log.Printf("Transform sourceFolder %v to canonical form: %v\n", line, realSourceFolder)
 						color.Unset()
 						datasetFolders = append(datasetFolders, realSourceFolder)
 					} else {
@@ -210,7 +204,28 @@ For Windows you need instead to specify -user username:password on the command l
 		// log.Printf("Selected folders: %v\n", folders)
 
 		// test if a sourceFolder already used in the past and give warning
-		datasetIngestor.TestForExistingSourceFolder(datasetFolders, client, APIServer, user["accessToken"], allowExistingSourceFolderPtr)
+		foundList, err := datasetIngestor.TestForExistingSourceFolder(datasetFolders, client, APIServer, user["accessToken"])
+		if err != nil {
+			log.Fatal(err)
+		}
+		color.Set(color.FgYellow)
+		fmt.Println("Warning! The following datasets have been found with the same sourceFolder: ")
+		for _, element := range foundList {
+			fmt.Printf("  - PID: \"%s\", sourceFolder: \"%s\"\n", element.Pid, element.SourceFolder)
+		}
+		color.Unset()
+		if !allowExistingSourceFolder && len(foundList) > 0 {
+			if cmd.Flags().Changed("allowexistingsource") {
+				log.Printf("Do you want to ingest the corresponding new datasets nevertheless (y/N) ? ")
+				scanner.Scan()
+				archiveAgain := scanner.Text()
+				if archiveAgain != "y" {
+					log.Fatalln("Aborted.")
+				}
+			} else {
+				log.Fatalln("Existing sourceFolders are not allowed. Aborted.")
+			}
+		}
 
 		// TODO ask archive system if sourcefolder is known to them. If yes no copy needed, otherwise
 		// a destination location is defined by the archive system
@@ -219,7 +234,7 @@ For Windows you need instead to specify -user username:password on the command l
 		// now everything is prepared, start to loop over all folders
 		var skip = ""
 		// check if skip flag is globally defined via flags:
-		if cmd.Flags().Lookup("linkfiles").Changed {
+		if cmd.Flags().Changed("linkfiles") {
 			switch linkfiles {
 			case "delete":
 				skip = "sA"
@@ -410,4 +425,5 @@ func init() {
 	datasetIngestorCmd.Flags().String("addcaption", "", "Optional caption to be stored with attachment (single dataset case only)")
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
+	//datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
 }
