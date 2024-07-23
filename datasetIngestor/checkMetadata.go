@@ -129,7 +129,7 @@ func checkUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 	ownerGroup, ok := metaDataMap["ownerGroup"]
 	if !ok {
 		// NOTE: so if there's no ownergroup, we can pass this check?
-		return false, nil
+		return false, fmt.Errorf("no OwnerGroup attribute present in metadata")
 	}
 
 	// Iterate over accessGroups to validate the owner group.
@@ -246,7 +246,7 @@ func augmentMissingMetadata(user map[string]string, metaDataMap map[string]inter
 func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap map[string]interface{}, client *http.Client, APIServer string, accessGroups []string) error {
 	typeVal, ok := metaDataMap["type"]
 	if !ok {
-		return nil
+		return fmt.Errorf("type doesn't exist as an attribute")
 	}
 	dstype, ok := typeVal.(string)
 	if !ok {
@@ -258,12 +258,13 @@ func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap ma
 	}
 
 	if _, ok := metaDataMap["principalInvestigator"]; ok {
+		// exit if present
 		return nil
 	}
 
 	val, ok := metaDataMap["ownerGroup"]
 	if !ok {
-		return nil
+		return fmt.Errorf("ownerGroup is not present in metadata attributes")
 	}
 
 	ownerGroup, ok := val.(string)
