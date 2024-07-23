@@ -2,9 +2,9 @@ package datasetIngestor
 
 import (
 	"net/http"
+	"reflect"
 	"testing"
 	"time"
-	"reflect"
 )
 
 func TestGetHost(t *testing.T) {
@@ -31,7 +31,7 @@ func TestCheckMetadata(t *testing.T) {
 
 	// Mock HTTP client
 	client := &http.Client{
-		Timeout: 5 * time.Second, // Set a timeout for requests
+		Timeout:   5 * time.Second, // Set a timeout for requests
 		Transport: &http.Transport{
 			// Customize the transport settings if needed (e.g., proxy, TLS config)
 			// For a dummy client, default settings are usually sufficient
@@ -75,13 +75,13 @@ func TestCheckMetadata(t *testing.T) {
 		t.Error("Expected beamlineAccount to be false")
 	}
 	if _, ok := metaDataMap["ownerEmail"]; !ok {
-    t.Error("metaDataMap missing required key 'ownerEmail'")
+		t.Error("metaDataMap missing required key 'ownerEmail'")
 	}
 	if _, ok := metaDataMap["principalInvestigator"]; !ok {
-    t.Error("metaDataMap missing required key 'principalInvestigator'")
+		t.Error("metaDataMap missing required key 'principalInvestigator'")
 	}
 	if _, ok := metaDataMap["scientificMetadata"]; !ok {
-    t.Error("metaDataMap missing required key 'scientificMetadata'")
+		t.Error("metaDataMap missing required key 'scientificMetadata'")
 	}
 	scientificMetadata, ok := metaDataMap["scientificMetadata"].([]interface{})
 	if ok {
@@ -124,41 +124,41 @@ func TestCheckMetadata(t *testing.T) {
 }
 
 func TestCheckMetadata_CrashCase(t *testing.T) {
-    // Define mock parameters for the function
-    var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3"  // TODO: Test Improvement. Change this to a mock server. At the moment, tests will fail if we change this to a mock server.
-    var APIServer = TEST_API_SERVER
-    var metadatafile3 = "testdata/metadata_illegal.json"
+	// Define mock parameters for the function
+	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3" // TODO: Test Improvement. Change this to a mock server. At the moment, tests will fail if we change this to a mock server.
+	var APIServer = TEST_API_SERVER
+	var metadatafile3 = "testdata/metadata_illegal.json"
 
-    // Mock HTTP client
-    client := &http.Client{
-        Timeout:   5 * time.Second, // Set a timeout for requests
-        Transport: &http.Transport{
-            // Customize the transport settings if needed (e.g., proxy, TLS config)
-            // For a dummy client, default settings are usually sufficient
-        },
-        CheckRedirect: func(req *http.Request, via []*http.Request) error {
-            // Customize how redirects are handled if needed
-            // For a dummy client, default behavior is usually sufficient
-            return http.ErrUseLastResponse // Use the last response for redirects
-        },
-    }
+	// Mock HTTP client
+	client := &http.Client{
+		Timeout:   5 * time.Second, // Set a timeout for requests
+		Transport: &http.Transport{
+			// Customize the transport settings if needed (e.g., proxy, TLS config)
+			// For a dummy client, default settings are usually sufficient
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// Customize how redirects are handled if needed
+			// For a dummy client, default behavior is usually sufficient
+			return http.ErrUseLastResponse // Use the last response for redirects
+		},
+	}
 
-    // Mock user map
-    user := map[string]string{
-        "displayName": "csaxsswissfel",
-        "mail":        "testuser@example.com",
-    }
+	// Mock user map
+	user := map[string]string{
+		"displayName": "csaxsswissfel",
+		"mail":        "testuser@example.com",
+	}
 
-    // Mock access groups
-    accessGroups := []string{"group1", "group2"}
+	// Mock access groups
+	accessGroups := []string{"group1", "group2"}
 
-    // Call the function that should return an error
-    _, _, _, err := CheckMetadata(client, APIServer, metadatafile3, user, accessGroups)
+	// Call the function that should return an error
+	_, _, _, err := CheckMetadata(client, APIServer, metadatafile3, user, accessGroups)
 
-    // Check that the function returned the expected error
-    if err == nil {
-        t.Fatal("Function did not return an error as expected")
-    } else if err.Error() != ErrIllegalKeys {
-        t.Errorf("Expected error %q, got %q", ErrIllegalKeys, err.Error())
-    }
+	// Check that the function returned the expected error
+	if err == nil {
+		t.Fatal("Function did not return an error as expected")
+	} else if err.Error() != ErrIllegalKeys+": \"description.\", \"name]\"" {
+		t.Errorf("Expected error %q, got %q", ErrIllegalKeys, err.Error())
+	}
 }
