@@ -334,7 +334,11 @@ For Windows you need instead to specify -user username:password on the command l
 					datasetId := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user)
 					// add attachment optionally
 					if addAttachment != "" {
-						datasetIngestor.AddAttachment(client, APIServer, datasetId, metaDataMap, user["accessToken"], addAttachment, addCaption)
+						err := datasetIngestor.AddAttachment(client, APIServer, datasetId, metaDataMap, user["accessToken"], addAttachment, addCaption)
+						if err != nil {
+							log.Println("Couldn't add attachment:", err)
+						}
+						log.Printf("Attachment file %v added to dataset  %v\n", addAttachment, datasetId)
 					}
 					if copyFlag {
 						err := datasetIngestor.SyncDataToFileserver(datasetId, user, RSYNCServer, sourceFolder, absFileListing)
