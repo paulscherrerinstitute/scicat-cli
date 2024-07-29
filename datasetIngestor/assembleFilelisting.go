@@ -26,7 +26,9 @@ type Datafile struct {
 var skippedLinks = 0
 var illegalFileNames = 0
 var errorGroupIds = 0
+
 const windows = "windows"
+
 var scanner = bufio.NewScanner(os.Stdin)
 
 // readLines reads a whole file into memory
@@ -47,7 +49,7 @@ func readLines(path string) ([]string, error) {
 }
 
 /*
-AssembleFilelisting scans a source folder and optionally a file listing, and returns a list of data files, the earliest and latest modification times, the owner, the number of files, and the total size of the files.
+GetLocalFileList scans a source folder and optionally a file listing, and returns a list of data files, the earliest and latest modification times, the owner, the number of files, and the total size of the files.
 
 Parameters:
 - sourceFolder: The path to the source folder to scan.
@@ -68,18 +70,17 @@ Returns:
 
 The function logs an error and returns if it cannot change the working directory to the source folder.
 */
-func AssembleFilelisting(sourceFolder string, filelistingPath string, skip *string) (fullFileArray []Datafile, startTime time.Time, endTime time.Time, owner string, numFiles int64, totalSize int64) {
+func GetLocalFileList(sourceFolder string, filelistingPath string, skip *string) (fullFileArray []Datafile, startTime time.Time, endTime time.Time, owner string, numFiles int64, totalSize int64, err error) {
 	// scan all lines
 	//fmt.Println("sourceFolder,listing:", sourceFolder, filelistingPath)
 	fullFileArray = make([]Datafile, 0)
-	startTime = time.Date(2100, 1, 1, 12, 0, 0, 0, time.UTC)
+	startTime = time.Date(2500, 1, 1, 12, 0, 0, 0, time.UTC)
 	endTime = time.Date(2000, 1, 1, 12, 0, 0, 0, time.UTC)
 	owner = ""
 	numFiles = 0
 	totalSize = 0
 
 	var lines []string
-	var err error
 
 	if filelistingPath == "" {
 		log.Printf("No explicit filelistingPath defined - full folder %s is used.\n", sourceFolder)
@@ -97,24 +98,29 @@ func AssembleFilelisting(sourceFolder string, filelistingPath string, skip *stri
 	// TODO verify that filelisting have no overlap, e.g. no lines X/ and X/Y,
 	// because the latter is already contained in X/
 
-	// restore cwd after function
-	cwd, _ := os.Getwd()
-	defer os.Chdir(cwd)
-	// for windows source path add colon in the leading drive character
-	// windowsSource := strings.Replace(sourceFolder, "/C/", "C:/", 1)
-	osSource := sourceFolder
-	if runtime.GOOS == windows {
-		re := regexp.MustCompile(`^\/([A-Z])\/`)
-		osSource = re.ReplaceAllString(sourceFolder, "$1:/")
+	// restore oldWorkDir after function
+	oldWorkDir, err := os.Getwd()
+	if err != nil {
+		return fullFileArray, startTime, endTime, owner, numFiles, totalSize, err
 	}
 
-	if err := os.Chdir(osSource); err != nil {
-		log.Printf("Can not step into sourceFolder %v - dataset will be ignored.\n", sourceFolder)
-		return fullFileArray, startTime, endTime, owner, numFiles, totalSize
-	} else {
-		dir, _ := os.Getwd()
-		log.Printf("Scanning source folder: %s at %s", sourceFolder, dir)
+	defer os.Chdir(oldWorkDir)
+	// for windows source path add colon in the leading drive character
+	// windowsSource := strings.Replace(sourceFolder, "/C/", "C:/", 1)
+	if runtime.GOOS == windows {
+		re := regexp.MustCompile(`^\/([A-Z])\/`)
+		sourceFolder = re.ReplaceAllString(sourceFolder, "$1:/")
 	}
+
+	if err := os.Chdir(sourceFolder); err != nil {
+		log.Printf("Can not step into sourceFolder %v - dataset will be ignored.\n", sourceFolder)
+		return fullFileArray, startTime, endTime, owner, numFiles, totalSize, err
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		return fullFileArray, startTime, endTime, owner, numFiles, totalSize, err
+	}
+	log.Printf("Scanning source folder: %s at %s", sourceFolder, dir)
 
 	// reinitaialize *skip variable unless valid for All Datasets
 
@@ -146,41 +152,50 @@ func AssembleFilelisting(sourceFolder string, filelistingPath string, skip *stri
 			if f.IsDir() && f.Name() == "." {
 				return nil
 			}
+
 			// extract OS dependent owner IDs and translate to names
-			if err == nil {
-				uidName, gidName := GetFileOwner(f)
-				// replace backslashes for windows path
-				modpath := path
-				if runtime.GOOS == windows {
-					modpath = strings.Replace(path, "\\", "/", -1)
-				}
-				fileStruct := Datafile{Path: modpath, User: uidName, Group: gidName, Perm: f.Mode().String(), Size: f.Size(), Time: f.ModTime().Format(time.RFC3339)}
-				keep := true
-				if f.Mode()&os.ModeSymlink == os.ModeSymlink {
-					pointee, _ := os.Readlink(modpath) // just pass the file name
-					if !filepath.IsAbs(pointee) {
-						dir, err := os.Getwd()
-						// log.Printf(" CWD path pointee :%v %v %v", dir, filepath.Dir(path), pointee)
-						pabs := filepath.Join(dir, filepath.Dir(modpath), pointee)
-						pointee, err = filepath.EvalSymlinks(pabs)
-						if err != nil {
-							log.Printf("Could not follow symlink for file:%v %v", pabs, err)
-							keep = false
-							log.Printf("keep variable set to %v", keep)
-						}
+			if err != nil {
+				// stop function if err given by Walk is not nil
+				return err
+			}
+			uidName, gidName := GetFileOwner(f)
+			// replace backslashes for windows path
+			modpath := path
+			if runtime.GOOS == windows {
+				modpath = strings.Replace(path, "\\", "/", -1)
+			}
+			fileStruct := Datafile{Path: modpath, User: uidName, Group: gidName, Perm: f.Mode().String(), Size: f.Size(), Time: f.ModTime().Format(time.RFC3339)}
+			keep := true
+
+			// * handle symlinks *
+			if f.Mode()&os.ModeSymlink != 0 {
+				pointee, _ := os.Readlink(modpath) // just pass the file name
+				if !filepath.IsAbs(pointee) {
+					dir, err := os.Getwd()
+					if err != nil {
+						return err
 					}
-					//fmt.Printf("Skip variable:%v\n", *skip)
-					if *skip == "ka" || *skip == "kA" {
-						keep = true
-					} else if *skip == "sa" || *skip == "sA" {
+					// log.Printf(" CWD path pointee :%v %v %v", dir, filepath.Dir(path), pointee)
+					pabs := filepath.Join(dir, filepath.Dir(modpath), pointee)
+					pointee, err = filepath.EvalSymlinks(pabs)
+					if err != nil {
+						log.Printf("Could not follow symlink for file:%v %v", pabs, err)
 						keep = false
-					} else if *skip == "da" || *skip == "dA" {
-						keep = strings.HasPrefix(pointee, sourceFolder)
-					} else {
-						color.Set(color.FgYellow)
-						log.Printf("Warning: the file %s is a link pointing to %v.", modpath, pointee)
-						color.Unset()
-						log.Printf(`
+						log.Printf("keep variable set to %v", keep)
+					}
+				}
+				//fmt.Printf("Skip variable:%v\n", *skip)
+				if *skip == "ka" || *skip == "kA" {
+					keep = true
+				} else if *skip == "sa" || *skip == "sA" {
+					keep = false
+				} else if *skip == "da" || *skip == "dA" {
+					keep = strings.HasPrefix(pointee, sourceFolder)
+				} else {
+					color.Set(color.FgYellow)
+					log.Printf("Warning: the file %s is a link pointing to %v.", modpath, pointee)
+					color.Unset()
+					log.Printf(`
 Please test if this link is meaningful and not pointing 
 outside the sourceFolder %s. The default behaviour is to
 keep only internal links within a source folder.
@@ -189,70 +204,68 @@ subsequent links within the current dataset, by appending an a (dA,ka,sa).
 If you want to give the same answer even to all subsequent datasets 
 in this command then specify a capital 'A', e.g. (dA,kA,sA)
 Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, sourceFolder)
-						scanner.Scan()
-						*skip = scanner.Text()
-						if *skip == "" {
-							*skip = "d"
-						}
-						if *skip == "d" || *skip == "dA" {
-							keep = strings.HasPrefix(pointee, sourceFolder)
-						} else {
-							keep = (*skip != "s" && *skip != "sa" && *skip != "sA")
-						}
+					scanner.Scan()
+					*skip = scanner.Text()
+					if *skip == "" {
+						*skip = "d"
 					}
-					if keep {
-						color.Set(color.FgGreen)
-						log.Printf("You chose to keep the link %v -> %v.\n\n", modpath, pointee)
+					if *skip == "d" || *skip == "dA" {
+						keep = strings.HasPrefix(pointee, sourceFolder)
 					} else {
-						color.Set(color.FgRed)
-						skippedLinks++
-						log.Printf("You chose to remove the link %v -> %v.\n\n", modpath, pointee)
+						keep = (*skip != "s" && *skip != "sa" && *skip != "sA")
 					}
-					color.Unset()
-				}
-
-				// make sure that filenames do not contain characters like "\" or "*"
-				if strings.ContainsAny(modpath, "*\\") {
-					color.Set(color.FgRed)
-					log.Printf("Warning: the file %s contains illegal characters like *,\\ and will not be archived.", modpath)
-					color.Unset()
-					illegalFileNames++
-					keep = false
-				}
-				// and check for triple blanks, they are used to separate columns in messages
-				if keep && strings.Contains(modpath, "   ") {
-					color.Set(color.FgRed)
-					log.Printf("Warning: the file %s contains 3 consecutive blanks which is not allowed. The file not be archived.", modpath)
-					color.Unset()
-					illegalFileNames++
-					keep = false
 				}
 				if keep {
-					numFiles++
-					totalSize += f.Size()
-					//fmt.Println(numFiles, totalSize)
-					//fullFileArray = append(fullFileArray, fileline)
-					fullFileArray = append(fullFileArray, fileStruct)
-					// find out earlist creation time
-					modTime := f.ModTime()
-					//fmt.Printf("FileTime:", modTime)
-					diff := modTime.Sub(startTime)
-					if diff < (time.Duration(0) * time.Second) {
-						startTime = modTime
-						// fmt.Printf("Earliest Time:%v\n", startTime)
-					}
-					diff = modTime.Sub(endTime)
-					if diff > (time.Duration(0) * time.Second) {
-						endTime = modTime
-						//fmt.Printf("Last Time:%v\n", endTime)
-					}
-					owner = gidName
+					color.Set(color.FgGreen)
+					log.Printf("You chose to keep the link %v -> %v.\n\n", modpath, pointee)
+				} else {
+					color.Set(color.FgRed)
+					skippedLinks++
+					log.Printf("You chose to remove the link %v -> %v.\n\n", modpath, pointee)
 				}
-
-				//log.Println("Path:",modpath)
-			} else {
-				log.Println("Error:", err)
+				color.Unset()
 			}
+
+			// * filter invalid filenames *
+			// make sure that filenames do not contain characters like "\" or "*"
+			if strings.ContainsAny(modpath, "*\\") {
+				color.Set(color.FgRed)
+				log.Printf("Warning: the file %s contains illegal characters like *,\\ and will not be archived.", modpath)
+				color.Unset()
+				illegalFileNames++
+				keep = false
+			}
+			// and check for triple blanks, they are used to separate columns in messages
+			if keep && strings.Contains(modpath, "   ") {
+				color.Set(color.FgRed)
+				log.Printf("Warning: the file %s contains 3 consecutive blanks which is not allowed. The file not be archived.", modpath)
+				color.Unset()
+				illegalFileNames++
+				keep = false
+			}
+			if keep {
+				numFiles++
+				totalSize += f.Size()
+				//fmt.Println(numFiles, totalSize)
+				//fullFileArray = append(fullFileArray, fileline)
+				fullFileArray = append(fullFileArray, fileStruct)
+				// find out earlist creation time
+				modTime := f.ModTime()
+				//fmt.Printf("FileTime:", modTime)
+				diff := modTime.Sub(startTime)
+				if diff < (time.Duration(0) * time.Second) {
+					startTime = modTime
+					// fmt.Printf("Earliest Time:%v\n", startTime)
+				}
+				diff = modTime.Sub(endTime)
+				if diff > (time.Duration(0) * time.Second) {
+					endTime = modTime
+					//fmt.Printf("Last Time:%v\n", endTime)
+				}
+				owner = gidName
+			}
+
+			//log.Println("Path:",modpath)
 			return err
 		})
 
@@ -261,7 +274,7 @@ Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, 
 		}
 	}
 	// spin.Stop()
-	return fullFileArray, startTime, endTime, owner, numFiles, totalSize
+	return fullFileArray, startTime, endTime, owner, numFiles, totalSize, err
 }
 
 func PrintFileInfos() {
