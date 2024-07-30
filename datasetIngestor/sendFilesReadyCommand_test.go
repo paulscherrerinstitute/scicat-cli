@@ -44,5 +44,9 @@ func TestSendFilesReadyCommand(t *testing.T) {
 	client := &http.Client{}
 
 	// Call the function
-	MarkFilesReady(client, server.URL, "testDatasetId", user)
+	err := MarkFilesReady(client, server.URL, "testDatasetId", user)
+	if err != nil {
+		// TODO: write cases that trigger errors maybe
+		t.Errorf("Error encountered: %v", err)
+	}
 }
