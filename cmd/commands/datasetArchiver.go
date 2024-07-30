@@ -125,7 +125,7 @@ For further help see "` + MANUAL + `"`,
 
 		log.Printf("You chose to archive the new datasets\n")
 		log.Printf("Submitting Archive Job for the ingested datasets.\n")
-		jobId, err := datasetUtils.CreateJob(client, APIServer, user, archivableDatasets, &tapecopies)
+		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasets, &tapecopies)
 		if err != nil {
 			log.Fatalf("Couldn't create a job: %s\n", err.Error())
 		}
