@@ -49,10 +49,8 @@ func CreateAttachmentMap(datasetId string, caption string, datasetMetadata map[s
 		metadata["ownerGroup"], _ = ownerGroup.(string)
 	}
 	if accessGroups, ok := datasetMetadata["accessGroups"]; ok {
-		metadata["accessGroups"], ok = accessGroups.([]string)
-		if !ok {
-			// NOTE: not sure if this is correct, because this would only work if the underlying structure of interface{} is EXACTLY []interface{}
-			metadata["accessGroups"], _ = accessGroups.([]interface{})
+		if metadata["accessGroups"], ok = accessGroups.([]string); !ok {
+			metadata["accessGroups"] = accessGroups // fallback (might fail at JSON conversion later)
 		}
 	}
 	return metadata, nil
