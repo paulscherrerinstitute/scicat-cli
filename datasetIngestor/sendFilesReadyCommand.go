@@ -3,8 +3,7 @@ package datasetIngestor
 import (
 	"bytes"
 	"encoding/json"
-	"io"
-	"log"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -25,7 +24,7 @@ The URL for the request is constructed using the APIServer and datasetId paramet
 If the request is successful (HTTP status code 200), the function logs a success message along with the response body.
 If the request fails, the function logs a failure message along with the status code and metadata map.
 */
-func MarkFilesReady(client *http.Client, APIServer string, datasetId string, user map[string]string) {
+func MarkFilesReady(client *http.Client, APIServer string, datasetId string, user map[string]string) error {
 	var metaDataMap = map[string]interface{}{}
 	metaDataMap["datasetlifecycle"] = map[string]interface{}{}
 	metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
@@ -36,17 +35,18 @@ func MarkFilesReady(client *http.Client, APIServer string, datasetId string, use
 
 	myurl := APIServer + "/Datasets/" + strings.Replace(datasetId, "/", "%2F", 1) + "?access_token=" + user["accessToken"]
 	req, err := http.NewRequest("PUT", myurl, bytes.NewBuffer(cmm))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
 	//fmt.Printf("request to message broker:%v\n", req)
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == 200 {
-		body, _ := io.ReadAll(resp.Body)
-		log.Printf("Successfully updated %v\n", string(body))
-	} else {
-		log.Fatalf("SendFilesReadyCommand: Failed to update datasetLifecycle %v %v\n", resp.StatusCode, metaDataMap)
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("failed to update datasetLifecycle %v %v", resp.StatusCode, metaDataMap)
 	}
+	return nil
 }
