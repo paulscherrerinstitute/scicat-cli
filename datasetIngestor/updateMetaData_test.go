@@ -3,9 +3,9 @@ package datasetIngestor
 import (
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
-	"reflect"
 )
 
 func TestGetAVFromPolicy(t *testing.T) {
@@ -15,26 +15,26 @@ func TestGetAVFromPolicy(t *testing.T) {
 		w.Write([]byte(`[]`)) // empty policy list
 	}))
 	defer ts1.Close()
-	
+
 	client := ts1.Client()
-	
+
 	level := getAVFromPolicy(client, ts1.URL, map[string]string{"accessToken": "testToken"}, "testOwner")
-	
+
 	if level != "low" {
 		t.Errorf("Expected level to be 'low', got '%s'", level)
 	}
-	
+
 	// Test case 2: Policies available
 	ts2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`[{"TapeRedundancy": "medium", "AutoArchive": false}]`)) // policy list with one policy
 	}))
 	defer ts2.Close()
-	
+
 	client = ts2.Client()
-	
+
 	level = getAVFromPolicy(client, ts2.URL, map[string]string{"accessToken": "testToken"}, "testOwner")
-	
+
 	if level != "medium" {
 		t.Errorf("Expected level to be 'medium', got '%s'", level)
 	}
@@ -48,13 +48,13 @@ func TestUpdateMetaData(t *testing.T) {
 		w.Write([]byte(`[{"TapeRedundancy": "medium", "AutoArchive": false}]`)) // policy list with one policy
 	}))
 	defer ts.Close()
-	
+
 	// Create a test client
 	client := ts.Client()
-	
+
 	// Define test parameters
 	APIServer := ts.URL // Use the mock server's URL
-	
+
 	user := map[string]string{"accessToken": "testToken"}
 	originalMap := map[string]string{}
 	metaDataMap := map[string]interface{}{
@@ -66,12 +66,11 @@ func TestUpdateMetaData(t *testing.T) {
 	startTime := time.Now()
 	endTime := startTime.Add(time.Hour)
 	owner := "testOwner"
-	tapecopies := new(int)
-	*tapecopies = 1
-	
+	tapecopies := 1
+
 	// Call the function
 	UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
-	
+
 	// Check results
 	if metaDataMap["creationTime"] != startTime {
 		t.Errorf("Expected creationTime to be '%v', got '%v'", startTime, metaDataMap["creationTime"])
@@ -103,10 +102,10 @@ func TestUpdateFieldIfDummy(t *testing.T) {
 	fieldName := "testField"
 	dummyValue := "DUMMY"
 	newValue := "newValue"
-	
+
 	// Call the function
 	updateFieldIfDummy(metaDataMap, originalMap, fieldName, dummyValue, newValue)
-	
+
 	// Check results
 	if metaDataMap[fieldName] != newValue {
 		t.Errorf("Expected %s to be '%v', got '%v'", fieldName, newValue, metaDataMap[fieldName])
@@ -122,10 +121,10 @@ func TestAddFieldIfNotExists(t *testing.T) {
 	metaDataMap := map[string]interface{}{}
 	fieldName := "testField"
 	value := "testValue"
-	
+
 	// Call the function
 	addFieldIfNotExists(metaDataMap, fieldName, value)
-	
+
 	// Check results
 	if metaDataMap[fieldName] != value {
 		t.Errorf("Expected %s to be '%v', got '%v'", fieldName, value, metaDataMap[fieldName])
@@ -140,36 +139,35 @@ func TestUpdateClassificationField(t *testing.T) {
 		w.Write([]byte(`[{"TapeRedundancy": "medium", "AutoArchive": false}]`)) // policy list with one policy
 	}))
 	defer ts.Close()
-	
+
 	// Create a test client
 	client := ts.Client()
-	
+
 	// Define test parameters
 	APIServer := ts.URL // Use the mock server's URL
 	user := map[string]string{"accessToken": "testToken"}
 	metaDataMap := map[string]interface{}{
 		"ownerGroup": "testOwner",
 	}
-	tapecopies := new(int)
-	*tapecopies = 1
+	tapecopies := 1
 
 	expectedValue1 := "IN=medium,AV=low,CO=low"
 	expectedValue2 := "IN=medium,AV=medium,CO=low"
-	
+
 	// Call the function
 	updateClassificationField(client, APIServer, user, metaDataMap, tapecopies)
-	
+
 	// Check results
 	if _, ok := metaDataMap["classification"]; !ok {
 		t.Errorf("Expected classification to be set, got '%v'", metaDataMap["classification"])
 	} else if metaDataMap["classification"] != expectedValue1 {
 		t.Errorf("Expected classification to be '%v', got '%v'", expectedValue1, metaDataMap["classification"])
 	}
-	
+
 	// Change tapecopies to 2 and call the function again
-	*tapecopies = 2
+	tapecopies = 2
 	updateClassificationField(client, APIServer, user, metaDataMap, tapecopies)
-	
+
 	// Check results
 	if _, ok := metaDataMap["classification"]; !ok {
 		t.Errorf("Expected classification to be set, got '%v'", metaDataMap["classification"])
@@ -184,10 +182,10 @@ func TestGetUpdatedClassification(t *testing.T) {
 		"classification": "IN=medium,AV=low,CO=low",
 	}
 	av := "AV=medium"
-	
+
 	expected := []string{"IN=medium", "AV=medium", "CO=low"}
 	result := getUpdatedClassification(metaDataMap, av)
-	
+
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("getUpdatedClassification() = %v; want %v", result, expected)
 	}
@@ -196,17 +194,17 @@ func TestGetUpdatedClassification(t *testing.T) {
 func TestGetAVValue(t *testing.T) {
 	tapecopies1 := 1
 	tapecopies2 := 2
-	
+
 	expected1 := AVLow
 	expected2 := AVMedium
-	
-	result1 := getAVValue(&tapecopies1)
-	result2 := getAVValue(&tapecopies2)
-	
+
+	result1 := getAVValue(tapecopies1)
+	result2 := getAVValue(tapecopies2)
+
 	if result1 != expected1 {
 		t.Errorf("getAVValue() with tapecopies = 1 = %v; want %v", result1, expected1)
 	}
-	
+
 	if result2 != expected2 {
 		t.Errorf("getAVValue() with tapecopies = 2 = %v; want %v", result2, expected2)
 	}
@@ -215,25 +213,25 @@ func TestGetAVValue(t *testing.T) {
 func TestUpdateAVField(t *testing.T) {
 	tapecopies1 := 1
 	tapecopies2 := 2
-	
+
 	metaDataMap1 := map[string]interface{}{
 		"classification": "IN=medium,AV=medium,CO=low",
 	}
-	
+
 	metaDataMap2 := map[string]interface{}{
 		"classification": "IN=medium,AV=low,CO=low",
 	}
-	
+
 	expected1 := "IN=medium,AV=low,CO=low"
 	expected2 := "IN=medium,AV=medium,CO=low"
-	
-	updateAVField(metaDataMap1, &tapecopies1)
-	updateAVField(metaDataMap2, &tapecopies2)
-	
+
+	updateAVField(metaDataMap1, tapecopies1)
+	updateAVField(metaDataMap2, tapecopies2)
+
 	if metaDataMap1["classification"] != expected1 {
 		t.Errorf("updateAVField() with tapecopies = 1 = %v; want %v", metaDataMap1["classification"], expected1)
 	}
-	
+
 	if metaDataMap2["classification"] != expected2 {
 		t.Errorf("updateAVField() with tapecopies = 2 = %v; want %v", metaDataMap2["classification"], expected2)
 	}
