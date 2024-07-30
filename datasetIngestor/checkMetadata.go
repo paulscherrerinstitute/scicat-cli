@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -135,7 +134,7 @@ func checkUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 	// Iterate over accessGroups to validate the owner group.
 	for _, b := range accessGroups {
 		if b == ownerGroup {
-			log.Printf("OwnerGroup information %s verified successfully.\n", ownerGroup)
+			//log.Printf("OwnerGroup information %s verified successfully.\n", ownerGroup)
 			return false, nil
 		}
 	}
@@ -151,7 +150,7 @@ func checkUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 		}
 		// If the user matches the expected beamline account, grant ingest access.
 		if user["displayName"] == expectedAccount {
-			log.Printf("Beamline specific dataset %s - ingest granted.\n", expectedAccount)
+			//log.Printf("Beamline specific dataset %s - ingest granted.\n", expectedAccount)
 			return true, nil
 		} else {
 			return false, fmt.Errorf("you are neither member of the ownerGroup %s nor the needed beamline account %s", ownerGroup, expectedAccount)
@@ -213,25 +212,23 @@ func augmentMissingMetadata(user map[string]string, metaDataMap map[string]inter
 	// optionally augment missing owner metadata
 	if _, ok := metaDataMap["owner"]; !ok {
 		metaDataMap["owner"] = user["displayName"]
-		log.Printf("owner field added: %s", metaDataMap["owner"])
+		//log.Printf("owner field added: %s", metaDataMap["owner"])
 	}
 	if _, ok := metaDataMap["ownerEmail"]; !ok {
 		metaDataMap["ownerEmail"] = user["mail"]
-		log.Printf("ownerEmail field added: %s", metaDataMap["ownerEmail"])
+		//log.Printf("ownerEmail field added: %s", metaDataMap["ownerEmail"])
 	}
 	if _, ok := metaDataMap["contactEmail"]; !ok {
 		metaDataMap["contactEmail"] = user["mail"]
-		log.Printf("contactEmail field added: %s", metaDataMap["contactEmail"])
+		//log.Printf("contactEmail field added: %s", metaDataMap["contactEmail"])
 	}
 
 	// and sourceFolderHost
 	if _, ok := metaDataMap["sourceFolderHost"]; !ok {
 		hostname := getHost()
-		if hostname == unknown {
-			log.Printf("sourceFolderHost is unknown")
-		} else {
+		if hostname != unknown {
 			metaDataMap["sourceFolderHost"] = hostname
-			log.Printf("sourceFolderHost field added: %s", metaDataMap["sourceFolderHost"])
+			//log.Printf("sourceFolderHost field added: %s", metaDataMap["sourceFolderHost"])
 		}
 	}
 
@@ -252,14 +249,12 @@ func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap ma
 	if !ok {
 		return fmt.Errorf("type is not a string")
 	}
-	if dstype != raw {
-		// exit if not raw
-		return nil
-	}
 
+	if dstype != raw {
+		return nil // return if not raw
+	}
 	if _, ok := metaDataMap["principalInvestigator"]; ok {
-		// exit if present
-		return nil
+		return nil // return if present
 	}
 
 	val, ok := metaDataMap["ownerGroup"]
@@ -274,19 +269,18 @@ func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap ma
 
 	proposal, err := datasetUtils.GetProposal(client, APIServer, ownerGroup, user, accessGroups)
 	if err != nil {
-		return fmt.Errorf("error: %v", err)
+		return fmt.Errorf("failed to get proposal: %v", err)
 	}
 
 	if val, ok := proposal["pi_email"]; ok {
 		piEmail, ok := val.(string)
 		if !ok {
-			return fmt.Errorf("pi_email is not a string")
+			return fmt.Errorf("'pi_email' field in proposal is not a string")
 		}
 		metaDataMap["principalInvestigator"] = piEmail
-		log.Printf("principalInvestigator field added: %s", metaDataMap["principalInvestigator"])
+		//log.Printf("principalInvestigator field added: %s", metaDataMap["principalInvestigator"])
 	} else {
-		log.Printf("principalInvestigator field missing for raw data and could not be added from proposal data.")
-		log.Printf("Please add the field explicitly to metadata file")
+		return errors.New("'pi_email' field is missing from proposal")
 	}
 	return nil
 }
@@ -390,6 +384,7 @@ func getSourceFolder(metaDataMap map[string]interface{}) (string, error) {
 	}
 
 	// NOTE: this part seems very PSI specific
+	// [if lvl.1 (or 2?) path == "sls" and lvl.3 (or 4?) path == "data"] => evaluate symlinks in path
 	parts := strings.Split(sourceFolder, "/")
 	if len(parts) > 3 && parts[3] == "data" && parts[1] == "sls" {
 		var err error
@@ -397,7 +392,7 @@ func getSourceFolder(metaDataMap map[string]interface{}) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("failed to find canonical form of sourceFolder:%v %v", sourceFolder, err)
 		}
-		log.Printf("Transform sourceFolder %v to canonical form: %v", val, sourceFolder)
+		//log.Printf("Transform sourceFolder %v to canonical form: %v", val, sourceFolder)
 		metaDataMap["sourceFolder"] = sourceFolder
 	}
 
