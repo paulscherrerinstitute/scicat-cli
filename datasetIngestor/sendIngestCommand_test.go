@@ -87,7 +87,10 @@ func TestSendIngestCommand(t *testing.T) {
 	defer server.Close()
 
 	// Call SendIngestCommand function with the mock server's URL and check the returned dataset ID
-	datasetId := IngestDataset(client, server.URL, metaDataMap, datafiles, user)
+	datasetId, err := IngestDataset(client, server.URL, metaDataMap, datafiles, user)
+	if err != nil {
+		t.Errorf("received unexpected error: %v", err)
+	}
 	if datasetId != "test-dataset-id" {
 		t.Errorf("Expected dataset id 'test-dataset-id', but got '%s'", datasetId)
 	}
@@ -137,7 +140,10 @@ func TestSendRequest(t *testing.T) {
 	client := &http.Client{}
 
 	// Call the sendRequest function
-	resp := sendRequest(client, "GET", ts.URL, nil)
+	resp, err := sendRequest(client, "GET", ts.URL, nil)
+	if err != nil {
+		t.Errorf("received unexpected error: %v", err)
+	}
 
 	// Check the response
 	if resp.StatusCode != http.StatusOK {
@@ -152,7 +158,10 @@ func TestDecodePid(t *testing.T) {
 	}
 
 	// Call the decodePid function
-	pid := decodePid(resp)
+	pid, err := decodePid(resp)
+	if err != nil {
+		t.Errorf("received unexpected error: %v", err)
+	}
 
 	// Check the returned pid
 	if pid != "12345" {
