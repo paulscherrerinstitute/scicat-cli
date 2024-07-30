@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 )
 
@@ -12,15 +11,6 @@ type FileBlock struct {
 	Size         int64      `json:"size"`
 	DataFileList []Datafile `json:"dataFileList"`
 	DatasetId    string     `json:"datasetId"`
-}
-
-type payloadStruct struct {
-	Text string `json:"text"`
-}
-type message struct {
-	ShortMessage string        `json:"shortMessage"`
-	Sender       string        `json:"sender"`
-	Payload      payloadStruct `json:"payload"`
 }
 
 const TOTAL_MAXFILES = 400000
@@ -79,15 +69,18 @@ Returns:
 The ID of the created dataset.
 */
 func IngestDataset(client *http.Client, APIServer string, metaDataMap map[string]interface{},
-	fullFileArray []Datafile, user map[string]string) (datasetId string) {
+	fullFileArray []Datafile, user map[string]string) (datasetId string, err error) {
 
-	datasetId = createDataset(client, APIServer, metaDataMap, user)
-	createOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
+	datasetId, err = createDataset(client, APIServer, metaDataMap, user)
+	if err != nil {
+		return datasetId, err
+	}
+	err = createOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
 
-	return datasetId
+	return datasetId, err
 }
 
-func createDataset(client *http.Client, APIServer string, metaDataMap map[string]interface{}, user map[string]string) string {
+func createDataset(client *http.Client, APIServer string, metaDataMap map[string]interface{}, user map[string]string) (string, error) {
 	cmm, _ := json.Marshal(metaDataMap)
 	datasetId := ""
 
@@ -95,23 +88,29 @@ func createDataset(client *http.Client, APIServer string, metaDataMap map[string
 		dstype := val.(string)
 		endpoint, err := getEndpoint(dstype)
 		if err != nil {
-			log.Fatal(err)
+			return "", err
 		}
 		myurl := APIServer + endpoint + "/?access_token=" + user["accessToken"]
-		resp := sendRequest(client, "POST", myurl, cmm)
+		resp, err := sendRequest(client, "POST", myurl, cmm)
+		if err != nil {
+			return "", err
+		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode == 200 {
-			datasetId = decodePid(resp)
-			log.Printf("Created dataset with id %v", datasetId)
+			datasetId, err = decodePid(resp)
+			if err != nil {
+				return "", err
+			}
+			//log.Printf("Created dataset with id %v", datasetId)
 		} else {
-			log.Fatalf("SendIngestCommand: Failed to create new dataset: status code %v\n", resp.StatusCode)
+			return "", fmt.Errorf("SendIngestCommand: Failed to create new dataset: status code %v", resp.StatusCode)
 		}
 	} else {
-		log.Fatalf("No dataset type defined for dataset %v\n", metaDataMap)
+		return "", fmt.Errorf("no dataset type defined for dataset %v", metaDataMap)
 	}
 
-	return datasetId
+	return datasetId, nil
 }
 
 func getEndpoint(dstype string) (string, error) {
@@ -123,26 +122,26 @@ func getEndpoint(dstype string) (string, error) {
 	case "base":
 		return "/Datasets", nil
 	default:
-		return "", fmt.Errorf("Unknown dataset type encountered: %s", dstype)
+		return "", fmt.Errorf("unknown dataset type encountered: %s", dstype)
 	}
 }
 
-func sendRequest(client *http.Client, method, url string, body []byte) *http.Response {
+func sendRequest(client *http.Client, method, url string, body []byte) (*http.Response, error) {
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(body))
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	return resp
+	return resp, nil
 }
 
-func decodePid(resp *http.Response) string {
+func decodePid(resp *http.Response) (string, error) {
 	type PidType struct {
 		Pid string `json:"pid"`
 	}
@@ -150,10 +149,10 @@ func decodePid(resp *http.Response) string {
 	var d PidType
 	err := decoder.Decode(&d)
 	if err != nil {
-		log.Fatal("Could not decode pid from dataset entry:", err)
+		return "", fmt.Errorf("could not decode pid from dataset entry: %v", err)
 	}
 
-	return d.Pid
+	return d.Pid, nil
 }
 
 /*
@@ -174,16 +173,16 @@ If a request receives a response with a status code other than 200, the function
 
 The function logs a message for each created data block, including the start and end file, the total size, and the number of files in the block.
 */
-func createOrigDatablocks(client *http.Client, APIServer string, fullFileArray []Datafile, datasetId string, user map[string]string) {
+func createOrigDatablocks(client *http.Client, APIServer string, fullFileArray []Datafile, datasetId string, user map[string]string) error {
 	totalFiles := len(fullFileArray)
 
 	if totalFiles > TOTAL_MAXFILES {
-		log.Fatalf(
-			"This datasets exceeds (%v) the maximum number of files per dataset , which can currently be handled by the archiving system (%v)\n",
+		return fmt.Errorf(
+			"dataset exceeds (%v) the maximum number of files per dataset , which can currently be handled by the archiving system (%v)",
 			totalFiles, TOTAL_MAXFILES)
 	}
 
-	log.Printf("The dataset contains %v files. \n", totalFiles)
+	//log.Printf("The dataset contains %v files. \n", totalFiles)
 
 	end := 0
 	var blockBytes int64
@@ -198,14 +197,18 @@ func createOrigDatablocks(client *http.Client, APIServer string, fullFileArray [
 
 		payloadString, _ := json.Marshal(origBlock)
 		myurl := APIServer + "/OrigDatablocks" + "?access_token=" + user["accessToken"]
-		resp := sendRequest(client, "POST", myurl, payloadString)
+		resp, err := sendRequest(client, "POST", myurl, payloadString)
+		if err != nil {
+			return err
+		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			log.Fatalf("Unexpected response code %v when adding origDatablock for dataset id:%v", resp.Status, datasetId)
+			return fmt.Errorf("unexpected response code \"%v\" when adding origDatablock for dataset id: \"%v\"", resp.Status, datasetId)
 		}
 
-		log.Printf("Created file block from file %v to %v with total size of %v bytes and %v files \n", start, end-1, blockBytes, end-start)
+		//log.Printf("Created file block from file %v to %v with total size of %v bytes and %v files \n", start, end-1, blockBytes, end-start)
 		start = end
 	}
+	return nil
 }
