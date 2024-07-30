@@ -159,6 +159,6 @@ func TestCheckMetadata_CrashCase(t *testing.T) {
 	if err == nil {
 		t.Fatal("Function did not return an error as expected")
 	} else if err.Error() != ErrIllegalKeys+": \"description.\", \"name]\"" {
-		t.Errorf("Expected error %q, got %q", ErrIllegalKeys, err.Error())
+		t.Errorf("Expected error %q, got %q", ErrIllegalKeys+": \"description.\", \"name]\"", err.Error())
 	}
 }
