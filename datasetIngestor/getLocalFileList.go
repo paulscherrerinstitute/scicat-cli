@@ -3,6 +3,7 @@ package datasetIngestor
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -23,13 +24,7 @@ type Datafile struct {
 	Time  string `json:"time"`
 }
 
-var skippedLinks = 0
-var illegalFileNames = 0
-var errorGroupIds = 0
-
 const windows = "windows"
-
-var scanner = bufio.NewScanner(os.Stdin)
 
 // readLines reads a whole file into memory
 // and returns a slice of its lines.
@@ -70,7 +65,7 @@ Returns:
 
 The function logs an error and returns if it cannot change the working directory to the source folder.
 */
-func GetLocalFileList(sourceFolder string, filelistingPath string, skip *string) (fullFileArray []Datafile, startTime time.Time, endTime time.Time, owner string, numFiles int64, totalSize int64, err error) {
+func GetLocalFileList(sourceFolder string, filelistingPath string, illegalFileNamesCounter *uint, symlinkCallback func(symlinkPath string, sourceFolder string) (bool, error)) (fullFileArray []Datafile, startTime time.Time, endTime time.Time, owner string, numFiles int64, totalSize int64, err error) {
 	// scan all lines
 	//fmt.Println("sourceFolder,listing:", sourceFolder, filelistingPath)
 	fullFileArray = make([]Datafile, 0)
@@ -122,11 +117,6 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, skip *string)
 	}
 	log.Printf("Scanning source folder: %s at %s", sourceFolder, dir)
 
-	// reinitaialize *skip variable unless valid for All Datasets
-
-	if *skip != "sA" && *skip != "kA" && *skip != "dA" {
-		*skip = ""
-	}
 	// spin := spinner.New(spinner.CharSets[9], 100*time.Millisecond) // spinner for progress indication
 	// spin.Writer = os.Stderr
 	// spin.Color("green")
@@ -163,60 +153,14 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, skip *string)
 
 			// * handle symlinks *
 			if f.Mode()&os.ModeSymlink != 0 {
-				pointee, _ := os.Readlink(modpath) // just pass the file name
-				if !filepath.IsAbs(pointee) {
-					dir, err := os.Getwd()
+				if symlinkCallback != nil {
+					symlinkCallback(modpath, sourceFolder)
+				} else {
+					keep, err = handleSymlink(modpath, sourceFolder)
 					if err != nil {
 						return err
 					}
-					pabs := filepath.Join(dir, filepath.Dir(modpath), pointee)
-					pointee, err = filepath.EvalSymlinks(pabs)
-					if err != nil {
-						log.Printf("Could not follow symlink for file:%v %v", pabs, err)
-						keep = false
-						log.Printf("keep variable set to %v", keep)
-					}
 				}
-				//fmt.Printf("Skip variable:%v\n", *skip)
-				if *skip == "ka" || *skip == "kA" {
-					keep = true
-				} else if *skip == "sa" || *skip == "sA" {
-					keep = false
-				} else if *skip == "da" || *skip == "dA" {
-					keep = strings.HasPrefix(pointee, sourceFolder)
-				} else {
-					color.Set(color.FgYellow)
-					log.Printf("Warning: the file %s is a link pointing to %v.", modpath, pointee)
-					color.Unset()
-					log.Printf(`
-Please test if this link is meaningful and not pointing 
-outside the sourceFolder %s. The default behaviour is to
-keep only internal links within a source folder.
-You can also specify that you want to apply the same answer to ALL 
-subsequent links within the current dataset, by appending an a (dA,ka,sa).
-If you want to give the same answer even to all subsequent datasets 
-in this command then specify a capital 'A', e.g. (dA,kA,sA)
-Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, sourceFolder)
-					scanner.Scan()
-					*skip = scanner.Text()
-					if *skip == "" {
-						*skip = "d"
-					}
-					if *skip == "d" || *skip == "dA" {
-						keep = strings.HasPrefix(pointee, sourceFolder)
-					} else {
-						keep = (*skip != "s" && *skip != "sa" && *skip != "sA")
-					}
-				}
-				if keep {
-					color.Set(color.FgGreen)
-					log.Printf("You chose to keep the link %v -> %v.\n\n", modpath, pointee)
-				} else {
-					color.Set(color.FgRed)
-					skippedLinks++
-					log.Printf("You chose to remove the link %v -> %v.\n\n", modpath, pointee)
-				}
-				color.Unset()
 			}
 
 			// * filter invalid filenames *
@@ -225,7 +169,9 @@ Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, 
 				color.Set(color.FgRed)
 				log.Printf("Warning: the file %s contains illegal characters like *,\\ and will not be archived.", modpath)
 				color.Unset()
-				illegalFileNames++
+				if illegalFileNamesCounter != nil {
+					*illegalFileNamesCounter++
+				}
 				keep = false
 			}
 			// and check for triple blanks, they are used to separate columns in messages
@@ -233,7 +179,9 @@ Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, 
 				color.Set(color.FgRed)
 				log.Printf("Warning: the file %s contains 3 consecutive blanks which is not allowed. The file not be archived.", modpath)
 				color.Unset()
-				illegalFileNames++
+				if illegalFileNamesCounter != nil {
+					*illegalFileNamesCounter++
+				}
 				keep = false
 			}
 			if keep {
@@ -269,14 +217,26 @@ Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, 
 	return fullFileArray, startTime, endTime, owner, numFiles, totalSize, err
 }
 
-func PrintFileInfos() {
-	if skippedLinks > 0 {
-		color.Set(color.FgYellow)
-		log.Printf("Total number of link files skipped:%v\n", skippedLinks)
+func handleSymlink(symlinkPath string, sourceFolder string) (bool, error) {
+	keep := true
+	pointee, _ := os.Readlink(symlinkPath) // just pass the file name
+	if !filepath.IsAbs(pointee) {
+		dir, err := filepath.Abs(filepath.Dir(symlinkPath))
+		if err != nil {
+			keep = false
+			err = fmt.Errorf("could not find absolute path of symlink at \"%s\": %v", symlinkPath, err)
+			return false, err
+		}
+		// log.Printf(" CWD path pointee :%v %v %v", dir, filepath.Dir(path), pointee)
+		pabs := filepath.Join(dir, filepath.Dir(symlinkPath), pointee)
+		pointee, err = filepath.EvalSymlinks(pabs)
+		if err != nil {
+			keep = false
+			err = fmt.Errorf("could not follow symlink: %v", err)
+			return keep, err
+		}
 	}
-	if illegalFileNames > 0 {
-		color.Set(color.FgRed)
-		log.Printf("Number of files ignored because of illegal filenames:%v\n", illegalFileNames)
-	}
-	color.Unset()
+	// keep symlink if it points to somewhere *within* the sourceFolder
+	keep = strings.HasPrefix(pointee, sourceFolder)
+	return keep, nil
 }

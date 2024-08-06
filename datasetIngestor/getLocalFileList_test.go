@@ -23,8 +23,7 @@ func TestAssembleFilelisting(t *testing.T) {
 	}
 
 	// Call AssembleFilelisting on the temporary directory
-	skip := ""
-	fullFileArray, startTime, endTime, _, numFiles, totalSize, err := GetLocalFileList(tempDir, "", &skip)
+	fullFileArray, startTime, endTime, _, numFiles, totalSize, err := GetLocalFileList(tempDir, "", nil, nil)
 	if err != nil {
 		t.Errorf("got error: %v", err)
 	}
