@@ -237,7 +237,6 @@ For Windows you need instead to specify -user username:password on the command l
 		// a destination location is defined by the archive system
 		// for now let the user decide if he needs a copy
 
-		// now everything is prepared, prepare to loop over all folders
 		if nocopyFlag {
 			copyFlag = false
 		}
@@ -256,6 +255,11 @@ For Windows you need instead to specify -user username:password on the command l
 			}
 		}
 
+		var skippedLinks uint = 0
+		var illegalFileNames uint = 0
+		localSymlinkCallback := createLocalSymlinkCallbackForFileLister(&skip, &skippedLinks)
+
+		// now everything is prepared, prepare to loop over all folders
 		var archivableDatasetList []string
 		for _, datasetSourceFolder := range datasetPaths {
 			log.Printf("===== Ingesting: \"%s\" =====\n", datasetSourceFolder)
@@ -267,9 +271,14 @@ For Windows you need instead to specify -user username:password on the command l
 			metaDataMap["sourceFolder"] = datasetSourceFolder
 			log.Printf("Scanning files in dataset %s", datasetSourceFolder)
 
+			// reset skip var. if not set for all datasets
+			if !(skip == "sA" || skip == "kA" || skip == "dA") {
+				skip = ""
+			}
+
 			// get filelist of dataset
 			fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
-				datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, &skip)
+				datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, &illegalFileNames, localSymlinkCallback)
 			if err != nil {
 				log.Fatalf("Can't gather the filelist of \"%s\"", datasetSourceFolder)
 			}
@@ -410,7 +419,17 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Printf("Number of datasets not stored because of too many files:%v\nPlease note that this will cancel any subsequent archive steps from this job !\n", tooLargeDatasets)
 		}
 		color.Unset()
-		datasetIngestor.PrintFileInfos() // TODO: move this into cmd portion
+		//datasetIngestor.PrintFileInfos() // TODO: move this into cmd portion
+		// print file statistics
+		if skippedLinks > 0 {
+			color.Set(color.FgYellow)
+			log.Printf("Total number of link files skipped:%v\n", skippedLinks)
+		}
+		if illegalFileNames > 0 {
+			color.Set(color.FgRed)
+			log.Printf("Number of files ignored because of illegal filenames:%v\n", illegalFileNames)
+		}
+		color.Unset()
 
 		// stop here if empty datasets appeared
 		if emptyDatasets > 0 || tooLargeDatasets > 0 {
@@ -458,4 +477,67 @@ func init() {
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
+}
+
+func createLocalSymlinkCallbackForFileLister(skip *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	return func(symlinkPath string, sourceFolder string) (bool, error) {
+		keep := true
+		pointee, _ := os.Readlink(symlinkPath) // just pass the file name
+		if !filepath.IsAbs(pointee) {
+			dir, err := filepath.Abs(filepath.Dir(symlinkPath))
+			if err != nil {
+				return false, err
+			}
+			// log.Printf(" CWD path pointee :%v %v %v", dir, filepath.Dir(path), pointee)
+			pabs := filepath.Join(dir, filepath.Dir(symlinkPath), pointee)
+			pointee, err = filepath.EvalSymlinks(pabs)
+			if err != nil {
+				log.Printf("Could not follow symlink for file:%v %v", pabs, err)
+				keep = false
+				log.Printf("keep variable set to %v", keep)
+			}
+		}
+		//fmt.Printf("Skip variable:%v\n", *skip)
+		if *skip == "ka" || *skip == "kA" {
+			keep = true
+		} else if *skip == "sa" || *skip == "sA" {
+			keep = false
+		} else if *skip == "da" || *skip == "dA" {
+			keep = strings.HasPrefix(pointee, sourceFolder)
+		} else {
+			color.Set(color.FgYellow)
+			log.Printf("Warning: the file %s is a link pointing to %v.", symlinkPath, pointee)
+			color.Unset()
+			log.Printf(`
+	Please test if this link is meaningful and not pointing 
+	outside the sourceFolder %s. The default behaviour is to
+	keep only internal links within a source folder.
+	You can also specify that you want to apply the same answer to ALL 
+	subsequent links within the current dataset, by appending an a (dA,ka,sa).
+	If you want to give the same answer even to all subsequent datasets 
+	in this command then specify a capital 'A', e.g. (dA,kA,sA)
+	Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, sourceFolder)
+			scanner.Scan()
+			*skip = scanner.Text()
+			if *skip == "" {
+				*skip = "d"
+			}
+			if *skip == "d" || *skip == "dA" {
+				keep = strings.HasPrefix(pointee, sourceFolder)
+			} else {
+				keep = (*skip != "s" && *skip != "sa" && *skip != "sA")
+			}
+		}
+		if keep {
+			color.Set(color.FgGreen)
+			log.Printf("You chose to keep the link %v -> %v.\n\n", symlinkPath, pointee)
+		} else {
+			color.Set(color.FgRed)
+			*skippedLinks++
+			log.Printf("You chose to remove the link %v -> %v.\n\n", symlinkPath, pointee)
+		}
+		color.Unset()
+		return keep, nil
+	}
 }
