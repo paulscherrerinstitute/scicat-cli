@@ -260,6 +260,7 @@ For Windows you need instead to specify -user username:password on the command l
 		var skippedLinks uint = 0
 		var illegalFileNames uint = 0
 		localSymlinkCallback := createLocalSymlinkCallbackForFileLister(&skipSymlinks, &skippedLinks)
+		localFilepathFilterCallback := createLocalFilenameFilterCallback(&illegalFileNames)
 
 		// now everything is prepared, prepare to loop over all folders
 		var archivableDatasetList []string
@@ -281,7 +282,7 @@ For Windows you need instead to specify -user username:password on the command l
 			// === get filelist of dataset ===
 			log.Printf("Getting filelist for \"%s\"...\n", datasetSourceFolder)
 			fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
-				datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, &illegalFileNames, localSymlinkCallback)
+				datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback)
 			if err != nil {
 				log.Fatalf("Can't gather the filelist of \"%s\"", datasetSourceFolder)
 			}
@@ -321,6 +322,7 @@ For Windows you need instead to specify -user username:password on the command l
 			// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
 			// and unless (no)copy flag defined via command line
 			if checkCentralAvailability {
+				log.Println("Checking if data is centrally available...")
 				sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(user["username"], RSYNCServer, datasetSourceFolder, os.Stdout)
 				if otherErr != nil {
 					log.Fatalln("Cannot check if data is centrally available:", otherErr)
@@ -346,6 +348,8 @@ For Windows you need instead to specify -user username:password on the command l
 							log.Fatalln("Further ingests interrupted because copying is needed, but no copy wanted.")
 						}
 					}
+				} else {
+					log.Println("Data is present centrally.")
 				}
 			}
 
@@ -380,7 +384,7 @@ For Windows you need instead to specify -user username:password on the command l
 					if err != nil {
 						log.Println("Couldn't add attachment:", err)
 					}
-					log.Printf("Attachment file %v added to dataset  %v\n", addAttachment, datasetId)
+					log.Printf("Attachment file %v added to dataset %v\n", addAttachment, datasetId)
 				}
 				// === copying files ===
 				if copyFlag {
@@ -488,7 +492,7 @@ func init() {
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
 }
 
-func createLocalSymlinkCallbackForFileLister(skip *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {
+func createLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {
 	scanner := bufio.NewScanner(os.Stdin)
 	return func(symlinkPath string, sourceFolder string) (bool, error) {
 		keep := true
@@ -508,11 +512,11 @@ func createLocalSymlinkCallbackForFileLister(skip *string, skippedLinks *uint) f
 			}
 		}
 		//fmt.Printf("Skip variable:%v\n", *skip)
-		if *skip == "ka" || *skip == "kA" {
+		if *skipSymlinks == "ka" || *skipSymlinks == "kA" {
 			keep = true
-		} else if *skip == "sa" || *skip == "sA" {
+		} else if *skipSymlinks == "sa" || *skipSymlinks == "sA" {
 			keep = false
-		} else if *skip == "da" || *skip == "dA" {
+		} else if *skipSymlinks == "da" || *skipSymlinks == "dA" {
 			keep = strings.HasPrefix(pointee, sourceFolder)
 		} else {
 			color.Set(color.FgYellow)
@@ -528,14 +532,14 @@ func createLocalSymlinkCallbackForFileLister(skip *string, skippedLinks *uint) f
 	in this command then specify a capital 'A', e.g. (dA,kA,sA)
 	Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, sourceFolder)
 			scanner.Scan()
-			*skip = scanner.Text()
-			if *skip == "" {
-				*skip = "d"
+			*skipSymlinks = scanner.Text()
+			if *skipSymlinks == "" {
+				*skipSymlinks = "d"
 			}
-			if *skip == "d" || *skip == "dA" {
+			if *skipSymlinks == "d" || *skipSymlinks == "dA" {
 				keep = strings.HasPrefix(pointee, sourceFolder)
 			} else {
-				keep = (*skip != "s" && *skip != "sa" && *skip != "sA")
+				keep = (*skipSymlinks != "s" && *skipSymlinks != "sa" && *skipSymlinks != "sA")
 			}
 		}
 		if keep {
@@ -548,5 +552,32 @@ func createLocalSymlinkCallbackForFileLister(skip *string, skippedLinks *uint) f
 		}
 		color.Unset()
 		return keep, nil
+	}
+}
+
+func createLocalFilenameFilterCallback(illegalFileNamesCounter *uint) func(filepath string) bool {
+	return func(filepath string) (keep bool) {
+		keep = true
+		// make sure that filenames do not contain characters like "\" or "*"
+		if strings.ContainsAny(filepath, "*\\") {
+			color.Set(color.FgRed)
+			log.Printf("Warning: the file %s contains illegal characters like *,\\ and will not be archived.", filepath)
+			color.Unset()
+			if illegalFileNamesCounter != nil {
+				*illegalFileNamesCounter++
+			}
+			keep = false
+		}
+		// and check for triple blanks, they are used to separate columns in messages
+		if keep && strings.Contains(filepath, "   ") {
+			color.Set(color.FgRed)
+			log.Printf("Warning: the file %s contains 3 consecutive blanks which is not allowed. The file not be archived.", filepath)
+			color.Unset()
+			if illegalFileNamesCounter != nil {
+				*illegalFileNamesCounter++
+			}
+			keep = false
+		}
+		return keep
 	}
 }
