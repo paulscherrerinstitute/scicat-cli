@@ -11,8 +11,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/fatih/color"
 )
 
 type Datafile struct {
@@ -65,7 +63,7 @@ Returns:
 
 The function logs an error and returns if it cannot change the working directory to the source folder.
 */
-func GetLocalFileList(sourceFolder string, filelistingPath string, illegalFileNamesCounter *uint, symlinkCallback func(symlinkPath string, sourceFolder string) (bool, error)) (fullFileArray []Datafile, startTime time.Time, endTime time.Time, owner string, numFiles int64, totalSize int64, err error) {
+func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallback func(symlinkPath string, sourceFolder string) (bool, error), filenameCheckCallback func(filepath string) bool) (fullFileArray []Datafile, startTime time.Time, endTime time.Time, owner string, numFiles int64, totalSize int64, err error) {
 	// scan all lines
 	//fmt.Println("sourceFolder,listing:", sourceFolder, filelistingPath)
 	fullFileArray = make([]Datafile, 0)
@@ -163,27 +161,11 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, illegalFileNa
 				}
 			}
 
-			// * filter invalid filenames *
-			// make sure that filenames do not contain characters like "\" or "*"
-			if strings.ContainsAny(modpath, "*\\") {
-				color.Set(color.FgRed)
-				log.Printf("Warning: the file %s contains illegal characters like *,\\ and will not be archived.", modpath)
-				color.Unset()
-				if illegalFileNamesCounter != nil {
-					*illegalFileNamesCounter++
-				}
-				keep = false
+			// filter invalid filenames if callback was set
+			if filenameCheckCallback != nil {
+				keep = keep && filenameCheckCallback(modpath)
 			}
-			// and check for triple blanks, they are used to separate columns in messages
-			if keep && strings.Contains(modpath, "   ") {
-				color.Set(color.FgRed)
-				log.Printf("Warning: the file %s contains 3 consecutive blanks which is not allowed. The file not be archived.", modpath)
-				color.Unset()
-				if illegalFileNamesCounter != nil {
-					*illegalFileNamesCounter++
-				}
-				keep = false
-			}
+
 			if keep {
 				numFiles++
 				totalSize += f.Size()
