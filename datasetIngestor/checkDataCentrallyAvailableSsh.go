@@ -2,6 +2,7 @@ package datasetIngestor
 
 import (
 	"errors"
+	"io"
 	"os/exec"
 	"runtime"
 )
@@ -14,7 +15,7 @@ var execCommand = exec.Command
 // Returned values:
 // - sshErr - the error returned by the ssh command
 // - err - other error that prevents the ssh command from being executed
-func CheckDataCentrallyAvailableSsh(username string, ARCHIVEServer string, sourceFolder string) (sshErr error, otherErr error) {
+func CheckDataCentrallyAvailableSsh(username string, ARCHIVEServer string, sourceFolder string, sshOutput io.Writer) (sshErr error, otherErr error) {
 	// NOTE why not use crypto/ssh ???
 	// NOTE even if the folder is there, not all files might be there!
 	var cmd *exec.Cmd
@@ -36,10 +37,9 @@ func CheckDataCentrallyAvailableSsh(username string, ARCHIVEServer string, sourc
 		return nil, errors.New("unsupported operating system")
 	}
 
-	// Redirect the command's standard error to the process's standard error.
-	// This means that any error messages from the command will be displayed in the terminal.
-	// Update: We don't want a library to output to the terminal.
-	// cmd.Stderr = os.Stderr
+	// Redirect the command's output to sshOutput var
+	cmd.Stdout = sshOutput
+	cmd.Stderr = sshOutput
 
 	// Log the command that is being run for debugging purposes.
 	//log.Printf("Running %v.\n", cmd.Args)
