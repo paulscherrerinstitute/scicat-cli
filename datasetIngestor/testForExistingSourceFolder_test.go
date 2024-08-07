@@ -62,7 +62,10 @@ func TestProcessResponse(t *testing.T) {
 	resp := &http.Response{
 		Body: io.NopCloser(bytes.NewBufferString(validJSON)),
 	}
-	result := processResponse(resp)
+	result, err := processResponse(resp)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 	if len(result) != 1 || result[0].Pid != "123" || result[0].SourceFolder != "folder" || result[0].Size != 100 {
 		t.Errorf("Unexpected result: %v", result)
 	}
@@ -72,7 +75,10 @@ func TestProcessResponse(t *testing.T) {
 	resp = &http.Response{
 		Body: io.NopCloser(bytes.NewBufferString(invalidJSON)),
 	}
-	result = processResponse(resp)
+	result, err = processResponse(resp)
+	if err == nil {
+		t.Errorf("Expected error from processResponse")
+	}
 	if len(result) != 0 {
 		t.Errorf("Expected empty QueryResult, got '%v'", result)
 	}
@@ -81,7 +87,10 @@ func TestProcessResponse(t *testing.T) {
 	resp = &http.Response{
 		Body: io.NopCloser(bytes.NewBufferString("")),
 	}
-	result = processResponse(resp)
+	result, err = processResponse(resp)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 	if len(result) != 0 {
 		t.Errorf("Expected empty QueryResult, got '%v'", result)
 	}
