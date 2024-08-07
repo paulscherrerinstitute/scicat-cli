@@ -178,7 +178,7 @@ func createOrigDatablocks(client *http.Client, APIServer string, fullFileArray [
 
 	if totalFiles > TOTAL_MAXFILES {
 		return fmt.Errorf(
-			"dataset exceeds (%v) the maximum number of files per dataset , which can currently be handled by the archiving system (%v)",
+			"dataset exceeds (%v) the maximum number of files per dataset , which cannot currently be handled by the archiving system (%v)",
 			totalFiles, TOTAL_MAXFILES)
 	}
 
