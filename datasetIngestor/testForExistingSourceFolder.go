@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -53,8 +52,7 @@ func TestForExistingSourceFolder(folders []string, client *http.Client, APIServe
 		if end > all {
 			end = all
 		}
-		// TODO remove logs
-		log.Printf("Checking sourceFolder %v to %v for existing entries...\n", start+1, end)
+		//log.Printf("Checking sourceFolder %v to %v for existing entries...\n", start+1, end)
 
 		sourceFolderList := strings.Join(folders[start:end], "\",\"")
 		filter := createFilter(sourceFolderList)
@@ -62,9 +60,13 @@ func TestForExistingSourceFolder(folders []string, client *http.Client, APIServe
 		if err != nil {
 			return DatasetQuery{}, err
 		}
-		foundList = append(foundList, processResponse(resp)...)
+		processedResp, err := processResponse(resp)
+		if err != nil {
+			return foundList, err
+		}
+		foundList = append(foundList, processedResp...)
 	}
-	return foundList, nil
+	return foundList, err
 }
 
 func createFilter(sourceFolderList string) string {
@@ -83,24 +85,22 @@ func makeRequest(client *http.Client, url string, filter string) (*http.Response
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	return resp, nil
 }
 
-func processResponse(resp *http.Response) DatasetQuery {
+func processResponse(resp *http.Response) (DatasetQuery, error) {
 	body, _ := io.ReadAll(resp.Body)
 	var respObj DatasetQuery
 	if len(body) == 0 {
-		// TODO remove logs
-		log.Printf("Warning: Response body is empty")
-		return respObj
+		// ignoring empty response...
+		return respObj, nil
 	}
 	err := json.Unmarshal(body, &respObj)
 	if err != nil {
-		// TODO remove logs
-		log.Printf("Error: Failed to parse JSON response: %v", err)
+		return DatasetQuery{}, fmt.Errorf("failed to parse JSON response: %v", err)
 	}
-	return respObj
+	return respObj, nil
 }
