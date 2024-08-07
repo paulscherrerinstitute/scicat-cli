@@ -90,7 +90,7 @@ func TestCheckDataCentrallyAvailable(t *testing.T) {
 		defer func() { execCommand = oldExecCommand }()
 
 		t.Run(tt.name, func(t *testing.T) {
-			sshErr, otherErr := CheckDataCentrallyAvailableSsh(tt.username, tt.archiveServer, tt.sourceFolder)
+			sshErr, otherErr := CheckDataCentrallyAvailableSsh(tt.username, tt.archiveServer, tt.sourceFolder, nil)
 			if otherErr != nil {
 				t.Errorf("other error encountered: %v", otherErr)
 			}
