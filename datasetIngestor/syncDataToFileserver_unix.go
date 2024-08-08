@@ -7,7 +7,6 @@ package datasetIngestor
 import (
 	"fmt"
 	"io"
-	"log"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -17,10 +16,10 @@ import (
 
 // functionality needed for "de-central" data
 // copies data from a local machine to a fileserver, uses RSync underneath
-func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string, commandOutput io.Writer) (err error) {
+func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string, cmdOutput io.Writer) (err error) {
 	username := user["username"]
 	shortDatasetId := strings.Split(datasetId, "/")[1]
-	log.Println("short dataset id:", shortDatasetId)
+	//log.Println("short dataset id:", shortDatasetId)
 	destFolder := "archive/" + shortDatasetId + sourceFolder
 	serverConnectString := fmt.Sprintf("%s@%s:%s", username, RSYNCServer, destFolder)
 	// append trailing slash to sourceFolder to indicate that the *contents* of the folder should be copied
@@ -35,9 +34,9 @@ func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCSe
 	rsyncCmd := buildRsyncCmd(versionNumber, absFileListing, fullSourceFolderPath, serverConnectString)
 
 	// Show rsync's output
-	rsyncCmd.Stdout = commandOutput
-	rsyncCmd.Stderr = commandOutput
-	log.Printf("Running: %v.\n", rsyncCmd.Args)
+	rsyncCmd.Stdout = cmdOutput
+	rsyncCmd.Stderr = cmdOutput
+	fmt.Fprintf(cmdOutput, "Running: %v.\n", rsyncCmd.Args)
 	err = rsyncCmd.Run()
 	return err
 }
