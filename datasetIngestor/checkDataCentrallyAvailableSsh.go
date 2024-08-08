@@ -2,6 +2,7 @@ package datasetIngestor
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"runtime"
@@ -34,7 +35,7 @@ func CheckDataCentrallyAvailableSsh(username string, ARCHIVEServer string, sourc
 		cmd = execCommand("ssh", "-q", "-l", username, ARCHIVEServer, "test", "-d", sourceFolder)
 	default:
 		//log.Printf("%s is not supported.\n", os)
-		return nil, errors.New("unsupported operating system")
+		return nil, fmt.Errorf("unsupported operating system: %s", os)
 	}
 
 	// Redirect the command's output to sshOutput var
