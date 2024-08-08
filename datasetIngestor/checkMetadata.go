@@ -25,32 +25,33 @@ const (
 const unknown = "unknown"
 const raw = "raw"
 
-func CheckMetadata(client *http.Client, APIServer string, metadatafile string, user map[string]string, accessGroups []string) (metaDataMap map[string]interface{}, sourceFolder string, beamlineAccount bool, err error) {
-	metaDataMap, err = readMetadataFromFile(metadatafile)
+// a combined function that reads and checks metadata, gathers missing metadata and returns the metadata map, source folder and beamline account check
+func ReadAndCheckMetadata(client *http.Client, APIServer string, metadatafile string, user map[string]string, accessGroups []string) (metaDataMap map[string]interface{}, sourceFolder string, beamlineAccount bool, err error) {
+	metaDataMap, err = ReadMetadataFromFile(metadatafile)
 	if err != nil {
 		return nil, "", false, err
 	}
 
-	if keys := collectIllegalKeys(metaDataMap); len(keys) > 0 {
+	if keys := CollectIllegalKeys(metaDataMap); len(keys) > 0 {
 		return nil, "", false, errors.New(ErrIllegalKeys + ": \"" + strings.Join(keys, "\", \"") + "\"")
 	}
 
-	beamlineAccount, err = checkUserAndOwnerGroup(user, accessGroups, metaDataMap)
+	beamlineAccount, err = CheckUserAndOwnerGroup(user, accessGroups, metaDataMap)
 	if err != nil {
 		return nil, "", false, err
 	}
 
-	err = augmentMissingMetadata(user, metaDataMap, client, APIServer, accessGroups)
+	err = GatherMissingMetadata(user, metaDataMap, client, APIServer, accessGroups)
 	if err != nil {
 		return nil, "", false, err
 	}
 
-	err = checkMetadataValidity(client, APIServer, metaDataMap)
+	err = CheckMetadataValidity(client, APIServer, metaDataMap)
 	if err != nil {
 		return nil, "", false, err
 	}
 
-	sourceFolder, err = getSourceFolder(metaDataMap)
+	sourceFolder, err = GetSourceFolder(metaDataMap)
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -58,8 +59,8 @@ func CheckMetadata(client *http.Client, APIServer string, metadatafile string, u
 	return metaDataMap, sourceFolder, beamlineAccount, nil
 }
 
-// readMetadataFromFile reads the metadata from the file and unmarshals it into a map.
-func readMetadataFromFile(metadatafile string) (map[string]interface{}, error) {
+// ReadMetadataFromFile reads the metadata from the file and unmarshals it into a map.
+func ReadMetadataFromFile(metadatafile string) (map[string]interface{}, error) {
 	b, err := os.ReadFile(metadatafile) // just pass the file name
 	if err != nil {
 		return nil, err
@@ -77,7 +78,7 @@ func readMetadataFromFile(metadatafile string) (map[string]interface{}, error) {
 }
 
 // collects keys with illegal characters
-func collectIllegalKeys(metadata map[string]interface{}) []string {
+func CollectIllegalKeys(metadata map[string]interface{}) []string {
 	stack := []map[string]interface{}{metadata}
 	keys := []string{}
 
@@ -86,7 +87,7 @@ func collectIllegalKeys(metadata map[string]interface{}) []string {
 		stack = stack[:len(stack)-1]
 
 		for key, value := range item {
-			if containsIllegalCharacters(key) {
+			if keyContainsIllegalCharacters(key) {
 				keys = append(keys, key)
 			}
 
@@ -107,7 +108,7 @@ func collectIllegalKeys(metadata map[string]interface{}) []string {
 	return keys
 }
 
-func containsIllegalCharacters(s string) bool {
+func keyContainsIllegalCharacters(s string) bool {
 	// Check if the string contains periods, brackets, or other illegal characters
 	// You can adjust this condition based on your specific requirements
 	for _, char := range s {
@@ -118,8 +119,8 @@ func containsIllegalCharacters(s string) bool {
 	return false
 }
 
-// checkUserAndOwnerGroup checks the user and owner group and returns whether the user is a beamline account.
-func checkUserAndOwnerGroup(user map[string]string, accessGroups []string, metaDataMap map[string]interface{}) (bool, error) {
+// CheckUserAndOwnerGroup checks the user and owner group and returns whether the user is a beamline account.
+func CheckUserAndOwnerGroup(user map[string]string, accessGroups []string, metaDataMap map[string]interface{}) (bool, error) {
 	if user["displayName"] == "ingestor" {
 		return false, nil
 	}
@@ -204,12 +205,12 @@ func getHost() string {
 	return hostname
 }
 
-// augmentMissingMetadata augments missing metadata fields.
-func augmentMissingMetadata(user map[string]string, metaDataMap map[string]interface{}, client *http.Client, APIServer string, accessGroups []string) error {
+// GatherMissingMetadata augments missing metadata fields.
+func GatherMissingMetadata(user map[string]string, metaDataMap map[string]interface{}, client *http.Client, APIServer string, accessGroups []string) error {
 	color.Set(color.FgGreen)
 	defer color.Unset()
 
-	// optionally augment missing owner metadata
+	// optionally gather missing owner metadata
 	if _, ok := metaDataMap["owner"]; !ok {
 		metaDataMap["owner"] = user["displayName"]
 		//log.Printf("owner field added: %s", metaDataMap["owner"])
@@ -285,8 +286,8 @@ func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap ma
 	return nil
 }
 
-// checkMetadataValidity checks the validity of the metadata by calling the appropriate API.
-func checkMetadataValidity(client *http.Client, APIServer string, metaDataMap map[string]interface{}) error {
+// CheckMetadataValidity checks the validity of the metadata by calling the appropriate API.
+func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap map[string]interface{}) error {
 	dstype, ok := metaDataMap["type"].(string)
 	if !ok {
 		return fmt.Errorf("metadata type isn't a string")
@@ -370,8 +371,8 @@ func checkMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 	return nil
 }
 
-// getSourceFolder gets the source folder from the metadata.
-func getSourceFolder(metaDataMap map[string]interface{}) (string, error) {
+// GetSourceFolder gets the source folder from the metadata.
+func GetSourceFolder(metaDataMap map[string]interface{}) (string, error) {
 	sourceFolder := ""
 	val, ok := metaDataMap["sourceFolder"]
 	if !ok {
