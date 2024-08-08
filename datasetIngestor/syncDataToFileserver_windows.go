@@ -2,14 +2,15 @@
 package datasetIngestor
 
 import (
-	"log"
+	"fmt"
+	"io"
 	"path"
 	"regexp"
 	"strings"
 )
 
-func SyncDataToFileserver(datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string) (err error) {
-
+// copies data from a local machine to a fileserver, uses scp underneath
+func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string, commandOutput io.Writer) (err error) {
 	username := user["username"]
 	password := user["password"]
 	shortDatasetId := strings.Split(datasetId, "/")[1]
@@ -51,16 +52,19 @@ func SyncDataToFileserver(datasetId string, user map[string]string, RSYNCServer 
 	if absFileListing != "" {
 		lines, err := readLines(absFileListing)
 		if err != nil {
-			log.Fatalf("Could not read filellist, readLines: %s", err)
+			return fmt.Errorf("could not read filelist, readlines: %v", err)
 		}
 		for _, line := range lines {
 			windowsSource := re.ReplaceAllString(path.Join(sourceFolder, line), "$1:/")
-			// log.Printf("Copying data via scp from %s to %s\n", windowsSource, destFolder2)
+			fmt.Fprintf(commandOutput, "Copying data via scp from %s to %s\n", windowsSource, destFolder)
 			err = c.Send(destFolder2, windowsSource)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		windowsSource := re.ReplaceAllString(sourceFolder, "$1:/")
-		// log.Printf("Copying data via scp from %s to %s\n", windowsSource, destFolder)
+		fmt.Fprintf(commandOutput, "Copying data via scp from %s to %s\n", windowsSource, destFolder)
 		err = c.Send(destFolder, windowsSource)
 	}
 	return err
