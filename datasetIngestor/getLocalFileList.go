@@ -4,7 +4,6 @@ package datasetIngestor
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -76,16 +75,17 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallba
 	var lines []string
 
 	if filelistingPath == "" {
-		log.Printf("No explicit filelistingPath defined - full folder %s is used.\n", sourceFolder)
+		//log.Printf("No explicit filelistingPath defined - full folder %s is used.\n", sourceFolder)
 		lines = append(lines, "./")
 	} else {
 		lines, err = readLines(filelistingPath)
 		if err != nil {
-			log.Fatalf("readLines: %s", err)
+			//log.Fatalf("readLines: %s", err)
+			return []Datafile{}, time.Time{}, time.Time{}, "", 0, 0, err
 		}
-		for i, line := range lines {
+		/*for i, line := range lines {
 			log.Println(i, line)
-		}
+		}*/
 	}
 
 	// TODO verify that filelisting have no overlap, e.g. no lines X/ and X/Y,
@@ -94,7 +94,7 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallba
 	// restore oldWorkDir after function
 	oldWorkDir, err := os.Getwd()
 	if err != nil {
-		return fullFileArray, startTime, endTime, owner, numFiles, totalSize, err
+		return []Datafile{}, time.Time{}, time.Time{}, "", 0, 0, err
 	}
 
 	defer os.Chdir(oldWorkDir)
@@ -106,14 +106,14 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallba
 	}
 
 	if err := os.Chdir(sourceFolder); err != nil {
-		log.Printf("Can not step into sourceFolder %v - dataset will be ignored.\n", sourceFolder)
-		return fullFileArray, startTime, endTime, owner, numFiles, totalSize, err
+		//log.Printf("Can not step into sourceFolder %v - dataset will be ignored.\n", sourceFolder)
+		return []Datafile{}, time.Time{}, time.Time{}, "", 0, 0, err
 	}
-	dir, err := os.Getwd()
+	/*dir, err := os.Getwd()
 	if err != nil {
 		return fullFileArray, startTime, endTime, owner, numFiles, totalSize, err
 	}
-	log.Printf("Scanning source folder: %s at %s", sourceFolder, dir)
+	log.Printf("Scanning source folder: %s at %s", sourceFolder, dir)*/
 
 	// spin := spinner.New(spinner.CharSets[9], 100*time.Millisecond) // spinner for progress indication
 	// spin.Writer = os.Stderr
@@ -131,10 +131,10 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallba
 		// if folder make recursive ls
 
 		// spin.Start() // Start the spinner
-		e := filepath.Walk(line, func(path string, f os.FileInfo, err error) error {
+		err := filepath.Walk(line, func(path string, f os.FileInfo, err error) error {
 			// ignore ./ (but keep other dot files)
 			if f == nil || f.Name() == "" {
-				log.Printf("Skipping file or directory %s", path)
+				//log.Printf("Skipping file or directory %s", path)
 				return nil
 			}
 			if f.IsDir() && f.Name() == "." {
@@ -198,8 +198,8 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallba
 			return err
 		})
 
-		if e != nil {
-			log.Fatal("Fatal error:", e)
+		if err != nil {
+			return []Datafile{}, time.Time{}, time.Time{}, "", 0, 0, fmt.Errorf("file walk returned error: %v", err)
 		}
 	}
 	// spin.Stop()
