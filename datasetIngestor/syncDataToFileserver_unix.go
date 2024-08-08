@@ -1,3 +1,4 @@
+//go:build aix || darwin || dragonfly || freebsd || (js && wasm) || linux || nacl || netbsd || openbsd || solaris
 // +build aix darwin dragonfly freebsd js,wasm linux nacl netbsd openbsd solaris
 
 // very important: there must be an empty line after the build flag line .
@@ -5,16 +6,18 @@ package datasetIngestor
 
 import (
 	"fmt"
+	"io"
 	"log"
-	"os"
 	"os/exec"
-	"strings"
-	version "github.com/mcuadros/go-version"
 	"regexp"
+	"strings"
+
+	version "github.com/mcuadros/go-version"
 )
 
 // functionality needed for "de-central" data
-func SyncDataToFileserver(datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string) (err error) {
+// copies data from a local machine to a fileserver, uses RSync underneath
+func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string, commandOutput io.Writer) (err error) {
 	username := user["username"]
 	shortDatasetId := strings.Split(datasetId, "/")[1]
 	log.Println("short dataset id:", shortDatasetId)
@@ -23,16 +26,17 @@ func SyncDataToFileserver(datasetId string, user map[string]string, RSYNCServer 
 	// append trailing slash to sourceFolder to indicate that the *contents* of the folder should be copied
 	// no special handling for blanks in sourceFolder needed here
 	fullSourceFolderPath := sourceFolder + "/"
-	
+
 	versionNumber, err := getRsyncVersion()
 	if err != nil {
-		log.Fatal("Error getting rsync version: ", err)
+		return fmt.Errorf("error getting rsync version: %v", err)
 	}
-	
+
 	rsyncCmd := buildRsyncCmd(versionNumber, absFileListing, fullSourceFolderPath, serverConnectString)
-		
-	// Show rsync's output	
-	rsyncCmd.Stderr = os.Stderr
+
+	// Show rsync's output
+	rsyncCmd.Stdout = commandOutput
+	rsyncCmd.Stderr = commandOutput
 	log.Printf("Running: %v.\n", rsyncCmd.Args)
 	err = rsyncCmd.Run()
 	return err
@@ -46,7 +50,7 @@ func getRsyncVersion() (string, error) {
 		return "", err
 	}
 	version := string(output)
-	
+
 	// Use a regular expression to find the version number.
 	// It will match the first occurrence of a string in the format "x.y.z" in the `version` string, where "x", "y", and "z" are one or more digits.
 	re := regexp.MustCompile(`\d+\.\d+\.\d+`)
@@ -54,7 +58,7 @@ func getRsyncVersion() (string, error) {
 	if versionNumber == "" {
 		return "", fmt.Errorf("could not find version number in rsync version string: %s", version)
 	}
-	
+
 	return versionNumber, nil
 }
 
