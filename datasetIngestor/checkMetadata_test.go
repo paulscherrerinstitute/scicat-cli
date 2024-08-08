@@ -54,7 +54,7 @@ func TestCheckMetadata(t *testing.T) {
 	accessGroups := []string{"group1", "group2"}
 
 	// Call the function with mock parameters
-	metaDataMap, sourceFolder, beamlineAccount, err := CheckMetadata(client, APIServer, metadatafile1, user, accessGroups)
+	metaDataMap, sourceFolder, beamlineAccount, err := ReadAndCheckMetadata(client, APIServer, metadatafile1, user, accessGroups)
 	if err != nil {
 		t.Error("Error in CheckMetadata function: ", err)
 	}
@@ -101,7 +101,7 @@ func TestCheckMetadata(t *testing.T) {
 	}
 
 	// test with the second metadata file
-	metaDataMap2, sourceFolder2, beamlineAccount2, err := CheckMetadata(client, APIServer, metadatafile2, user, accessGroups)
+	metaDataMap2, sourceFolder2, beamlineAccount2, err := ReadAndCheckMetadata(client, APIServer, metadatafile2, user, accessGroups)
 	if err != nil {
 		t.Error("Error in CheckMetadata function: ", err)
 	}
@@ -154,7 +154,7 @@ func TestCheckMetadata_CrashCase(t *testing.T) {
 	accessGroups := []string{"group1", "group2"}
 
 	// Call the function that should return an error
-	_, _, _, err := CheckMetadata(client, APIServer, metadatafile3, user, accessGroups)
+	_, _, _, err := ReadAndCheckMetadata(client, APIServer, metadatafile3, user, accessGroups)
 
 	// Check that the function returned the expected error
 	if err == nil {
