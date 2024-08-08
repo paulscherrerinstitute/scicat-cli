@@ -268,14 +268,15 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Printf("Scanning files in dataset %s", datasetSourceFolder)
 
 			// get filelist of dataset
+			log.Printf("Getting filelist for \"%s\"...\n", datasetSourceFolder)
 			fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
 				datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, &skip)
 			if err != nil {
 				log.Fatalf("Can't gather the filelist of \"%s\"", datasetSourceFolder)
 			}
-
+			log.Println("Filelist collected.")
 			//log.Printf("full fileListing: %v\n Start and end time: %s %s\n ", fullFileArray, startTime, endTime)
-			log.Printf("The dataset contains %v files with a total size of %v bytes.", numFiles, totalSize)
+			log.Printf("The dataset contains %v files with a total size of %v bytes.\n", numFiles, totalSize)
 
 			// filecount checks
 			if totalSize == 0 {
@@ -393,7 +394,8 @@ For Windows you need instead to specify -user username:password on the command l
 					archivableDatasetList = append(archivableDatasetList, datasetId)
 				}
 			}
-			datasetIngestor.ResetUpdatedMetaData(originalMap, metaDataMap) // I don't really get this...
+			// reset dataset metadata for next dataset ingestion
+			datasetIngestor.ResetUpdatedMetaData(originalMap, metaDataMap)
 		}
 
 		if !ingestFlag {
