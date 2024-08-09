@@ -60,6 +60,7 @@ func TestForExistingSourceFolder(folders []string, client *http.Client, APIServe
 		if err != nil {
 			return DatasetQuery{}, err
 		}
+		defer resp.Body.Close()
 		processedResp, err := processResponse(resp)
 		if err != nil {
 			return foundList, err
@@ -87,7 +88,6 @@ func makeRequest(client *http.Client, url string, filter string) (*http.Response
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 	return resp, nil
 }
 
