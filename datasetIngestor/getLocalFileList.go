@@ -203,15 +203,15 @@ func handleSymlink(symlinkPath string, sourceFolder string) (bool, error) {
 	keep := true
 	pointee, _ := os.Readlink(symlinkPath) // just pass the file name
 	if !filepath.IsAbs(pointee) {
-		dir, err := filepath.Abs(filepath.Dir(symlinkPath))
+		symlinkAbs, err := filepath.Abs(filepath.Dir(symlinkPath))
 		if err != nil {
 			keep = false
 			err = fmt.Errorf("could not find absolute path of symlink at \"%s\": %v", symlinkPath, err)
 			return false, err
 		}
 		// log.Printf(" CWD path pointee :%v %v %v", dir, filepath.Dir(path), pointee)
-		pabs := filepath.Join(dir, filepath.Dir(symlinkPath), pointee)
-		pointee, err = filepath.EvalSymlinks(pabs)
+		pointeeAbs := filepath.Join(symlinkAbs, pointee)
+		pointee, err = filepath.EvalSymlinks(pointeeAbs)
 		if err != nil {
 			keep = false
 			err = fmt.Errorf("could not follow symlink: %v", err)
