@@ -3,7 +3,8 @@ package datasetIngestor
 import (
 	"bytes"
 	"encoding/json"
-	"log"
+	"errors"
+	"fmt"
 	"net/http"
 )
 
@@ -26,12 +27,13 @@ Returns:
 - A string representing the "pid" of the newly created dataset. If the function encounters an error, it will not return a value.
 
 Note: This function will terminate the program if it encounters an error, such as a failure to serialize the metaDataMap, a failure to send the HTTP request, a non-200 response from the server, or an unrecognized dataset type.
+Note 2: This function is unused in cmd
 */
-func CreateDatasetEntry(client *http.Client, APIServer string, metaDataMap map[string]interface{}, accessToken string) (datasetId string) {
+func CreateDatasetEntry(client *http.Client, APIServer string, metaDataMap map[string]interface{}, accessToken string) (datasetId string, err error) {
 	// assemble json structure
 	bm, err := json.Marshal(metaDataMap)
 	if err != nil {
-		log.Fatal("Connect serialize meta data map:", metaDataMap)
+		return "", fmt.Errorf("couldn't marshal metadata map: %v", metaDataMap)
 	}
 	if val, ok := metaDataMap["type"]; ok {
 		dstype := val.(string)
@@ -47,15 +49,18 @@ func CreateDatasetEntry(client *http.Client, APIServer string, metaDataMap map[s
 		} else if dstype == "base" {
 			myurl = APIServer + "/Datasets"
 		} else {
-			log.Fatal("Unknown dataset type encountered:", dstype)
+			return "", fmt.Errorf("unknown dataset type encountered: %v", dstype)
 		}
 
 		req, err := http.NewRequest("POST", myurl+"?access_token="+accessToken, bytes.NewBuffer(bm))
+		if err != nil {
+			return datasetId, err
+		}
 		req.Header.Set("Content-Type", "application/json")
 		//fmt.Printf("request to message broker:%v\n", req)
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Fatal(err)
+			return "", err
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == 200 {
@@ -67,15 +72,14 @@ func CreateDatasetEntry(client *http.Client, APIServer string, metaDataMap map[s
 			var d PidType
 			err := decoder.Decode(&d)
 			if err != nil {
-				log.Fatal("Could not decode pid from dataset entry:", err)
+				return "", fmt.Errorf("could not decode pid from dataset entry: %v", err)
 			}
 			// fmtlog.Printf("Extracted pid:%s", d.Pid)
-			return d.Pid
+			return d.Pid, nil
 		} else {
-			log.Fatalf("CreateDatasetEntry:Failed to create new dataset: status code %v\n", resp.StatusCode)
+			return "", fmt.Errorf("createDatasetEntry:Failed to create new dataset: status code %v", resp.StatusCode)
 		}
 	} else {
-		log.Fatal("Type of dataset not defined:")
+		return "", errors.New("type of dataset not defined")
 	}
-	return "This should never happen"
 }

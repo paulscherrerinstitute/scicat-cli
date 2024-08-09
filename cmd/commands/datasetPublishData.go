@@ -96,7 +96,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 		}
 
 		createWebpage := func(urls []string, title string, doi string, datasetDetails []datasetUtils.Dataset,
-			publishedDataId string, userpass *string, token *string) {
+			publishedDataId string, userpass string, token string) {
 			// A Function that returns the longest common prefix path (runes)
 			// from the array of strings
 			commonPrefix := func(arr []string) string {
@@ -208,8 +208,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 
 			// set value in publishedData ==============================
 
-			auth := &datasetUtils.RealAuthenticator{}
-			user, _ := datasetUtils.Authenticate(auth, client, APIServer, token, userpass)
+			user, _ := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 
 			type PublishedDataPart struct {
 				DownloadLink string `json:"downloadLink"`
@@ -323,7 +322,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 			color.Unset()
 		} else {
 			executeCommands(batchCommands)
-			createWebpage(urls, title, doi, datasetDetails, publishedDataId, &userpass, &token)
+			createWebpage(urls, title, doi, datasetDetails, publishedDataId, userpass, token)
 		}
 	},
 }

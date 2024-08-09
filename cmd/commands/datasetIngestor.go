@@ -105,28 +105,26 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 
 		metadatafile := args[0]
-		filelistingPath := ""
-		folderlistingPath := ""
+		datasetFileListTxt := ""
+		folderListingTxt := ""
 		absFileListing := ""
 		if len(args) == 2 {
-			if args[1] == "folderlisting.txt" {
-				folderlistingPath = args[1]
+			argFileName := filepath.Base(args[1])
+			if argFileName == "folderlisting.txt" {
+				// NOTE folderListingTxt is a TEXT FILE that lists dataset folders that should all be ingested together
+				//   WITH the same metadata EXCEPT for the sourceFolder path (which is set during ingestion)
+				folderListingTxt = args[1]
 			} else {
-				// NOTE filelistingPath is some kind of path to which the sourceFolder path should be relative
-				filelistingPath = args[1]
-				absFileListing, _ = filepath.Abs(filelistingPath)
+				// NOTE datasetFileListTxt is a TEXT FILE that lists the files & folders of a dataset (contained in a folder)
+				//   that should be considered as "part of" the dataset. The paths must be relative to the sourceFolder.
+				datasetFileListTxt = args[1]
+				absFileListing, _ = filepath.Abs(datasetFileListTxt)
 			}
 		}
 
 		if datasetUtils.TestArgs != nil {
-			datasetUtils.TestArgs([]interface{}{metadatafile, filelistingPath, folderlistingPath})
+			datasetUtils.TestArgs([]interface{}{metadatafile, datasetFileListTxt, folderListingTxt})
 			return
-		}
-
-		// functions use this flag in a way where "nil -> unset"
-		var allowExistingSourceFolderPtr *bool = &allowExistingSourceFolder
-		if !noninteractiveFlag && !cmd.Flags().Lookup("allowexistingsource").Changed {
-			allowExistingSourceFolderPtr = nil
 		}
 
 		if showVersion {
@@ -164,187 +162,255 @@ For Windows you need instead to specify -user username:password on the command l
 		log.Printf("You are about to add a dataset to the === %s === data catalog environment...", env)
 		color.Unset()
 
-		// TODO: change pointer parameter types to values as they shouldn't be modified by the function
-		auth := &datasetUtils.RealAuthenticator{}
-		user, accessGroups := datasetUtils.Authenticate(auth, client, APIServer, &token, &userpass)
+		user, accessGroups := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 
 		/* TODO Add info about policy settings and that autoarchive will take place or not */
-
-		metaDataMap, metaSourceFolder, beamlineAccount, err := datasetIngestor.CheckMetadata(client, APIServer, metadatafile, user, accessGroups)
+		metaDataMap, metadataSourceFolder, beamlineAccount, err := datasetIngestor.ReadAndCheckMetadata(client, APIServer, metadatafile, user, accessGroups)
 		if err != nil {
 			log.Fatal("Error in CheckMetadata function: ", err)
 		}
 		//log.Printf("metadata object: %v\n", metaDataMap)
 
-		// assemble list of datasetFolders (=datasets) to be created
-		var datasetFolders []string
-		if folderlistingPath == "" {
-			datasetFolders = append(datasetFolders, metaSourceFolder)
+		// assemble list of datasetPaths (=datasets) to be created
+		var datasetPaths []string
+		if folderListingTxt == "" {
+			datasetPaths = append(datasetPaths, metadataSourceFolder)
 		} else {
 			// get folders from file
-			folderlist, err := os.ReadFile(folderlistingPath)
+			folderlist, err := os.ReadFile(folderListingTxt)
 			if err != nil {
 				log.Fatal(err)
 			}
 			lines := strings.Split(string(folderlist), "\n")
 			// remove all empty and comment lines
 			for _, line := range lines {
-				if line != "" && string(line[0]) != "#" {
-					// NOTE what is this special third level "data" folder that needs to be unsymlinked?
-					// convert into canonical form only for certain online data linked from eaccounts home directories
-					var parts = strings.Split(line, "/")
-					if len(parts) > 3 && parts[3] == "data" {
-						realSourceFolder, err := filepath.EvalSymlinks(line)
-						if err != nil {
-							log.Fatalf("Failed to find canonical form of sourceFolder:%v %v", line, err)
-						}
-						color.Set(color.FgYellow)
-						log.Printf("Transform sourceFolder %v to canonical form: %v", line, realSourceFolder)
-						color.Unset()
-						datasetFolders = append(datasetFolders, realSourceFolder)
-					} else {
-						datasetFolders = append(datasetFolders, line)
+				if line == "" || string(line[0]) == "#" {
+					continue
+				}
+				// NOTE what is this special third level "data" folder that needs to be unsymlinked?
+				// convert into canonical form only for certain online data linked from eaccounts home directories
+				var parts = strings.Split(line, "/")
+				if len(parts) > 3 && parts[3] == "data" {
+					realSourceFolder, err := filepath.EvalSymlinks(line)
+					if err != nil {
+						log.Fatalf("Failed to find canonical form of sourceFolder:%v %v\n", line, err)
 					}
+					color.Set(color.FgYellow)
+					log.Printf("Transform sourceFolder %v to canonical form: %v\n", line, realSourceFolder)
+					color.Unset()
+					datasetPaths = append(datasetPaths, realSourceFolder)
+				} else {
+					datasetPaths = append(datasetPaths, line)
 				}
 			}
 		}
 		// log.Printf("Selected folders: %v\n", folders)
 
 		// test if a sourceFolder already used in the past and give warning
-		datasetIngestor.TestForExistingSourceFolder(datasetFolders, client, APIServer, user["accessToken"], allowExistingSourceFolderPtr)
+		log.Println("Testing for existing source folders...")
+		foundList, err := datasetIngestor.TestForExistingSourceFolder(datasetPaths, client, APIServer, user["accessToken"])
+		if err != nil {
+			log.Fatal(err)
+		}
+		color.Set(color.FgYellow)
+		if len(foundList) > 0 {
+			fmt.Println("Warning! The following datasets have been found with the same sourceFolder: ")
+		} else {
+			log.Println("Finished testing for existing source folders.")
+		}
+		for _, element := range foundList {
+			fmt.Printf("  - PID: \"%s\", sourceFolder: \"%s\"\n", element.Pid, element.SourceFolder)
+		}
+		color.Unset()
+		if !allowExistingSourceFolder && len(foundList) > 0 {
+			if !cmd.Flags().Changed("allowexistingsource") {
+				log.Printf("Do you want to ingest the corresponding new datasets nevertheless (y/N) ? ")
+				scanner.Scan()
+				archiveAgain := scanner.Text()
+				if archiveAgain != "y" {
+					log.Fatalln("Aborted.")
+				}
+			} else {
+				log.Fatalln("Existing sourceFolders are not allowed. Aborted.")
+			}
+		}
 
 		// TODO ask archive system if sourcefolder is known to them. If yes no copy needed, otherwise
 		// a destination location is defined by the archive system
 		// for now let the user decide if he needs a copy
 
-		// now everything is prepared, start to loop over all folders
-		var skip = ""
+		if nocopyFlag {
+			copyFlag = false
+		}
+		checkCentralAvailability := !(cmd.Flags().Changed("copy") || cmd.Flags().Changed("nocopy") || beamlineAccount || copyFlag)
+		skipSymlinks := ""
+
 		// check if skip flag is globally defined via flags:
-		if cmd.Flags().Lookup("linkfiles").Changed {
+		if cmd.Flags().Changed("linkfiles") {
 			switch linkfiles {
 			case "delete":
-				skip = "sA"
+				skipSymlinks = "sA"
 			case "keep":
-				skip = "kA"
+				skipSymlinks = "kA"
 			default:
-				skip = "dA" // default behaviour = keep internal for all
+				skipSymlinks = "dA" // default behaviour = keep internal for all
 			}
 		}
 
-		var datasetList []string
-		for _, sourceFolder := range datasetFolders {
+		var skippedLinks uint = 0
+		var illegalFileNames uint = 0
+		localSymlinkCallback := createLocalSymlinkCallbackForFileLister(&skipSymlinks, &skippedLinks)
+		localFilepathFilterCallback := createLocalFilenameFilterCallback(&illegalFileNames)
+
+		// now everything is prepared, prepare to loop over all folders
+		var archivableDatasetList []string
+		for _, datasetSourceFolder := range datasetPaths {
+			log.Printf("===== Ingesting: \"%s\" =====\n", datasetSourceFolder)
 			// ignore empty lines
-			if sourceFolder == "" {
+			if datasetSourceFolder == "" {
 				// NOTE if there are empty source folder(s), shouldn't we raise an error?
 				continue
 			}
-			metaDataMap["sourceFolder"] = sourceFolder
-			log.Printf("Scanning files in dataset %s", sourceFolder)
+			metaDataMap["sourceFolder"] = datasetSourceFolder
+			log.Printf("Scanning files in dataset %s", datasetSourceFolder)
 
-			fullFileArray, startTime, endTime, owner, numFiles, totalSize :=
-				datasetIngestor.AssembleFilelisting(sourceFolder, filelistingPath, &skip)
+			// reset skip var. if not set for all datasets
+			if !(skipSymlinks == "sA" || skipSymlinks == "kA" || skipSymlinks == "dA") {
+				skipSymlinks = ""
+			}
+
+			// get filelist of dataset
+			log.Printf("Getting filelist for \"%s\"...\n", datasetSourceFolder)
+			fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
+				datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback)
+			if err != nil {
+				log.Fatalf("Can't gather the filelist of \"%s\"", datasetSourceFolder)
+			}
+			log.Println("Filelist collected.")
 			//log.Printf("full fileListing: %v\n Start and end time: %s %s\n ", fullFileArray, startTime, endTime)
-			log.Printf("The dataset contains %v files with a total size of %v bytes.", numFiles, totalSize)
+			log.Printf("The dataset contains %v files with a total size of %v bytes.\n", numFiles, totalSize)
 
+			// filecount checks
 			if totalSize == 0 {
 				emptyDatasets++
 				color.Set(color.FgRed)
-				log.Println("This dataset contains no files and will therefore NOT be stored. ")
+				log.Printf("\"%s\" dataset cannot be ingested - contains no files\n", datasetSourceFolder)
 				color.Unset()
-			} else if numFiles > TOTAL_MAXFILES {
+				continue
+			}
+			if numFiles > TOTAL_MAXFILES {
 				tooLargeDatasets++
 				color.Set(color.FgRed)
-				log.Printf("This dataset exceeds the current filecount limit of the archive system of %v files and will therefore NOT be stored.\n", TOTAL_MAXFILES)
+				log.Printf("\"%s\" dataset cannot be ingested - too many files: has %d, max. %d\n", datasetSourceFolder, numFiles, TOTAL_MAXFILES)
 				color.Unset()
-			} else {
-				// TODO: change tapecopies param type of UpadateMetaData from pointer to regular int
-				// (it's not changed within the function)
-				datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, &tapecopies)
-				pretty, _ := json.MarshalIndent(metaDataMap, "", "    ")
+				continue
+			}
 
-				log.Printf("Updated metadata object:\n%s\n", pretty)
+			// NOTE: only tapecopies=1 or 2 does something if set.
+			if tapecopies == 2 {
+				color.Set(color.FgYellow)
+				log.Printf("Note: this dataset, if archived, will be copied to two tape copies")
+				color.Unset()
+			}
+			datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
+			pretty, _ := json.MarshalIndent(metaDataMap, "", "    ")
 
-				// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
-				// and unless copy flag defined via command line
-				if !copyFlag && !nocopyFlag { // NOTE this whole copyFlag, nocopyFlag ordeal makes no sense whatsoever
-					if !beamlineAccount {
-						err := datasetIngestor.CheckDataCentrallyAvailable(user["username"], RSYNCServer, sourceFolder)
-						if err != nil {
-							color.Set(color.FgYellow)
-							log.Printf("The source folder %v is not centrally available (decentral use case).\nThe data must first be copied to a rsync cache server.\n ", sourceFolder)
-							color.Unset()
-							copyFlag = true
-							// check if user account
-							if len(accessGroups) == 0 {
-								color.Set(color.FgRed)
-								log.Println("For the decentral case you must use a personal account. Beamline accounts are not supported.")
-								color.Unset()
-								os.Exit(1)
-							}
-							if !noninteractiveFlag {
-								log.Printf("Do you want to continue (Y/n)? ")
-								scanner.Scan()
-								continueFlag := scanner.Text()
-								if continueFlag == "n" {
-									log.Fatalln("Further ingests interrupted because decentral case detected, but no copy wanted.")
-								}
-							}
+			log.Printf("Updated metadata object:\n%s\n", pretty)
+
+			// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
+			// and unless (no)copy flag defined via command line
+			if checkCentralAvailability {
+				log.Println("Checking if data is centrally available...")
+				sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(user["username"], RSYNCServer, datasetSourceFolder, os.Stdout)
+				if otherErr != nil {
+					log.Fatalln("Cannot check if data is centrally available:", otherErr)
+				}
+				// if the ssh command's error is not nil, the dataset is *likely* to be not centrally available (maybe should check the error returned)
+				if sshErr != nil {
+					color.Set(color.FgYellow)
+					log.Printf("The source folder %v is not centrally available.\nThe data must first be copied.\n ", datasetSourceFolder)
+					color.Unset()
+					copyFlag = true
+					// check if user account
+					if len(accessGroups) == 0 {
+						color.Set(color.FgRed)
+						log.Println("For copying, you must use a personal account. Beamline accounts are not supported.")
+						color.Unset()
+						os.Exit(1)
+					}
+					if !noninteractiveFlag {
+						log.Printf("Do you want to continue (Y/n)? ")
+						scanner.Scan()
+						continueFlag := scanner.Text()
+						if continueFlag == "n" {
+							log.Fatalln("Further ingests interrupted because copying is needed, but no copy wanted.")
 						}
-					} else {
-						copyFlag = false // beamline accounts don't need copying then, but is beamline account checking needed outside PSI?
 					}
 				} else {
-					if !copyFlag {
-						// NOTE *in this case* copyflag is ALWAYS false, nocopyFlag is ALWAYS true
-						//   why is this not just an assignment to FALSE then?
-						copyFlag = !nocopyFlag
-					}
+					log.Println("Data is present centrally.")
 				}
-				if ingestFlag {
-					// create ingest . For decentral case delay setting status to archivable until data is copied
-					archivable := false
-					if _, ok := metaDataMap["datasetlifecycle"]; !ok {
-						metaDataMap["datasetlifecycle"] = map[string]interface{}{}
-					}
-					if copyFlag {
-						// do not override existing fields
-						metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = false
-						metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "filesNotYetAvailable"
-						metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = false
-					} else {
-						archivable = true
-						metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
-						metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
-						metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = true
-					}
-					datasetId := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user)
-					// add attachment optionally
-					if addAttachment != "" {
-						datasetIngestor.AddAttachment(client, APIServer, datasetId, metaDataMap, user["accessToken"], addAttachment, addCaption)
-					}
-					if copyFlag {
-						err := datasetIngestor.SyncDataToFileserver(datasetId, user, RSYNCServer, sourceFolder, absFileListing)
-						if err == nil {
-							// delayed enabling
-							archivable = true
-							datasetIngestor.MarkFilesReady(client, APIServer, datasetId, user)
-						} else {
-							color.Set(color.FgRed)
-							log.Printf("The  command to copy files exited with error %v \n", err)
-							log.Printf("The dataset %v is not yet in an archivable state\n", datasetId)
-							// TODO let user decide to delete dataset entry
-							// datasetIngestor.DeleteDatasetEntry(client, APIServer, datasetId, user["accessToken"])
-							color.Unset()
-						}
-					}
-
-					if archivable {
-						datasetList = append(datasetList, datasetId)
-					}
-				}
-				datasetIngestor.ResetUpdatedMetaData(originalMap, metaDataMap)
-
 			}
+
+			if ingestFlag {
+				// create ingest . For decentral case delay setting status to archivable until data is copied
+				archivable := false
+				if _, ok := metaDataMap["datasetlifecycle"]; !ok {
+					metaDataMap["datasetlifecycle"] = map[string]interface{}{}
+				}
+				if copyFlag { // IDEA: maybe add a flag to indicate that we want to copy later?
+					// do not override existing fields
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = false
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "filesNotYetAvailable"
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = false
+				} else {
+					archivable = true
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = true
+				}
+				log.Println("Ingesting dataset...")
+				datasetId, err := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user)
+				if err != nil {
+					log.Fatal("Couldn't ingest dataset:", err)
+				}
+				log.Println("Dataset created:", datasetId)
+				// add attachment optionally
+				if addAttachment != "" {
+					log.Println("Adding attachment...")
+					err := datasetIngestor.AddAttachment(client, APIServer, datasetId, metaDataMap, user["accessToken"], addAttachment, addCaption)
+					if err != nil {
+						log.Println("Couldn't add attachment:", err)
+					}
+					log.Printf("Attachment file %v added to dataset %v\n", addAttachment, datasetId)
+				}
+				if copyFlag {
+					// TODO rewrite SyncDataToFileserver
+					log.Println("Syncing files to cache server...")
+					err := datasetIngestor.SyncLocalDataToFileserver(datasetId, user, RSYNCServer, datasetSourceFolder, absFileListing, os.Stdout)
+					if err == nil {
+						// delayed enabling
+						archivable = true
+						err := datasetIngestor.MarkFilesReady(client, APIServer, datasetId, user)
+						if err != nil {
+							log.Fatal("Couldn't mark files ready:", err)
+						}
+					} else {
+						color.Set(color.FgRed)
+						log.Printf("The  command to copy files exited with error %v \n", err)
+						log.Printf("The dataset %v is not yet in an archivable state\n", datasetId)
+						// TODO let user decide to delete dataset entry
+						// datasetIngestor.DeleteDatasetEntry(client, APIServer, datasetId, user["accessToken"])
+						color.Unset()
+					}
+					log.Println("Syncing files - DONE")
+				}
+
+				if archivable {
+					archivableDatasetList = append(archivableDatasetList, datasetId)
+				}
+			}
+			// reset dataset metadata for next dataset ingestion
+			datasetIngestor.ResetUpdatedMetaData(originalMap, metaDataMap)
 		}
 
 		if !ingestFlag {
@@ -361,7 +427,17 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Printf("Number of datasets not stored because of too many files:%v\nPlease note that this will cancel any subsequent archive steps from this job !\n", tooLargeDatasets)
 		}
 		color.Unset()
-		datasetIngestor.PrintFileInfos()
+		//datasetIngestor.PrintFileInfos() // TODO: move this into cmd portion
+		// print file statistics
+		if skippedLinks > 0 {
+			color.Set(color.FgYellow)
+			log.Printf("Total number of link files skipped:%v\n", skippedLinks)
+		}
+		if illegalFileNames > 0 {
+			color.Set(color.FgRed)
+			log.Printf("Number of files ignored because of illegal filenames:%v\n", illegalFileNames)
+		}
+		color.Unset()
 
 		// stop here if empty datasets appeared
 		if emptyDatasets > 0 || tooLargeDatasets > 0 {
@@ -372,12 +448,18 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Printf("Submitting Archive Job for the ingested datasets.\n")
 			// TODO: change param type from pointer to regular as it is unnecessary
 			//   for it to be passed as pointer
-			datasetUtils.CreateJob(client, APIServer, user, datasetList, &tapecopies)
+			jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasetList, &tapecopies)
+			if err != nil {
+				color.Set(color.FgRed)
+				log.Printf("Could not create the archival job for the ingested datasets: %s", err.Error())
+				color.Unset()
+			}
+			log.Println("Submitted job:", jobId)
 		}
 
 		// print out results to STDOUT, one line per dataset
-		for i := 0; i < len(datasetList); i++ {
-			fmt.Println(datasetList[i])
+		for i := 0; i < len(archivableDatasetList); i++ {
+			fmt.Println(archivableDatasetList[i])
 		}
 
 	},
@@ -402,4 +484,95 @@ func init() {
 	datasetIngestorCmd.Flags().String("addcaption", "", "Optional caption to be stored with attachment (single dataset case only)")
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
+	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
+}
+
+func createLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	return func(symlinkPath string, sourceFolder string) (bool, error) {
+		keep := true
+		pointee, _ := os.Readlink(symlinkPath) // just pass the file name
+		if !filepath.IsAbs(pointee) {
+			symlinkAbs, err := filepath.Abs(filepath.Dir(symlinkPath))
+			if err != nil {
+				return false, err
+			}
+			// log.Printf(" CWD path pointee :%v %v %v", dir, filepath.Dir(path), pointee)
+			pointeeAbs := filepath.Join(symlinkAbs, pointee)
+			pointee, err = filepath.EvalSymlinks(pointeeAbs)
+			if err != nil {
+				log.Printf("Could not follow symlink for file:%v %v", pointeeAbs, err)
+				keep = false
+				log.Printf("keep variable set to %v", keep)
+			}
+		}
+		//fmt.Printf("Skip variable:%v\n", *skip)
+		if *skipSymlinks == "ka" || *skipSymlinks == "kA" {
+			keep = true
+		} else if *skipSymlinks == "sa" || *skipSymlinks == "sA" {
+			keep = false
+		} else if *skipSymlinks == "da" || *skipSymlinks == "dA" {
+			keep = strings.HasPrefix(pointee, sourceFolder)
+		} else {
+			color.Set(color.FgYellow)
+			log.Printf("Warning: the file %s is a link pointing to %v.", symlinkPath, pointee)
+			color.Unset()
+			log.Printf(`
+	Please test if this link is meaningful and not pointing 
+	outside the sourceFolder %s. The default behaviour is to
+	keep only internal links within a source folder.
+	You can also specify that you want to apply the same answer to ALL 
+	subsequent links within the current dataset, by appending an a (dA,ka,sa).
+	If you want to give the same answer even to all subsequent datasets 
+	in this command then specify a capital 'A', e.g. (dA,kA,sA)
+	Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, sourceFolder)
+			scanner.Scan()
+			*skipSymlinks = scanner.Text()
+			if *skipSymlinks == "" {
+				*skipSymlinks = "d"
+			}
+			if *skipSymlinks == "d" || *skipSymlinks == "dA" {
+				keep = strings.HasPrefix(pointee, sourceFolder)
+			} else {
+				keep = (*skipSymlinks != "s" && *skipSymlinks != "sa" && *skipSymlinks != "sA")
+			}
+		}
+		if keep {
+			color.Set(color.FgGreen)
+			log.Printf("You chose to keep the link %v -> %v.\n\n", symlinkPath, pointee)
+		} else {
+			color.Set(color.FgRed)
+			*skippedLinks++
+			log.Printf("You chose to remove the link %v -> %v.\n\n", symlinkPath, pointee)
+		}
+		color.Unset()
+		return keep, nil
+	}
+}
+
+func createLocalFilenameFilterCallback(illegalFileNamesCounter *uint) func(filepath string) bool {
+	return func(filepath string) (keep bool) {
+		keep = true
+		// make sure that filenames do not contain characters like "\" or "*"
+		if strings.ContainsAny(filepath, "*\\") {
+			color.Set(color.FgRed)
+			log.Printf("Warning: the file %s contains illegal characters like *,\\ and will not be archived.", filepath)
+			color.Unset()
+			if illegalFileNamesCounter != nil {
+				*illegalFileNamesCounter++
+			}
+			keep = false
+		}
+		// and check for triple blanks, they are used to separate columns in messages
+		if keep && strings.Contains(filepath, "   ") {
+			color.Set(color.FgRed)
+			log.Printf("Warning: the file %s contains 3 consecutive blanks which is not allowed. The file not be archived.", filepath)
+			color.Unset()
+			if illegalFileNamesCounter != nil {
+				*illegalFileNamesCounter++
+			}
+			keep = false
+		}
+		return keep
+	}
 }

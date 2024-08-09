@@ -170,8 +170,7 @@ For further help see "` + MANUAL + `"`,
 		}
 		destinationPath = args[0]
 
-		auth := &datasetUtils.RealAuthenticator{}
-		user, _ := datasetUtils.Authenticate(auth, client, APIServer, &token, &userpass)
+		user, _ := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 
 		datasetList, err := datasetUtils.GetAvailableDatasets(user["username"], RSYNCServer, datasetId)
 		if err != nil {

@@ -3,7 +3,7 @@ package datasetUtils
 import (
 	"bytes"
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
 	"time"
 )
@@ -13,9 +13,9 @@ type Job struct {
 }
 
 /*
-`CreateJob` creates a new job on the server. It takes in an HTTP client, the API server URL, a user map, a list of datasets, and a pointer to an integer representing the number of tape copies. 
+`CreateArchivalJob` creates a new job on the server. It takes in an HTTP client, the API server URL, a user map, a list of datasets, and a pointer to an integer representing the number of tape copies.
 
-The function constructs a job map with various parameters, including the email of the job initiator, the type of job, the creation time, the job parameters, and the job status message. It also includes a list of datasets. 
+The function constructs a job map with various parameters, including the email of the job initiator, the type of job, the creation time, the job parameters, and the job status message. It also includes a list of datasets.
 
 The job map is then marshalled into JSON and sent as a POST request to the server. If the server responds with a status code of 200, the function decodes the job ID from the response and returns it. If the server responds with any other status code, the function returns an empty string.
 
@@ -29,7 +29,7 @@ Parameters:
 Returns:
 - jobId: A string representing the job ID if the job was successfully created, or an empty string otherwise
 */
-func CreateJob(client *http.Client, APIServer string, user map[string]string, datasetList []string, tapecopies *int) (jobId string) {
+func CreateArchivalJob(client *http.Client, APIServer string, user map[string]string, datasetList []string, tapecopies *int) (jobId string, err error) {
 	// important: define field with capital names and rename fields via 'json' constructs
 	// otherwise the marshaling will omit the fields !
 
@@ -75,23 +75,21 @@ func CreateJob(client *http.Client, APIServer string, user map[string]string, da
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 200 {
-		log.Println("Job response Status: okay")
-		log.Println("A confirmation email will be sent to", user["mail"])
+		// the request succeeded based on status code
+		// an email should be sent by SciCat to user["email"]
 		decoder := json.NewDecoder(resp.Body)
 		var j Job
 		err := decoder.Decode(&j)
 		if err != nil {
-			log.Println("Could not decode id from job:", err)
-			return ""
+			return "", fmt.Errorf("CreateJob - could not decode id from job: %v", err)
 		}
-		return j.Id
+		return j.Id, err
 	} else {
-		log.Println("Job response Status: there are problems:", resp.StatusCode)
-		return ""
+		return "", fmt.Errorf("CreateJob - request returned unexpected status code: %d", resp.StatusCode)
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -17,70 +17,74 @@ func ReadAndEncodeImage(attachmentFile string) (string, error) {
 		return "", err
 	}
 	defer imgFile.Close()
-	
+
 	// create a new buffer base on file size
-	fInfo, _ := imgFile.Stat()
+	fInfo, err := imgFile.Stat()
+	if err != nil {
+		return "", err
+	}
 	var size int64 = fInfo.Size()
 	buf := make([]byte, size)
-	
+
 	// read file content into buffer
 	fReader := bufio.NewReader(imgFile)
-	fReader.Read(buf)
-	
+	_, err = fReader.Read(buf)
+	if err != nil {
+		return "", err
+	}
+
 	// convert the buffer bytes to base64 string
 	imgBase64Str := base64.StdEncoding.EncodeToString(buf)
 	return imgBase64Str, nil
 }
 
-func CreateMetadataMap(datasetId string, caption string, metaDataDataset map[string]interface{}, imgBase64Str string) (map[string]interface{}, error) {
+func CreateAttachmentMap(datasetId string, caption string, datasetMetadata map[string]interface{}, imgBase64Str string) (map[string]interface{}, error) {
 	// assemble json structure
-	var metaDataMap map[string]interface{}
-	metaDataMap = make(map[string]interface{})
-	metaDataMap["thumbnail"] = "data:image/jpeg;base64," + imgBase64Str
-	metaDataMap["caption"] = caption
-	metaDataMap["datasetId"] = datasetId
-	if ownerGroup, ok := metaDataDataset["ownerGroup"]; ok {
-		metaDataMap["ownerGroup"], _ = ownerGroup.(string)
+	metadata := make(map[string]interface{})
+	metadata["thumbnail"] = "data:image/jpeg;base64," + imgBase64Str
+	metadata["caption"] = caption
+	metadata["datasetId"] = datasetId
+	// if we're able, extract some informations from the dataset metadata
+	if ownerGroup, ok := datasetMetadata["ownerGroup"]; ok {
+		metadata["ownerGroup"], _ = ownerGroup.(string)
 	}
-	if accessGroups, ok := metaDataDataset["accessGroups"]; ok {
-		metaDataMap["accessGroups"], ok = accessGroups.([]string)
-		if !ok {
-			metaDataMap["accessGroups"], _ = accessGroups.([]interface{})
+	if accessGroups, ok := datasetMetadata["accessGroups"]; ok {
+		if metadata["accessGroups"], ok = accessGroups.([]string); !ok {
+			metadata["accessGroups"] = accessGroups // fallback (might fail at JSON conversion later)
 		}
 	}
-	return metaDataMap, nil
+	return metadata, nil
 }
 
-func AddAttachment(client *http.Client, APIServer string, datasetId string, metaDataDataset map[string]interface{}, accessToken string, attachmentFile string, caption string) {
+func AddAttachment(client *http.Client, APIServer string, datasetId string, datasetMetadata map[string]interface{}, accessToken string, attachmentFile string, caption string) error {
 	imgBase64Str, err := ReadAndEncodeImage(attachmentFile)
 	if err != nil {
-		log.Fatalf("Can not open attachment file %v \n", attachmentFile)
+		return err
 	}
-	
-	metaDataMap, err := CreateMetadataMap(datasetId, caption, metaDataDataset, imgBase64Str)
+
+	attachmentMap, err := CreateAttachmentMap(datasetId, caption, datasetMetadata, imgBase64Str)
 	if err != nil {
-		log.Fatal("Connect serialize meta data map:", metaDataMap)
+		return err
 	}
-	
-	bm, err := json.Marshal(metaDataMap)
+
+	attachmentJson, err := json.Marshal(attachmentMap)
 	if err != nil {
-		log.Fatal("Connect serialize meta data map:", metaDataMap)
+		return err
 	}
 	myurl := APIServer + "/Datasets/" + strings.Replace(datasetId, "/", "%2F", 1) + "/attachments?access_token=" + accessToken
-	
-	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bm))
+
+	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(attachmentJson))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == 200 {
-		log.Printf("Attachment file %v added to dataset  %v\n", attachmentFile, datasetId)
-	} else {
-		log.Fatalf("Attachment file %v could not be added to dataset  %v", attachmentFile, datasetId)
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("attachment file %v could not be added to dataset %v - status code: %d", attachmentFile, datasetId, resp.StatusCode)
 	}
+	return nil
 }

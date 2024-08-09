@@ -1,12 +1,13 @@
 package datasetIngestor
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
 	"github.com/stretchr/testify/assert"
-	"io"
-	"bytes"
 )
 
 func TestTestForExistingSourceFolder(t *testing.T) {
@@ -20,18 +21,18 @@ func TestTestForExistingSourceFolder(t *testing.T) {
 		}))
 		// Close the server when test finishes
 		defer server.Close()
-		
+
 		// Use Client & URL from our local test server
 		client := server.Client()
 		APIServer := server.URL
 		accessToken := "testToken"
-		allowExistingSourceFolder := false
-		
+
 		folders := []string{"folder1", "folder2"}
-		
-		TestForExistingSourceFolder(folders, client, APIServer, accessToken, &allowExistingSourceFolder)
+
+		// TODO test the results of this function
+		TestForExistingSourceFolder(folders, client, APIServer, accessToken)
 	})
-	
+
 	t.Run("test with existing folders and allowExistingSourceFolder true", func(t *testing.T) {
 		// Create a mock server
 		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -42,16 +43,16 @@ func TestTestForExistingSourceFolder(t *testing.T) {
 		}))
 		// Close the server when test finishes
 		defer server.Close()
-		
+
 		// Use Client & URL from our local test server
 		client := server.Client()
 		APIServer := server.URL
 		accessToken := "testToken"
-		allowExistingSourceFolder := true
-		
+
 		folders := []string{"folder1", "folder2"}
-		
-		TestForExistingSourceFolder(folders, client, APIServer, accessToken, &allowExistingSourceFolder)
+
+		// TODO test the results of this function.
+		TestForExistingSourceFolder(folders, client, APIServer, accessToken)
 	})
 }
 
@@ -61,26 +62,35 @@ func TestProcessResponse(t *testing.T) {
 	resp := &http.Response{
 		Body: io.NopCloser(bytes.NewBufferString(validJSON)),
 	}
-	result := processResponse(resp)
+	result, err := processResponse(resp)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 	if len(result) != 1 || result[0].Pid != "123" || result[0].SourceFolder != "folder" || result[0].Size != 100 {
 		t.Errorf("Unexpected result: %v", result)
 	}
-	
+
 	// Test with invalid JSON
 	invalidJSON := `{"pid": "123", "sourceFolder": "folder", "size": 100}`
 	resp = &http.Response{
 		Body: io.NopCloser(bytes.NewBufferString(invalidJSON)),
 	}
-	result = processResponse(resp)
+	result, err = processResponse(resp)
+	if err == nil {
+		t.Errorf("Expected error from processResponse")
+	}
 	if len(result) != 0 {
 		t.Errorf("Expected empty QueryResult, got '%v'", result)
 	}
-	
+
 	// Test with empty body
 	resp = &http.Response{
 		Body: io.NopCloser(bytes.NewBufferString("")),
 	}
-	result = processResponse(resp)
+	result, err = processResponse(resp)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 	if len(result) != 0 {
 		t.Errorf("Expected empty QueryResult, got '%v'", result)
 	}
