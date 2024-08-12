@@ -132,7 +132,7 @@ For Windows you need instead to specify -user username:password on the command l
 			return
 		}
 
-		// check for program version
+		// === check for program version ===
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 		datasetUtils.CheckForServiceAvailability(client, testenvFlag, autoarchiveFlag)
 
@@ -214,7 +214,9 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 		color.Set(color.FgYellow)
 		if len(foundList) > 0 {
-			fmt.Println("Warning! The following datasets have been found with the same sourceFolder: ")
+			fmt.Println("Warning! The following datasets have been found with the same sourceFolders: ")
+		} else {
+			log.Println("Finished testing for existing source folders.")
 		}
 		for _, element := range foundList {
 			fmt.Printf("  - PID: \"%s\", sourceFolder: \"%s\"\n", element.Pid, element.SourceFolder)
@@ -237,7 +239,7 @@ For Windows you need instead to specify -user username:password on the command l
 		// a destination location is defined by the archive system
 		// for now let the user decide if he needs a copy
 
-		if nocopyFlag {
+		if nocopyFlag || beamlineAccount {
 			copyFlag = false
 		}
 		checkCentralAvailability := !(cmd.Flags().Changed("copy") || cmd.Flags().Changed("nocopy") || beamlineAccount || copyFlag)
@@ -277,7 +279,7 @@ For Windows you need instead to specify -user username:password on the command l
 				skipSymlinks = ""
 			}
 
-			// get filelist of dataset
+			// === get filelist of dataset ===
 			log.Printf("Getting filelist for \"%s\"...\n", datasetSourceFolder)
 			fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
 				datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback)
@@ -310,11 +312,13 @@ For Windows you need instead to specify -user username:password on the command l
 				log.Printf("Note: this dataset, if archived, will be copied to two tape copies")
 				color.Unset()
 			}
+			// === update metadata ===
 			datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
 			pretty, _ := json.MarshalIndent(metaDataMap, "", "    ")
 
 			log.Printf("Updated metadata object:\n%s\n", pretty)
 
+			// === check central availability of data ===
 			// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
 			// and unless (no)copy flag defined via command line
 			if checkCentralAvailability {
@@ -349,6 +353,7 @@ For Windows you need instead to specify -user username:password on the command l
 				}
 			}
 
+			// === ingest dataset ===
 			if ingestFlag {
 				// create ingest . For decentral case delay setting status to archivable until data is copied
 				archivable := false
@@ -381,6 +386,7 @@ For Windows you need instead to specify -user username:password on the command l
 					}
 					log.Printf("Attachment file %v added to dataset %v\n", addAttachment, datasetId)
 				}
+				// === copying files ===
 				if copyFlag {
 					// TODO rewrite SyncDataToFileserver
 					log.Println("Syncing files to cache server...")
@@ -441,7 +447,8 @@ For Windows you need instead to specify -user username:password on the command l
 		if emptyDatasets > 0 || tooLargeDatasets > 0 {
 			os.Exit(1)
 		}
-		// start archive job
+
+		// === create archive job ===
 		if autoarchiveFlag && ingestFlag {
 			log.Printf("Submitting Archive Job for the ingested datasets.\n")
 			// TODO: change param type from pointer to regular as it is unnecessary
