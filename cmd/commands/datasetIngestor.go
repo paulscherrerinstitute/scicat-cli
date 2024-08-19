@@ -355,7 +355,7 @@ For Windows you need instead to specify -user username:password on the command l
 						log.Printf("Attachment file %v added to dataset  %v\n", addAttachment, datasetId)
 					}
 					if copyFlag {
-						err := datasetIngestor.SyncDataToFileserver(datasetId, user, RSYNCServer, datasetSourceFolder, absFileListing)
+						err := datasetIngestor.SyncLocalDataToFileserver(datasetId, user, RSYNCServer, datasetSourceFolder, absFileListing, os.Stdout)
 						if err == nil {
 							// delayed enabling
 							archivable = true
