@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SwissOpenEM/globus"
 	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat/datasetIngestor"
 	"github.com/paulscherrerinstitute/scicat/datasetUtils"
 	"github.com/spf13/cobra"
@@ -50,8 +52,6 @@ For Windows you need instead to specify -user username:password on the command l
 
 		const CMD = "datasetIngestor"
 
-		const TOTAL_MAXFILES = 400000
-
 		var scanner = bufio.NewScanner(os.Stdin)
 
 		var APIServer string = PROD_API_SERVER
@@ -68,7 +68,8 @@ For Windows you need instead to specify -user username:password on the command l
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
 		copyFlag, _ := cmd.Flags().GetBool("copy")
-		nocopyFlag, _ := cmd.Flags().GetBool("nocopy") // TODO why is there even a "no copy" flag?
+		nocopyFlag, _ := cmd.Flags().GetBool("nocopy")
+		transferTypeFlag, _ := cmd.Flags().GetString("transfer-type")
 		tapecopies, _ := cmd.Flags().GetInt("tapecopies")
 		autoarchiveFlag, _ := cmd.Flags().GetBool("autoarchive")
 		linkfiles, _ := cmd.Flags().GetString("linkfiles")
@@ -76,6 +77,49 @@ For Windows you need instead to specify -user username:password on the command l
 		addAttachment, _ := cmd.Flags().GetString("addattachment")
 		addCaption, _ := cmd.Flags().GetString("addcaption")
 		showVersion, _ := cmd.Flags().GetBool("version")
+		globusCfgFlag, _ := cmd.Flags().GetString("globus-cfg")
+
+		// TODO: read in CFG!
+
+		// transfer type
+		transferType, err := convertToTransferType(transferTypeFlag)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		var transferFiles func(params cliutils.TransferParams) (archivable bool, err error) = nil
+		switch transferType {
+		case Ssh:
+			transferFiles = cliutils.SshTransfer
+		case Globus:
+			transferFiles = cliutils.GlobusTransfer
+		}
+
+		// globus setup
+		var globusClient globus.GlobusClient
+		var srcCollection, destCollection string
+		if transferType == Globus {
+			var globusConfigPath string
+			if cmd.Flags().Lookup("globus-cfg").Changed {
+				globusConfigPath = globusCfgFlag
+			} else {
+				execPath, err := os.Executable()
+				if err != nil {
+					log.Fatalln("can't find executable path:", err)
+				}
+				globusConfigPath = filepath.Join(execPath, "globus.yaml")
+			}
+
+			globusClient, srcCollection, destCollection, err = cliutils.GlobusLogin(globusConfigPath)
+			if err != nil {
+				log.Fatalln("couldn't create globus client:", err)
+			}
+
+			if autoarchiveFlag {
+				log.Println("Cannot autoarchive when transfering via Globus due to the transfer happening asynchronously. Mark")
+				autoarchiveFlag = false
+			}
+		}
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
@@ -298,10 +342,10 @@ For Windows you need instead to specify -user username:password on the command l
 				color.Unset()
 				continue
 			}
-			if numFiles > TOTAL_MAXFILES {
+			if numFiles > cliutils.TOTAL_MAXFILES {
 				tooLargeDatasets++
 				color.Set(color.FgRed)
-				log.Printf("\"%s\" dataset cannot be ingested - too many files: has %d, max. %d\n", datasetSourceFolder, numFiles, TOTAL_MAXFILES)
+				log.Printf("\"%s\" dataset cannot be ingested - too many files: has %d, max. %d\n", datasetSourceFolder, numFiles, cliutils.TOTAL_MAXFILES)
 				color.Unset()
 				continue
 			}
@@ -388,25 +432,34 @@ For Windows you need instead to specify -user username:password on the command l
 				}
 				// === copying files ===
 				if copyFlag {
-					// TODO rewrite SyncDataToFileserver
-					log.Println("Syncing files to cache server...")
-					err := datasetIngestor.SyncLocalDataToFileserver(datasetId, user, RSYNCServer, datasetSourceFolder, absFileListing, os.Stdout)
-					if err == nil {
-						// delayed enabling
-						archivable = true
-						err := datasetIngestor.MarkFilesReady(client, APIServer, datasetId, user)
-						if err != nil {
-							log.Fatal("Couldn't mark files ready:", err)
-						}
-					} else {
+					var err error = nil
+					params := cliutils.TransferParams{
+						Client:              client,
+						User:                user,
+						ApiServer:           APIServer,
+						RsyncServer:         RSYNCServer,
+						AbsFilelistPath:     absFileListing,
+						GlobusClient:        globusClient,
+						SrcCollection:       srcCollection,
+						DestCollection:      destCollection,
+						DatasetId:           datasetId,
+						DatasetSourceFolder: datasetSourceFolder,
+					}
+
+					archivable, err = transferFiles(params)
+					if err != nil {
 						color.Set(color.FgRed)
 						log.Printf("The  command to copy files exited with error %v \n", err)
 						log.Printf("The dataset %v is not yet in an archivable state\n", datasetId)
-						// TODO let user decide to delete dataset entry
-						// datasetIngestor.DeleteDatasetEntry(client, APIServer, datasetId, user["accessToken"])
 						color.Unset()
 					}
-					log.Println("Syncing files - DONE")
+					if err == nil && !archivable {
+						color.Set(color.FgYellow)
+						log.Println("The command finished successfully, however the dataset is not yet archivable.")
+						log.Println("This means that the dataset has to be marked as archivable after the asynchronous transfer has finished.")
+						log.Printf("Please consult the %s transfer type's doc for handling this.\n", transferTypeFlag)
+						color.Unset()
+					}
 				}
 
 				if archivable {
@@ -480,12 +533,14 @@ func init() {
 	datasetIngestorCmd.Flags().Bool("noninteractive", false, "If set no questions will be asked and the default settings for all undefined flags will be assumed")
 	datasetIngestorCmd.Flags().Bool("copy", false, "Defines if files should be copied from your local system to a central server before ingest (i.e. your data is not centrally available and therefore needs to be copied ='decentral' case). copyFlag has higher priority than nocopyFlag. If neither flag is defined the tool will try to make the best guess.")
 	datasetIngestorCmd.Flags().Bool("nocopy", false, "Defines if files should *not* be copied from your local system to a central server before ingest (i.e. your data is centrally available and therefore does not need to be copied ='central' case).")
+	datasetIngestorCmd.Flags().String("transfer-type", "ssh", "Selects the transfer type to be used for transfering files. Available options: \"ssh\", \"globus\"")
 	datasetIngestorCmd.Flags().Int("tapecopies", 0, "Number of tapecopies to be used for archiving")
 	datasetIngestorCmd.Flags().Bool("autoarchive", false, "Option to create archive job automatically after ingestion")
 	datasetIngestorCmd.Flags().String("linkfiles", "keepInternalOnly", "Define what to do with symbolic links: (keep|delete|keepInternalOnly)")
 	datasetIngestorCmd.Flags().Bool("allowexistingsource", false, "Defines if existing sourceFolders can be reused")
 	datasetIngestorCmd.Flags().String("addattachment", "", "Filename of image to attach (single dataset case only)")
 	datasetIngestorCmd.Flags().String("addcaption", "", "Optional caption to be stored with attachment (single dataset case only)")
+	datasetIngestorCmd.Flags().String("globus-cfg", "", "Override globus transfer config file location [default: globus.yaml next to executable]")
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
