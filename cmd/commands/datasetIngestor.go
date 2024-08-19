@@ -259,7 +259,7 @@ For Windows you need instead to specify -user username:password on the command l
 			} else {
 				// TODO: change tapecopies param type of UpadateMetaData from pointer to regular int
 				// (it's not changed within the function)
-				datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, &tapecopies)
+				datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
 				pretty, _ := json.MarshalIndent(metaDataMap, "", "    ")
 
 				log.Printf("Updated metadata object:\n%s\n", pretty)
@@ -317,7 +317,10 @@ For Windows you need instead to specify -user username:password on the command l
 						metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
 						metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = true
 					}
-					datasetId := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user)
+					datasetId, err := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user)
+					if err != nil {
+						log.Fatalf("ingestion returned an error: %v\n", err)
+					}
 					// add attachment optionally
 					if addAttachment != "" {
 						datasetIngestor.AddAttachment(client, APIServer, datasetId, metaDataMap, user["accessToken"], addAttachment, addCaption)
