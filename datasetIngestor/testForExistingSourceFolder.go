@@ -52,7 +52,6 @@ func TestForExistingSourceFolder(folders []string, client *http.Client, APIServe
 		if end > all {
 			end = all
 		}
-		//log.Printf("Checking sourceFolder %v to %v for existing entries...\n", start+1, end)
 
 		sourceFolderList := strings.Join(folders[start:end], "\",\"")
 		filter := createFilter(sourceFolderList)

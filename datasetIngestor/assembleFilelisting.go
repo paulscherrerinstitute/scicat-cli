@@ -132,15 +132,9 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, skip *string)
 	// spin.Color("green")
 
 	for _, line := range lines {
-		// log.Printf("Inside lines loop:%s\n", line)
 		if len(line) == 0 {
 			continue
 		}
-		// do not printout the default "./" case
-		// if len(line) > 2 {
-		//	log.Printf("Line: %s %d\n", line, len(line))
-		//}
-		// if folder make recursive ls
 
 		// spin.Start() // Start the spinner
 		e := filepath.Walk(line, func(path string, f os.FileInfo, err error) error {
@@ -175,7 +169,6 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, skip *string)
 					if err != nil {
 						return err
 					}
-					// log.Printf(" CWD path pointee :%v %v %v", dir, filepath.Dir(path), pointee)
 					pabs := filepath.Join(dir, filepath.Dir(modpath), pointee)
 					pointee, err = filepath.EvalSymlinks(pabs)
 					if err != nil {
@@ -265,7 +258,6 @@ Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, 
 				owner = gidName
 			}
 
-			//log.Println("Path:",modpath)
 			return err
 		})
 
