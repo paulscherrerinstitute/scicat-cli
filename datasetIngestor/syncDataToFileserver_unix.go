@@ -19,7 +19,6 @@ import (
 func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string, cmdOutput io.Writer) (err error) {
 	username := user["username"]
 	shortDatasetId := strings.Split(datasetId, "/")[1]
-	//log.Println("short dataset id:", shortDatasetId)
 	destFolder := "archive/" + shortDatasetId + sourceFolder
 	serverConnectString := fmt.Sprintf("%s@%s:%s", username, RSYNCServer, destFolder)
 	// append trailing slash to sourceFolder to indicate that the *contents* of the folder should be copied
