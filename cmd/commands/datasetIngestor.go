@@ -290,7 +290,7 @@ For Windows you need instead to specify -user username:password on the command l
 				// and unless copy flag defined via command line
 				if !copyFlag && !nocopyFlag { // NOTE this whole copyFlag, nocopyFlag ordeal makes no sense whatsoever
 					if !beamlineAccount {
-						sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(user["username"], RSYNCServer, sourceFolder, os.Stdout)
+						sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(user["username"], RSYNCServer, datasetSourceFolder, os.Stdout)
 						if otherErr != nil {
 							log.Fatalf("CheckDataCentrallyAvailableSsh returned an error: %v\n", otherErr)
 						}
