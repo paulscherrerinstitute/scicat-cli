@@ -107,14 +107,12 @@ func updateFieldIfDummy(metaDataMap map[string]interface{}, originalMap map[stri
 	if metaDataMap[fieldName] == dummyValue {
 		originalMap[fieldName] = metaDataMap[fieldName].(string)
 		metaDataMap[fieldName] = newValue
-		//log.Printf("%s field added: %v\n", fieldName, metaDataMap[fieldName])
 	}
 }
 
 func addFieldIfNotExists(metaDataMap map[string]interface{}, fieldName string, value interface{}) {
 	if _, ok := metaDataMap[fieldName]; !ok {
 		metaDataMap[fieldName] = value
-		//log.Printf("%s field added: %v\n", fieldName, metaDataMap[fieldName])
 	}
 }
 
@@ -130,7 +128,6 @@ func updateClassificationField(client *http.Client, APIServer string, user map[s
 
 func addDefaultClassification(client *http.Client, APIServer string, user map[string]string, metaDataMap map[string]interface{}) {
 	metaDataMap[Classification] = INMedium + ",AV=" + getAVFromPolicy(client, APIServer, user, metaDataMap["ownerGroup"].(string)) + "," + COLow
-	//log.Printf("classification field added: %v\n", metaDataMap[Classification])
 }
 
 func updateAVField(metaDataMap map[string]interface{}, tapecopies int) {
@@ -141,7 +138,6 @@ func updateAVField(metaDataMap map[string]interface{}, tapecopies int) {
 	} else {
 		metaDataMap[Classification] = INMedium + "," + av + "," + COLow
 	}
-	//log.Printf("classification field adjusted: %s\n", metaDataMap[Classification])
 }
 
 func getAVValue(tapecopies int) string {

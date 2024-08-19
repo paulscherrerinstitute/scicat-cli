@@ -11,9 +11,7 @@ func DeleteDatasetEntry(client *http.Client, APIServer string, datasetId string,
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("Request:%v\n",req)
 	resp, err := client.Do(req)
-	// fmt.Printf("resp %v %v\n",resp.Body,resp.StatusCode)
 	if err != nil {
 		return err
 	}
