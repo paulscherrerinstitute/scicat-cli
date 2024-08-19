@@ -39,7 +39,6 @@ func createOrigBlock(start int, end int, filesArray []Datafile, datasetId string
 	for i := start; i < end; i++ {
 		totalSize += filesArray[i].Size
 	}
-	// fmt.Printf("Start:%v, end:%v, totalsize:%v\n, first entry:%v\n", start, end, totalSize, filesArray[start])
 
 	return FileBlock{Size: totalSize, DataFileList: filesArray[start:end], DatasetId: datasetId}
 }
@@ -102,7 +101,6 @@ func createDataset(client *http.Client, APIServer string, metaDataMap map[string
 			if err != nil {
 				return "", err
 			}
-			//log.Printf("Created dataset with id %v", datasetId)
 		} else {
 			return "", fmt.Errorf("SendIngestCommand: Failed to create new dataset: status code %v", resp.StatusCode)
 		}
@@ -182,8 +180,6 @@ func createOrigDatablocks(client *http.Client, APIServer string, fullFileArray [
 			totalFiles, TOTAL_MAXFILES)
 	}
 
-	//log.Printf("The dataset contains %v files. \n", totalFiles)
-
 	end := 0
 	var blockBytes int64
 	for start := 0; end < totalFiles; {
@@ -207,7 +203,6 @@ func createOrigDatablocks(client *http.Client, APIServer string, fullFileArray [
 			return fmt.Errorf("unexpected response code \"%v\" when adding origDatablock for dataset id: \"%v\"", resp.Status, datasetId)
 		}
 
-		//log.Printf("Created file block from file %v to %v with total size of %v bytes and %v files \n", start, end-1, blockBytes, end-start)
 		start = end
 	}
 	return nil

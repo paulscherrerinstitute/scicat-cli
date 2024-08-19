@@ -39,7 +39,6 @@ func MarkFilesReady(client *http.Client, APIServer string, datasetId string, use
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	//fmt.Printf("request to message broker:%v\n", req)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
