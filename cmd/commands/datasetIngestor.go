@@ -290,8 +290,11 @@ For Windows you need instead to specify -user username:password on the command l
 				// and unless copy flag defined via command line
 				if !copyFlag && !nocopyFlag { // NOTE this whole copyFlag, nocopyFlag ordeal makes no sense whatsoever
 					if !beamlineAccount {
-						err := datasetIngestor.CheckDataCentrallyAvailable(user["username"], RSYNCServer, datasetSourceFolder)
-						if err != nil {
+						sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(user["username"], RSYNCServer, sourceFolder, os.Stdout)
+						if otherErr != nil {
+							log.Fatalf("CheckDataCentrallyAvailableSsh returned an error: %v\n", otherErr)
+						}
+						if sshErr != nil {
 							color.Set(color.FgYellow)
 							log.Printf("The source folder %v is not centrally available (decentral use case).\nThe data must first be copied to a rsync cache server.\n ", datasetSourceFolder)
 							color.Unset()
