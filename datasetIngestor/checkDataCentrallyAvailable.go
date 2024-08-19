@@ -34,16 +34,12 @@ func CheckDataCentrallyAvailableSsh(username string, ARCHIVEServer string, sourc
 		// The "-q" option suppresses all warnings, "-l" specifies the login name on the remote server.
 		cmd = execCommand("ssh", "-q", "-l", username, ARCHIVEServer, "test", "-d", sourceFolder)
 	default:
-		//log.Printf("%s is not supported.\n", os)
 		return nil, fmt.Errorf("unsupported operating system: %s", os)
 	}
 
 	// Redirect the command's output to sshOutput var
 	cmd.Stdout = sshOutput
 	cmd.Stderr = sshOutput
-
-	// Log the command that is being run for debugging purposes.
-	//log.Printf("Running %v.\n", cmd.Args)
 
 	// Run the command and return any error that occurs.
 	sshErr = cmd.Run()
