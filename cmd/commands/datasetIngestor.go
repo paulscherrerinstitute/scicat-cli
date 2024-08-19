@@ -375,7 +375,7 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Printf("Submitting Archive Job for the ingested datasets.\n")
 			// TODO: change param type from pointer to regular as it is unnecessary
 			//   for it to be passed as pointer
-			_, err := datasetUtils.CreateJob(client, APIServer, user, datasetList, &tapecopies)
+			_, err := datasetUtils.CreateArchivalJob(client, APIServer, user, datasetList, &tapecopies)
 			if err != nil {
 				color.Set(color.FgRed)
 				log.Printf("Could not create the archival job for the ingested datasets: %s", err.Error())
