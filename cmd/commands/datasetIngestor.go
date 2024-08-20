@@ -166,7 +166,6 @@ For Windows you need instead to specify -user username:password on the command l
 		user, accessGroups := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 
 		/* TODO Add info about policy settings and that autoarchive will take place or not */
-
 		metaDataMap, metadataSourceFolder, beamlineAccount, err := datasetIngestor.ReadAndCheckMetadata(client, APIServer, metadatafile, user, accessGroups)
 		if err != nil {
 			log.Fatal("Error in CheckMetadata function: ", err)
