@@ -13,12 +13,13 @@ import (
 )
 
 type Datafile struct {
-	Path  string `json:"path"`
-	User  string `json:"uid"`
-	Group string `json:"gid"`
-	Perm  string `json:"perm"`
-	Size  int64  `json:"size"`
-	Time  string `json:"time"`
+	Path      string `json:"path"`
+	User      string `json:"uid"`
+	Group     string `json:"gid"`
+	Perm      string `json:"perm"`
+	Size      int64  `json:"size"`
+	Time      string `json:"time"`
+	IsSymlink bool   `json:"-"`
 }
 
 const windows = "windows"
@@ -146,19 +147,20 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallba
 			if runtime.GOOS == windows {
 				modpath = strings.Replace(path, "\\", "/", -1)
 			}
-			fileStruct := Datafile{Path: modpath, User: uidName, Group: gidName, Perm: f.Mode().String(), Size: f.Size(), Time: f.ModTime().Format(time.RFC3339)}
+			fileStruct := Datafile{Path: modpath, User: uidName, Group: gidName, Perm: f.Mode().String(), Size: f.Size(), Time: f.ModTime().Format(time.RFC3339), IsSymlink: false}
 			keep := true
 
 			// * handle symlinks *
 			if f.Mode()&os.ModeSymlink != 0 {
 				if symlinkCallback != nil {
-					symlinkCallback(modpath, sourceFolder)
+					keep, err = symlinkCallback(modpath, sourceFolder)
 				} else {
 					keep, err = handleSymlink(modpath, sourceFolder)
-					if err != nil {
-						return err
-					}
 				}
+				if err != nil {
+					return err
+				}
+				fileStruct.IsSymlink = true
 			}
 
 			// filter invalid filenames if callback was set

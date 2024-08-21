@@ -9,6 +9,8 @@ func GlobusTransfer(params TransferParams) (archivable bool, err error) {
 	// === collecting params. ===
 	globusClient := params.GlobusClient
 
+	fileList := params.Filelist
+	isSymlinkList := params.IsSymlinkList
 	srcCollection := params.SrcCollection
 	dsSourceFolder := params.DatasetSourceFolder
 
@@ -20,7 +22,7 @@ func GlobusTransfer(params TransferParams) (archivable bool, err error) {
 
 	// === copying files ===
 	log.Println("Syncing files to cache server...")
-	result, err := globusClient.TransferFileList(srcCollection, dsSourceFolder, destCollection, destFolder, []string{}, []bool{})
+	result, err := globusClient.TransferFileList(srcCollection, dsSourceFolder, destCollection, destFolder, fileList, isSymlinkList, true)
 	log.Printf("The transfer result response: \n=====\n%v\n=====\n", result)
 	log.Println("Syncing files - STARTED")
 
