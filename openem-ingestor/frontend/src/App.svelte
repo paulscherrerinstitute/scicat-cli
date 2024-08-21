@@ -1,13 +1,40 @@
 <script lang="ts">
   import logo from "./assets/images/logo-wide-1024x317.png";
-  // import { SelectFolder } from "../wailsjs/go/main/App.js";
+  import { SelectFolder } from "../wailsjs/go/main/App.js";
+  import { EventsOn } from "../wailsjs/runtime/runtime";
+  import List from "./List.svelte";
+  import ListElement from "./ListElement.svelte";
 
-  function selectFolder(): void {}
+  function selectFolder(): void {
+    SelectFolder();
+  }
+
+  let items = {};
+
+  function newItem(id: string, folder: string): string {
+    items[id] = {
+      id: id,
+      value: folder,
+      status: "Selected",
+      progress: 0,
+      component: ListElement,
+    };
+    return id;
+  }
+
+  EventsOn("folder-added", (id, folder) => {
+    newItem(id, folder);
+  });
 </script>
 
 <main>
   <img alt="OpenEM logo" id="logo" src={logo} />
   <button class="btn" on:click={selectFolder}>Select Folder</button>
+  <div>
+    <div id="upload-list">
+      <List {items} />
+    </div>
+  </div>
 </main>
 
 <style>

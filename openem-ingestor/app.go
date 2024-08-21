@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"openem-ingestor/backend"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -37,5 +38,9 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) SelectFolder() {
-
+	folder, err := backend.SelectFolder(a.ctx)
+	if err != nil {
+		return
+	}
+	println(folder.Folder)
 }
