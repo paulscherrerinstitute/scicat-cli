@@ -6,19 +6,26 @@ import (
 	"github.com/SwissOpenEM/globus"
 )
 
-type TransferParams struct {
-	// ssh transfer
+type SshParams struct {
 	Client          *http.Client
 	ApiServer       string
 	User            map[string]string
 	RsyncServer     string
 	AbsFilelistPath string
-	// globus transfer
+}
+
+type GlobusParams struct {
 	GlobusClient   globus.GlobusClient
 	SrcCollection  string
 	DestCollection string
 	Filelist       []string
-	// dataset params
+	IsSymlinkList  []bool
+}
+
+type TransferParams struct {
+	SshParams
+	GlobusParams
+	// other params
 	DatasetId           string
 	DatasetSourceFolder string
 }

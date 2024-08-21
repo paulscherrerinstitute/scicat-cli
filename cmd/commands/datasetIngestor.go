@@ -87,18 +87,17 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Fatalln(err)
 		}
 
-		var transferFiles func(params cliutils.TransferParams) (archivable bool, err error) = nil
+		var transferFiles func(params cliutils.TransferParams) (archivable bool, err error)
+
+		// globus specific vars (if needed)
+		var globusClient globus.GlobusClient
+		var srcCollection, destCollection string
+
 		switch transferType {
 		case Ssh:
 			transferFiles = cliutils.SshTransfer
 		case Globus:
 			transferFiles = cliutils.GlobusTransfer
-		}
-
-		// globus setup
-		var globusClient globus.GlobusClient
-		var srcCollection, destCollection string
-		if transferType == Globus {
 			var globusConfigPath string
 			if cmd.Flags().Lookup("globus-cfg").Changed {
 				globusConfigPath = globusCfgFlag
@@ -116,7 +115,7 @@ For Windows you need instead to specify -user username:password on the command l
 			}
 
 			if autoarchiveFlag {
-				log.Println("Cannot autoarchive when transfering via Globus due to the transfer happening asynchronously. Mark")
+				log.Println("Cannot autoarchive when transfering via Globus due to the transfer happening asynchronously. Use the \"globusCheckTransfer\" command to archive them")
 				autoarchiveFlag = false
 			}
 		}
@@ -433,15 +432,28 @@ For Windows you need instead to specify -user username:password on the command l
 				// === copying files ===
 				if copyFlag {
 					var err error = nil
+					// convert fullFileArray to a list of paths and symlink tests
+					var filePathList []string
+					var isSymlinkList []bool
+					for _, file := range fullFileArray {
+						filePathList = append(filePathList, file.Path)
+						isSymlinkList = append(isSymlinkList, file.IsSymlink)
+					}
 					params := cliutils.TransferParams{
-						Client:              client,
-						User:                user,
-						ApiServer:           APIServer,
-						RsyncServer:         RSYNCServer,
-						AbsFilelistPath:     absFileListing,
-						GlobusClient:        globusClient,
-						SrcCollection:       srcCollection,
-						DestCollection:      destCollection,
+						SshParams: cliutils.SshParams{
+							Client:          client,
+							User:            user,
+							ApiServer:       APIServer,
+							RsyncServer:     RSYNCServer,
+							AbsFilelistPath: absFileListing,
+						},
+						GlobusParams: cliutils.GlobusParams{
+							GlobusClient:   globusClient,
+							SrcCollection:  srcCollection,
+							DestCollection: destCollection,
+							Filelist:       filePathList,
+							IsSymlinkList:  isSymlinkList,
+						},
 						DatasetId:           datasetId,
 						DatasetSourceFolder: datasetSourceFolder,
 					}
