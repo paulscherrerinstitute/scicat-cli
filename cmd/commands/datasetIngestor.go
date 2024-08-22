@@ -91,7 +91,7 @@ For Windows you need instead to specify -user username:password on the command l
 
 		// globus specific vars (if needed)
 		var globusClient globus.GlobusClient
-		var srcCollection, destCollection string
+		var srcCollection, srcPrefixPath, destCollection, destPrefixPath string
 
 		switch transferType {
 		case Ssh:
@@ -106,10 +106,10 @@ For Windows you need instead to specify -user username:password on the command l
 				if err != nil {
 					log.Fatalln("can't find executable path:", err)
 				}
-				globusConfigPath = filepath.Join(execPath, "globus.yaml")
+				globusConfigPath = filepath.Join(filepath.Dir(execPath), "globus.yaml")
 			}
 
-			globusClient, srcCollection, destCollection, err = cliutils.GlobusLogin(globusConfigPath)
+			globusClient, srcCollection, srcPrefixPath, destCollection, destPrefixPath, err = cliutils.GlobusLogin(globusConfigPath)
 			if err != nil {
 				log.Fatalln("couldn't create globus client:", err)
 			}
@@ -450,7 +450,9 @@ For Windows you need instead to specify -user username:password on the command l
 						GlobusParams: cliutils.GlobusParams{
 							GlobusClient:   globusClient,
 							SrcCollection:  srcCollection,
+							SrcPrefixPath:  srcPrefixPath,
 							DestCollection: destCollection,
+							DestPrefixPath: destPrefixPath,
 							Filelist:       filePathList,
 							IsSymlinkList:  isSymlinkList,
 						},

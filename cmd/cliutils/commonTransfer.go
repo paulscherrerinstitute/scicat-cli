@@ -17,7 +17,9 @@ type SshParams struct {
 type GlobusParams struct {
 	GlobusClient   globus.GlobusClient
 	SrcCollection  string
+	SrcPrefixPath  string
 	DestCollection string
+	DestPrefixPath string
 	Filelist       []string
 	IsSymlinkList  []bool
 }

@@ -1,0 +1,11 @@
+client-id: CLIENT_ID_HERE
+client-secret: (OPTIONAL)CLIENT_SECRET_HERE
+redirect-url: REDIRECT_URL_HERE
+scopes:
+ - (optional)
+ - scopes
+ - here
+source-collection: SOURCE_COLLECTION_UUID_HERE
+source-prefix-path: (OPTIONAL)SOURCE_PREFIX_PATH_HERE
+destination-collection: DESTINATION_COLLECTION_UUID_HERE
+destination-prefix-path: (OPTIONAL)DESTINATION_PREFIX_PATH_HERE
