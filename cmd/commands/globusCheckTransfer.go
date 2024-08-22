@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -46,22 +47,24 @@ For further help see "` + MANUAL + `"`,
 		markArchivable, _ := cmd.Flags().GetBool("mark-archivable")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		autoarchiveFlag, _ := cmd.Flags().GetBool("autoarchive")
+		skipDestPathCheck, _ := cmd.Flags().GetBool("skip-dest-path-check")
 		tapecopies, _ := cmd.Flags().GetInt("tapecopies")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
-				"testenv":         testenvFlag,
-				"devenv":          devenvFlag,
-				"localenv":        localenvFlag,
-				"tunnelenv":       tunnelenvFlag,
-				"user":            userpass,
-				"token":           token,
-				"version":         showVersion,
-				"globus-cfg":      globusCfgFlag,
-				"mark-archivable": globusCfgFlag,
-				"dry-run":         dryRun,
-				"autoarchive":     autoarchiveFlag,
-				"tapecopies":      tapecopies,
+				"testenv":              testenvFlag,
+				"devenv":               devenvFlag,
+				"localenv":             localenvFlag,
+				"tunnelenv":            tunnelenvFlag,
+				"user":                 userpass,
+				"token":                token,
+				"version":              showVersion,
+				"globus-cfg":           globusCfgFlag,
+				"mark-archivable":      globusCfgFlag,
+				"dry-run":              dryRun,
+				"autoarchive":          autoarchiveFlag,
+				"skip-dest-path-check": skipDestPathCheck,
+				"tapecopies":           tapecopies,
 			})
 			return
 		}
@@ -93,7 +96,7 @@ For further help see "` + MANUAL + `"`,
 			if err != nil {
 				log.Fatalln("can't find executable path:", err)
 			}
-			globusConfigPath = filepath.Join(execPath, "globus.yaml")
+			globusConfigPath = filepath.Join(filepath.Dir(execPath), "globus.yaml")
 		}
 
 		// environment overrides
@@ -133,7 +136,7 @@ For further help see "` + MANUAL + `"`,
 			user, _ = authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 		}
 
-		globusClient, _, _, err := cliutils.GlobusLogin(globusConfigPath)
+		globusClient, _, srcPrefixPath, _, _, err := cliutils.GlobusLogin(globusConfigPath)
 		if err != nil {
 			log.Fatalf("Couldn't create globus client: %v\n", err)
 		}
@@ -151,10 +154,23 @@ For further help see "` + MANUAL + `"`,
 			// if marking as archivable is requested and the transfer has succeded
 			if markArchivable && task.Status == "SUCCEEDED" {
 				if task.SourceBasePath == nil {
-					log.Printf("Can't get source base path for \"%s\". It will not be marked as archivable, but can be archived.\n", taskId)
+					log.Printf("Can't get source base path for task \"%s\". It will not be marked as archivable, but can probably be archived.\n", taskId)
 					continue
 				}
+
+				// get source and dest folders
 				sourceFolder := *task.SourceBasePath
+				sourceFolder = strings.TrimPrefix(sourceFolder, srcPrefixPath)
+				sourceFolder = strings.TrimSuffix(sourceFolder, "/")
+				var destFolder string
+				if !skipDestPathCheck {
+					if task.DestinationBasePath == nil {
+						log.Printf("Can't get destination base path for task \"%s\". It will not be marked as archivable, but can probably be archived.\n", taskId)
+						continue
+					}
+					destFolder = *task.DestinationBasePath
+				}
+
 				list, err := datasetIngestor.TestForExistingSourceFolder([]string{sourceFolder}, client, APIServer, user["accessToken"])
 
 				// error handling and exceptions
@@ -178,6 +194,18 @@ For further help see "` + MANUAL + `"`,
 				}
 
 				for _, result := range list {
+					if !skipDestPathCheck {
+						separatedPid := strings.Split(result.Pid, "/")
+						if len(separatedPid) != 2 {
+							log.Printf("\"%s\" dataset has irregular PID. Cannot check destFolder with it. Skipping...\n", result.Pid)
+							continue
+						}
+						shortPid := separatedPid[1]
+						if !strings.Contains(destFolder, shortPid) {
+							log.Printf("\"%s\" dataset's PID does not appear in the destination folder (\"%s\"). Cannot mark it as archivable. Skipping...\n", result.Pid, destFolder)
+							continue
+						}
+					}
 					log.Printf("%s dataset is being marked as archivable...\n", result.Pid)
 					err := datasetIngestor.MarkFilesReady(client, APIServer, result.Pid, user)
 					if err != nil {
@@ -223,6 +251,7 @@ func init() {
 	globusCheckTransfer.Flags().Bool("mark-archivable", false, "")
 	globusCheckTransfer.Flags().Bool("dry-run", false, "")
 	globusCheckTransfer.Flags().Bool("autoarchive", false, "")
+	globusCheckTransfer.Flags().Bool("skip-dest-path-check", false, "")
 	globusCheckTransfer.Flags().Int("tapecopies", 0, "Number of tapecopies to be used for archiving")
 
 	globusCheckTransfer.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
