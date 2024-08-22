@@ -64,6 +64,11 @@
     items = items;
   });
 
+  EventsOn("upload-failed", (id, err) => {
+    items[id].status = "failed " + err;
+    items = items;
+  });
+
   EventsOn("upload-canceled", (id) => {
     console.log(id);
     items[id].status = "Canceled";
