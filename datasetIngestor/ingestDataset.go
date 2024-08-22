@@ -89,14 +89,14 @@ func createDataset(client *http.Client, APIServer string, metaDataMap map[string
 		if err != nil {
 			return "", err
 		}
-		myurl := APIServer + endpoint + "/?access_token=" + user["accessToken"]
-		resp, err := sendRequest(client, "POST", myurl, cmm)
+		myurl := APIServer + endpoint
+		resp, err := sendRequest(client, "POST", myurl, user["accessToken"], cmm)
 		if err != nil {
 			return "", err
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode == 200 {
+		if resp.StatusCode == 200 || resp.StatusCode == 201 {
 			datasetId, err = decodePid(resp)
 			if err != nil {
 				return "", err
@@ -114,7 +114,8 @@ func createDataset(client *http.Client, APIServer string, metaDataMap map[string
 func getEndpoint(dstype string) (string, error) {
 	switch dstype {
 	case "raw":
-		return "/RawDatasets", nil
+		// return "/RawDatasets", nil
+		return "/Datasets", nil
 	case "derived":
 		return "/DerivedDatasets", nil
 	case "base":
@@ -124,12 +125,13 @@ func getEndpoint(dstype string) (string, error) {
 	}
 }
 
-func sendRequest(client *http.Client, method, url string, body []byte) (*http.Response, error) {
+func sendRequest(client *http.Client, method, url string, accessToken string, body []byte) (*http.Response, error) {
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -192,14 +194,14 @@ func createOrigDatablocks(client *http.Client, APIServer string, fullFileArray [
 		origBlock := createOrigBlock(start, end, fullFileArray, datasetId)
 
 		payloadString, _ := json.Marshal(origBlock)
-		myurl := APIServer + "/OrigDatablocks" + "?access_token=" + user["accessToken"]
-		resp, err := sendRequest(client, "POST", myurl, payloadString)
+		myurl := APIServer + "/OrigDatablocks"
+		resp, err := sendRequest(client, "POST", myurl, user["accessToken"], payloadString)
 		if err != nil {
 			return err
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != 200 {
+		if resp.StatusCode != 200 && resp.StatusCode != 201 {
 			return fmt.Errorf("unexpected response code \"%v\" when adding origDatablock for dataset id: \"%v\"", resp.Status, datasetId)
 		}
 

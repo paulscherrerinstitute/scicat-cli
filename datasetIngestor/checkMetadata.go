@@ -46,7 +46,7 @@ func ReadAndCheckMetadata(client *http.Client, APIServer string, metadatafile st
 		return nil, "", false, err
 	}
 
-	err = CheckMetadataValidity(client, APIServer, metaDataMap)
+	err = checkMetadataValidity(client, APIServer, metaDataMap, user["accessToken"])
 	if err != nil {
 		return nil, "", false, err
 	}
@@ -286,8 +286,8 @@ func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap ma
 	return nil
 }
 
-// CheckMetadataValidity checks the validity of the metadata by calling the appropriate API.
-func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap map[string]interface{}) error {
+// checkMetadataValidity checks the validity of the metadata by calling the appropriate API.
+func checkMetadataValidity(client *http.Client, APIServer string, metaDataMap map[string]interface{}, accessToken string) error {
 	dstype, ok := metaDataMap["type"].(string)
 	if !ok {
 		return fmt.Errorf("metadata type isn't a string")
@@ -296,7 +296,8 @@ func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 	myurl := ""
 	switch dstype {
 	case raw:
-		myurl = APIServer + "/RawDatasets/isValid"
+		// myurl = APIServer + "/RawDatasets/isValid"
+		myurl = APIServer + "/Datasets/isValid"
 	case "derived":
 		myurl = APIServer + "/DerivedDatasets/isValid"
 	case "base":
@@ -352,6 +353,7 @@ func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
 
 	resp, err := client.Do(req)
 	if err != nil {
