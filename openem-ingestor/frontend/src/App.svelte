@@ -1,12 +1,32 @@
 <script lang="ts">
   import logo from "./assets/images/logo-wide-1024x317.png";
-  import { SelectFolder } from "../wailsjs/go/main/App.js";
+  import {
+    SelectFolder,
+    CancelTask,
+    RemoveTask,
+    ScheduleTask,
+  } from "../wailsjs/go/main/App.js";
   import { EventsOn } from "../wailsjs/runtime/runtime";
   import List from "./List.svelte";
   import ListElement from "./ListElement.svelte";
 
   function selectFolder(): void {
     SelectFolder();
+  }
+
+  function cancelTask(id): void {
+    CancelTask(id);
+  }
+  function removeTask(id: string): void {
+    RemoveTask(id);
+  }
+
+  function secondsToStr(elapsed_seconds): string {
+    return new Date(elapsed_seconds * 1000).toISOString().substr(11, 8);
+  }
+
+  function scheduleTask(id: string): void {
+    ScheduleTask(id);
   }
 
   let items = {};
@@ -18,12 +38,36 @@
       status: "Selected",
       progress: 0,
       component: ListElement,
+      cancelTask: cancelTask,
+      scheduleTask: scheduleTask,
+      removeTask: removeTask,
     };
     return id;
   }
 
   EventsOn("folder-added", (id, folder) => {
     newItem(id, folder);
+  });
+
+  EventsOn("folder-removed", (id) => {
+    delete items[id];
+    items = items;
+  });
+
+  EventsOn("upload-scheduled", (id) => {
+    items[id].status = "Scheduled";
+    items = items;
+  });
+
+  EventsOn("upload-completed", (id, elapsed_seconds) => {
+    items[id].status = "Completed in " + secondsToStr(elapsed_seconds);
+    items = items;
+  });
+
+  EventsOn("upload-canceled", (id) => {
+    console.log(id);
+    items[id].status = "Canceled";
+    items = items;
   });
 </script>
 

@@ -2,14 +2,16 @@ package main
 
 import (
 	"context"
-	"openem-ingestor/backend"
+	"openem-ingestor/core"
 
+	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App struct
 type App struct {
-	ctx context.Context
+	ctx       context.Context
+	taskqueue core.TaskQueue
 }
 
 // NewApp creates a new App application struct
@@ -35,12 +37,30 @@ func (b *App) beforeClose(ctx context.Context) (prevent bool) {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.taskqueue.AppContext = a.ctx
+	a.taskqueue.Startup(2)
 }
 
 func (a *App) SelectFolder() {
-	folder, err := backend.SelectFolder(a.ctx)
+	folder, err := core.SelectFolder(a.ctx)
 	if err != nil {
 		return
 	}
-	println(folder.Folder)
+
+	err = a.taskqueue.CreateTask(folder)
+	if err != nil {
+		return
+	}
+}
+
+func (a *App) CancelTask(id string) {
+	a.taskqueue.CancelTask(uuid.MustParse(id))
+}
+func (a *App) RemoveTask(id string) {
+	a.taskqueue.RemoveTask(uuid.MustParse(id))
+}
+
+func (a *App) ScheduleTask(id uuid.UUID) {
+
+	a.taskqueue.ScheduleTask(id)
 }
