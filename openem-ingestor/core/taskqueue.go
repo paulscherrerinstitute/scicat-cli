@@ -65,7 +65,7 @@ func (w *TaskQueue) CreateTask(folder DatasetFolder) error {
 	task := IngestionTask{
 		DatasetFolder:     folder,
 		ScicatUrl:         "http://scopem-openem.ethz.ch:89/api/v3",
-		ScicatAccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2Njk3N2UxMWFhZTUwOWI4YzRiMjQwZTciLCJ1c2VybmFtZSI6ImluZ2VzdG9yIiwiZW1haWwiOiJzY2ljYXRpbmdlc3RvckB5b3VyLnNpdGUiLCJhdXRoU3RyYXRlZ3kiOiJsb2NhbCIsIl9fdiI6MCwiaWQiOiI2Njk3N2UxMWFhZTUwOWI4YzRiMjQwZTciLCJpYXQiOjE3MjM3MDY3MjYsImV4cCI6MTcyMzc0MjcyNn0.p0nlcM_hXoSJMsom36oPXZbknwKDsydWCyQytFLkLT4",
+		ScicatAccessToken: "",
 		TransferMethod:    TransferS3,
 		TransferOptions: TransferOptions{
 			S3_endpoint: "scopem-openem.ethz.ch:9000",
@@ -152,11 +152,8 @@ func (w *TaskQueue) ScheduleTask(id uuid.UUID) {
 
 func (w *TaskQueue) IngestDataset(task_context context.Context, task IngestionTask) TaskResult {
 	start := time.Now()
-	// TODO: add ingestion function
-	// dataset_id, err := IngestDataset(task_context, w.AppContext, task)
-	time.Sleep(time.Second * 5)
-	datasetPID := "1"
+	datasetPID, err := IngestDataset(task_context, w.AppContext, task)
 	end := time.Now()
 	elapsed := end.Sub(start)
-	return TaskResult{Dataset_PID: datasetPID, Elapsed_seconds: int(elapsed.Seconds()), Error: nil}
+	return TaskResult{Dataset_PID: datasetPID, Elapsed_seconds: int(elapsed.Seconds()), Error: err}
 }
