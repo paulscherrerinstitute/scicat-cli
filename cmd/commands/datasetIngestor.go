@@ -423,7 +423,7 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Printf("Number of datasets not stored because of too many files:%v\nPlease note that this will cancel any subsequent archive steps from this job !\n", tooLargeDatasets)
 		}
 		color.Unset()
-		//datasetIngestor.PrintFileInfos() // TODO: move this into cmd portion
+
 		// print file statistics
 		if skippedLinks > 0 {
 			color.Set(color.FgYellow)
