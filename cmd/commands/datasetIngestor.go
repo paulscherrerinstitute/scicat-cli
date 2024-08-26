@@ -280,11 +280,11 @@ For Windows you need instead to specify -user username:password on the command l
 			}
 
 			// === get filelist of dataset ===
-			log.Printf("Getting filelist for \"%s\"...\n", datasetSourceFolder)
+			log.Printf("Getting file list for \"%s\"...\n", datasetSourceFolder)
 			fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
 				datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback)
 			if err != nil {
-				log.Fatalf("Can't gather the filelist of \"%s\"", datasetSourceFolder)
+				log.Fatalf("Can't gather the file list of \"%s\"", datasetSourceFolder)
 			}
 			log.Println("File list collected.")
 			//log.Printf("full fileListing: %v\n Start and end time: %s %s\n ", fullFileArray, startTime, endTime)
