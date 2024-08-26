@@ -238,7 +238,6 @@ For Windows you need instead to specify -user username:password on the command l
 		// TODO ask archive system if sourcefolder is known to them. If yes no copy needed, otherwise
 		// a destination location is defined by the archive system
 		// for now let the user decide if he needs a copy
-
 		if nocopyFlag {
 			copyFlag = false
 		}
