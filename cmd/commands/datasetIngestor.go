@@ -239,7 +239,7 @@ For Windows you need instead to specify -user username:password on the command l
 		// a destination location is defined by the archive system
 		// for now let the user decide if he needs a copy
 
-		if nocopyFlag || beamlineAccount {
+		if nocopyFlag {
 			copyFlag = false
 		}
 		checkCentralAvailability := !(cmd.Flags().Changed("copy") || cmd.Flags().Changed("nocopy") || beamlineAccount || copyFlag)
