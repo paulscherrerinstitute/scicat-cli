@@ -286,7 +286,7 @@ For Windows you need instead to specify -user username:password on the command l
 			if err != nil {
 				log.Fatalf("Can't gather the filelist of \"%s\"", datasetSourceFolder)
 			}
-			log.Println("Filelist collected.")
+			log.Println("File list collected.")
 			//log.Printf("full fileListing: %v\n Start and end time: %s %s\n ", fullFileArray, startTime, endTime)
 			log.Printf("The dataset contains %v files with a total size of %v bytes.\n", numFiles, totalSize)
 
