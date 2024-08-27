@@ -151,9 +151,9 @@ func UploadS3(task_ctx context.Context, app_ctx context.Context, dataset_pid str
 
 	// Make a new bucket called testbucket.
 	bucketName := options.S3_Bucket
-	location := "eu-west-1"
+	
 
-	err = minioClient.MakeBucket(task_ctx, bucketName, minio.MakeBucketOptions{Region: location})
+	err = minioClient.MakeBucket(task_ctx, bucketName, minio.MakeBucketOptions{Region: options.location})
 	if err != nil {
 		// Check to see if we already own this bucket (which happens if you run this twice)
 		exists, errBucketExists := minioClient.BucketExists(task_ctx, bucketName)

@@ -28,6 +28,7 @@ const (
 type TransferOptions struct {
 	S3_endpoint string
 	S3_Bucket   string
+	location    string
 	Md5checksum bool
 }
 
@@ -70,6 +71,7 @@ func (w *TaskQueue) CreateTask(folder DatasetFolder) error {
 		TransferOptions: TransferOptions{
 			S3_endpoint: "scopem-openem.ethz.ch:9000",
 			S3_Bucket:   "landingzone",
+			location:    "eu-west-1",
 			Md5checksum: true,
 		},
 	}

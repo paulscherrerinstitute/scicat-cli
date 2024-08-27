@@ -15,7 +15,7 @@ type DatasetFolder struct {
 // Select a folder using a native menu
 func SelectFolder(context context.Context) (DatasetFolder, error) {
 	dialogOptions := runtime.OpenDialogOptions{
-		DefaultDirectory: "",
+		DefaultDirectory: "/home/wiphilip/Documents/coding/testdata/ingest_small",
 	}
 
 	folder, err := runtime.OpenDirectoryDialog(context, dialogOptions)
