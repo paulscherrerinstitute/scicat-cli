@@ -223,7 +223,7 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 		color.Unset()
 		if !allowExistingSourceFolder && len(foundList) > 0 {
-			if cmd.Flags().Changed("allowexistingsource") {
+			if !cmd.Flags().Changed("allowexistingsource") {
 				log.Printf("Do you want to ingest the corresponding new datasets nevertheless (y/N) ? ")
 				scanner.Scan()
 				archiveAgain := scanner.Text()
@@ -498,20 +498,18 @@ func createLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks 
 		keep := true
 		pointee, _ := os.Readlink(symlinkPath) // just pass the file name
 		if !filepath.IsAbs(pointee) {
-			dir, err := filepath.Abs(filepath.Dir(symlinkPath))
+			symlinkAbs, err := filepath.Abs(filepath.Dir(symlinkPath))
 			if err != nil {
 				return false, err
 			}
-			// log.Printf(" CWD path pointee :%v %v %v", dir, filepath.Dir(path), pointee)
-			pabs := filepath.Join(dir, filepath.Dir(symlinkPath), pointee)
-			pointee, err = filepath.EvalSymlinks(pabs)
+			pointeeAbs := filepath.Join(symlinkAbs, pointee)
+			pointee, err = filepath.EvalSymlinks(pointeeAbs)
 			if err != nil {
-				log.Printf("Could not follow symlink for file:%v %v", pabs, err)
+				log.Printf("Could not follow symlink for file:%v %v", pointeeAbs, err)
 				keep = false
 				log.Printf("keep variable set to %v", keep)
 			}
 		}
-		//fmt.Printf("Skip variable:%v\n", *skip)
 		if *skipSymlinks == "ka" || *skipSymlinks == "kA" {
 			keep = true
 		} else if *skipSymlinks == "sa" || *skipSymlinks == "sA" {
