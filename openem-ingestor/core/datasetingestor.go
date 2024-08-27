@@ -29,11 +29,6 @@ func IngestDataset(
 	const DATASETFILELISTTXT = ""
 
 	var skipSymlinks string = "dA" // skip all simlinks
-	var skippedLinks uint = 0      // output variables
-	var localSymlinkCallback = createLocalSymlinkCallbackForFileLister(&skipSymlinks, &skippedLinks)
-
-	var illegalFileNames uint = 0
-	var localFilepathFilterCallback = createLocalFilenameFilterCallback(&illegalFileNames)
 
 	user := map[string]string{
 		"accessToken": task.ScicatAccessToken,
@@ -47,7 +42,7 @@ func IngestDataset(
 
 	accessGroups := []string{}
 
-	newMetaDataMap, metadataSourceFolder, _, err := datasetIngestor.ReadAndCheckMetadata(http_client, SCIAT_API_URL, metadatafile, user, accessGroups)
+	newMetaDataMap, metadataSourceFolder, _, err := datasetIngestor.CheckMetadata(http_client, SCIAT_API_URL, metadatafile, user, accessGroups)
 
 	_ = metadataSourceFolder
 	if err != nil {
@@ -57,7 +52,7 @@ func IngestDataset(
 
 	// collect (local) files
 
-	fullFileArray, startTime, endTime, owner, numFiles, totalSize, err := datasetIngestor.GetLocalFileList(task.DatasetFolder.FolderPath, DATASETFILELISTTXT, localSymlinkCallback, localFilepathFilterCallback)
+	fullFileArray, startTime, endTime, owner, numFiles, totalSize, err := datasetIngestor.GetLocalFileList(task.DatasetFolder.FolderPath, DATASETFILELISTTXT, &skipSymlinks)
 	_ = numFiles
 	_ = totalSize
 	_ = startTime
