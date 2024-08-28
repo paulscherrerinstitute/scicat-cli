@@ -12,11 +12,12 @@ import (
 type App struct {
 	ctx       context.Context
 	taskqueue core.TaskQueue
+	config    core.Config
 }
 
 // NewApp creates a new App application struct
-func NewApp() *App {
-	return &App{}
+func NewApp(config core.Config) *App {
+	return &App{config: config, taskqueue: core.TaskQueue{Config: config}}
 }
 
 // Show prompt before closing the app
@@ -38,7 +39,7 @@ func (b *App) beforeClose(ctx context.Context) (prevent bool) {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.taskqueue.AppContext = a.ctx
-	a.taskqueue.Startup(2)
+	a.taskqueue.Startup()
 }
 
 func (a *App) SelectFolder() {

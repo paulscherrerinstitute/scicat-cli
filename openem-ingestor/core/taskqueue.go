@@ -16,6 +16,7 @@ type TaskQueue struct {
 	inputChannel         chan IngestionTask // Requests to upload data are put into this channel
 	resultChannel        chan TaskResult    // The result of the upload is put into this channel
 	AppContext           context.Context
+	Config               Config
 }
 
 type TransferMethods int
@@ -48,13 +49,13 @@ type TaskResult struct {
 	Error           error
 }
 
-func (w *TaskQueue) Startup(numWorkers int) {
+func (w *TaskQueue) Startup() {
 
 	w.inputChannel = make(chan IngestionTask)
 	w.resultChannel = make(chan TaskResult)
 
 	// start multiple go routines/workers that will listen on the input channel
-	for worker := 1; worker <= numWorkers; worker++ {
+	for worker := 1; worker <= w.Config.Misc.ConcurrencyLimit; worker++ {
 		go w.startWorker()
 	}
 
@@ -64,13 +65,13 @@ func (w *TaskQueue) CreateTask(folder DatasetFolder) error {
 
 	task := IngestionTask{
 		DatasetFolder:     folder,
-		ScicatUrl:         "http://scopem-openem.ethz.ch:89/api/v3",
-		ScicatAccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2Njk3N2UxMWFhZTUwOWI4YzRiMjQwZTciLCJ1c2VybmFtZSI6ImluZ2VzdG9yIiwiZW1haWwiOiJzY2ljYXRpbmdlc3RvckB5b3VyLnNpdGUiLCJhdXRoU3RyYXRlZ3kiOiJsb2NhbCIsIl9fdiI6MCwiaWQiOiI2Njk3N2UxMWFhZTUwOWI4YzRiMjQwZTciLCJpYXQiOjE3MjM3MDY3MjYsImV4cCI6MTcyMzc0MjcyNn0.p0nlcM_hXoSJMsom36oPXZbknwKDsydWCyQytFLkLT4",
+		ScicatUrl:         w.Config.Scicat.Host,
+		ScicatAccessToken: w.Config.Scicat.AccessToken,
 		TransferMethod:    TransferS3,
 		TransferOptions: TransferOptions{
-			S3_endpoint: "scopem-openem.ethz.ch:9000",
-			S3_Bucket:   "landingzone",
-			Md5checksum: true,
+			S3_endpoint: w.Config.Transfer.S3.Endpoint,
+			S3_Bucket:   w.Config.Transfer.S3.Bucket,
+			Md5checksum: w.Config.Transfer.S3.Checksum,
 		},
 	}
 	_, found := w.datasetSourceFolders.Load(task.DatasetFolder.Id)
