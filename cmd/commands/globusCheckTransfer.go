@@ -151,7 +151,7 @@ For further help see "` + MANUAL + `"`,
 			}
 			fmt.Printf("Task status: \n=====\n%v\n=====\n", task)
 
-			// if marking as archivable is requested and the transfer has succeded
+			// if marking as archivable is requested and the transfer has succeeded
 			if markArchivable && task.Status == "SUCCEEDED" {
 				if task.SourceBasePath == nil {
 					log.Printf("Can't get source base path for task \"%s\". It will not be marked as archivable, but can probably be archived.\n", taskId)
@@ -175,7 +175,7 @@ For further help see "` + MANUAL + `"`,
 
 				// error handling and exceptions
 				if err != nil {
-					log.Printf("WARNING - an error has occured when querying the sourcefolder \"%s\" of task id \"%s\": %v\n", sourceFolder, taskId, err)
+					log.Printf("WARNING - an error has occurred when querying the sourcefolder \"%s\" of task id \"%s\": %v\n", sourceFolder, taskId, err)
 					log.Printf("Can't set %s task's dataset to archivable.\n", taskId)
 					continue
 				}
@@ -209,7 +209,7 @@ For further help see "` + MANUAL + `"`,
 					log.Printf("%s dataset is being marked as archivable...\n", result.Pid)
 					err := datasetIngestor.MarkFilesReady(client, APIServer, result.Pid, user)
 					if err != nil {
-						log.Printf("WARNING - error occured while trying to mark files ready for dataset with PID \"%s\": %v\n", result.Pid, err)
+						log.Printf("WARNING - error occurred while trying to mark files ready for dataset with PID \"%s\": %v\n", result.Pid, err)
 						log.Printf("%s dataset was (likely) not marked archivable.\n", result.Pid)
 						continue
 					}
