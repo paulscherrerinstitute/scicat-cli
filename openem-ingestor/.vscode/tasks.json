@@ -6,7 +6,7 @@
       "type": "shell",
       "command": "cp",
       "args": [
-        "${workspaceFolder}/core/openem-ingestor-config.yaml",
+        "${workspaceFolder}/desktop-app/openem-ingestor-config.yaml",
         "${workspaceFolder}/desktop-app/build/bin/"
       ]
     },
@@ -15,7 +15,7 @@
       "type": "shell",
       "command": "cp",
       "args": [
-        "${workspaceFolder}/core/openem-ingestor-config.yaml",
+        "${workspaceFolder}/service/openem-ingestor-config.yaml",
         "${workspaceFolder}/service/build/bin/"
       ]
     },

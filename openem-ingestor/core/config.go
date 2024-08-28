@@ -54,9 +54,7 @@ func ReadConfig() error {
 	userConfigDir, _ := os.UserConfigDir()
 	viper.AddConfigPath(userConfigDir)
 
-	// these paths are mostly for development
 	viper.AddConfigPath("./")
-	viper.AddConfigPath("./core")
 
 	err := viper.ReadInConfig()
 	return err

@@ -8,7 +8,7 @@
       "mode": "exec",
       "program": "${workspaceFolder}/desktop-app/build/bin/openem-ingestor",
       "preLaunchTask": "build app",
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/desktop-app/build/bin",
       "env": {}
     },
     {
@@ -18,7 +18,7 @@
       "mode": "exec",
       "program": "${workspaceFolder}/service/build/bin/openem-ingestor",
       "preLaunchTask": "build service",
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/service/build/bin",
       "env": {}
     }
   ]
