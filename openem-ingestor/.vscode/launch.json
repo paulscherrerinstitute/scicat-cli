@@ -2,12 +2,22 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Wails: Debug openem-ingestor",
+      "name": "Wails: Debug Desktop App",
       "type": "go",
       "request": "launch",
       "mode": "exec",
-      "program": "${workspaceFolder}/build/bin/openem-ingestor",
-      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/desktop-app/build/bin/openem-ingestor",
+      "preLaunchTask": "build app",
+      "cwd": "${workspaceFolder}",
+      "env": {}
+    },
+    {
+      "name": "Wails: Debug Service",
+      "type": "go",
+      "request": "launch",
+      "mode": "exec",
+      "program": "${workspaceFolder}/service/build/bin/openem-ingestor",
+      "preLaunchTask": "build service",
       "cwd": "${workspaceFolder}",
       "env": {}
     }

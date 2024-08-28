@@ -1,0 +1,13 @@
+Scicat:
+  Host: http://openem-scopem.ethz.ch:89/api/v3
+  AccessToken: "asdf"
+Transfer:
+  Method: S3
+  S3:
+    Endpoint: scopem-openem.ethz.ch:9000
+    Bucket: landingzone
+    Checksum: true
+  Globus:
+    Endpoint: globus.psi.ch
+Misc:
+  ConcurrencyLimit: 2
