@@ -54,11 +54,11 @@ func (a *App) SelectFolder() {
 	}
 }
 
-func (a *App) CancelTask(id string) {
-	a.taskqueue.CancelTask(uuid.MustParse(id))
+func (a *App) CancelTask(id uuid.UUID) {
+	a.taskqueue.CancelTask(id)
 }
-func (a *App) RemoveTask(id string) {
-	a.taskqueue.RemoveTask(uuid.MustParse(id))
+func (a *App) RemoveTask(id uuid.UUID) {
+	a.taskqueue.RemoveTask(id)
 }
 
 func (a *App) ScheduleTask(id uuid.UUID) {
