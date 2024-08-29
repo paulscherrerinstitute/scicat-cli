@@ -54,8 +54,8 @@ func ReadConfig() error {
 
 	userConfigDir, _ := os.UserConfigDir()
 
-	viper.AddConfigPath(path.Join(userConfigDir, "openem-ingestor"))
 	viper.AddConfigPath("./")
+	viper.AddConfigPath(path.Join(userConfigDir, "openem-ingestor"))
 
 	err := viper.ReadInConfig()
 	return err

@@ -56,7 +56,8 @@
       },
       "dependsOn": [
         "build desktop app",
-        "copy app config"
+        // Enable this to use local config during debugging
+        // "copy app config"
       ]
     },
     {
@@ -67,7 +68,8 @@
       },
       "dependsOn": [
         "build service app",
-        "copy service config"
+        // Enable this to use local config during debugging
+        // "copy service config"
       ]
     },
   ]
