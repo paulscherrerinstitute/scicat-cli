@@ -1,10 +1,10 @@
 Scicat:
-  Host: http://openem-scopem.ethz.ch:89/api/v3
+  Host: http://scicat:8080/api/v3
   AccessToken: "asdf"
 Transfer:
   Method: S3
   S3:
-    Endpoint: scopem-openem.ethz.ch:9000
+    Endpoint: s3-endpoint:9000
     Bucket: landingzone
     Checksum: true
   Globus:

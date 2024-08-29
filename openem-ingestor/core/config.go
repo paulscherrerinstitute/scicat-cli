@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"os"
+	"path"
 
 	"github.com/spf13/viper"
 )
@@ -52,8 +53,8 @@ func ReadConfig() error {
 	viper.SetConfigType("yaml")
 
 	userConfigDir, _ := os.UserConfigDir()
-	viper.AddConfigPath(userConfigDir)
 
+	viper.AddConfigPath(path.Join(userConfigDir, "openem-ingestor"))
 	viper.AddConfigPath("./")
 
 	err := viper.ReadInConfig()
