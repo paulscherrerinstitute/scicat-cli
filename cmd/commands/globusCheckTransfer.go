@@ -136,7 +136,7 @@ For further help see "` + MANUAL + `"`,
 			user, _ = authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 		}
 
-		globusClient, _, srcPrefixPath, _, _, err := cliutils.GlobusLogin(globusConfigPath)
+		globusClient, gConfig, err := cliutils.GlobusLogin(globusConfigPath)
 		if err != nil {
 			log.Fatalf("Couldn't create globus client: %v\n", err)
 		}
@@ -160,7 +160,7 @@ For further help see "` + MANUAL + `"`,
 
 				// get source and dest folders
 				sourceFolder := *task.SourceBasePath
-				sourceFolder = strings.TrimPrefix(sourceFolder, srcPrefixPath)
+				sourceFolder = strings.TrimPrefix(sourceFolder, gConfig.SourcePrefixPath)
 				sourceFolder = strings.TrimSuffix(sourceFolder, "/")
 				var destFolder string
 				if !skipDestPathCheck {
