@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type globusConfig struct {
+type GlobusConfig struct {
 	ClientID              string   `yaml:"client-id"`
 	ClientSecret          string   `yaml:"client-secret,omitempty"`
 	RedirectURL           string   `yaml:"redirect-url"`
@@ -21,16 +21,15 @@ type globusConfig struct {
 	DestinationPrefixPath string   `yaml:"destination-prefix-path,omitempty"`
 }
 
-func GlobusLogin(confPath string) (gClient globus.GlobusClient, srcCollection string, srcPrefixPath string, destCollection string, destPrefixPath string, err error) {
+func GlobusLogin(confPath string) (gClient globus.GlobusClient, gConfig GlobusConfig, err error) {
 	// read in config
 	data, err := os.ReadFile(confPath)
 	if err != nil {
-		return globus.GlobusClient{}, "", "", "", "", fmt.Errorf("can't read globus config: %v", err)
+		return globus.GlobusClient{}, GlobusConfig{}, fmt.Errorf("can't read globus config: %v", err)
 	}
-	var gConfig globusConfig
 	err = yaml.Unmarshal(data, &gConfig)
 	if err != nil {
-		return globus.GlobusClient{}, "", "", "", "", fmt.Errorf("can't unmarshal globus config: %v", err)
+		return globus.GlobusClient{}, GlobusConfig{}, fmt.Errorf("can't unmarshal globus config: %v", err)
 	}
 
 	// config setup
@@ -46,13 +45,13 @@ func GlobusLogin(confPath string) (gClient globus.GlobusClient, srcCollection st
 	// negotiate token and create client
 	var code string
 	if _, err := fmt.Scan(&code); err != nil {
-		return globus.GlobusClient{}, "", "", "", "", err
+		return globus.GlobusClient{}, GlobusConfig{}, err
 	}
 	tok, err := clientConfig.Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {
-		return globus.GlobusClient{}, "", "", "", "", fmt.Errorf("oauth2 exchange failed: %v", err)
+		return globus.GlobusClient{}, GlobusConfig{}, fmt.Errorf("oauth2 exchange failed: %v", err)
 	}
 
 	// return globus client
-	return globus.HttpClientToGlobusClient(clientConfig.Client(ctx, tok)), gConfig.SourceCollection, gConfig.SourcePrefixPath, gConfig.DestinationCollection, gConfig.DestinationPrefixPath, nil
+	return globus.HttpClientToGlobusClient(clientConfig.Client(ctx, tok)), gConfig, nil
 }
