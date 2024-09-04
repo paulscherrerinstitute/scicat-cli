@@ -93,31 +93,29 @@ For Windows you need instead to specify -user username:password on the command l
 		var globusClient globus.GlobusClient
 		var gConfig cliutils.GlobusConfig
 
-		if copyFlag {
-			switch transferType {
-			case Ssh:
-				transferFiles = cliutils.SshTransfer
-			case Globus:
-				transferFiles = cliutils.GlobusTransfer
-				var globusConfigPath string
-				if cmd.Flags().Lookup("globus-cfg").Changed {
-					globusConfigPath = globusCfgFlag
-				} else {
-					execPath, err := os.Executable()
-					if err != nil {
-						log.Fatalln("can't find executable path:", err)
-					}
-					globusConfigPath = filepath.Join(filepath.Dir(execPath), "globus.yaml")
-				}
-
-				globusClient, gConfig, err = cliutils.GlobusLogin(globusConfigPath)
+		switch transferType {
+		case Ssh:
+			transferFiles = cliutils.SshTransfer
+		case Globus:
+			transferFiles = cliutils.GlobusTransfer
+			var globusConfigPath string
+			if cmd.Flags().Lookup("globus-cfg").Changed {
+				globusConfigPath = globusCfgFlag
+			} else {
+				execPath, err := os.Executable()
 				if err != nil {
-					log.Fatalln("couldn't create globus client:", err)
+					log.Fatalln("can't find executable path:", err)
 				}
+				globusConfigPath = filepath.Join(filepath.Dir(execPath), "globus.yaml")
+			}
 
-				if autoarchiveFlag {
-					log.Fatalln("Cannot autoarchive when transferring via Globus due to the transfer happening asynchronously. Use the \"globusCheckTransfer\" command to archive them")
-				}
+			globusClient, gConfig, err = cliutils.GlobusLogin(globusConfigPath)
+			if err != nil {
+				log.Fatalln("couldn't create globus client:", err)
+			}
+
+			if autoarchiveFlag {
+				log.Fatalln("Cannot autoarchive when transferring via Globus due to the transfer happening asynchronously. Use the \"globusCheckTransfer\" command to archive them")
 			}
 		}
 
