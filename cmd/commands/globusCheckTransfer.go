@@ -203,7 +203,7 @@ func globusCheckTransferHandleTransferTask(
 	task, err := globusClient.TransferGetTaskByID(taskId)
 	if err != nil {
 		log.Printf("Transfer task with ID \"%s\" returned error: %v\n", taskId, err)
-		return
+		return []string{}
 	}
 	fmt.Printf("Task status: \n=====\n%v\n=====\n", task)
 
