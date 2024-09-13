@@ -1,6 +1,6 @@
 package main
 
-import cmd "github.com/paulscherrerinstitute/scicat/cmd/commands"
+import cmd "github.com/paulscherrerinstitute/scicat-cli/v3/cmd/commands"
 
 func main() {
 	cmd.Execute()

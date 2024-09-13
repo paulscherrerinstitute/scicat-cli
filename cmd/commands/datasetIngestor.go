@@ -14,9 +14,9 @@ import (
 
 	"github.com/SwissOpenEM/globus"
 	"github.com/fatih/color"
-	"github.com/paulscherrerinstitute/scicat/cmd/cliutils"
-	"github.com/paulscherrerinstitute/scicat/datasetIngestor"
-	"github.com/paulscherrerinstitute/scicat/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
 

@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/paulscherrerinstitute/scicat/datasetIngestor"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
 )
 
 func SshTransfer(params TransferParams) (archivable bool, err error) {

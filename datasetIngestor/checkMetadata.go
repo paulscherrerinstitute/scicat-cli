@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/paulscherrerinstitute/scicat/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
 const (
