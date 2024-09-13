@@ -1,4 +1,4 @@
-module github.com/paulscherrerinstitute/scicat
+module github.com/paulscherrerinstitute/scicat-cli/v3
 
 go 1.22.2
 
