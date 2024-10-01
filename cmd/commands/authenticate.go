@@ -14,7 +14,7 @@ import (
 // An interface with the methods so that we can mock them in tests
 type Authenticator interface {
 	AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string)
-	GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string)
+	GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string, error)
 }
 
 type RealAuthenticator struct{}
@@ -23,7 +23,7 @@ func (r RealAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer s
 	return datasetUtils.AuthenticateUser(httpClient, APIServer, username, password)
 }
 
-func (r RealAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string) {
+func (r RealAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string, error) {
 	return datasetUtils.GetUserInfoFromToken(httpClient, APIServer, token)
 }
 
@@ -38,7 +38,10 @@ func authenticate(authenticator Authenticator, httpClient *http.Client, apiServe
 		fatalExit = overrideFatalExit[0]
 	}
 	if token != "" {
-		user, accessGroups := authenticator.GetUserInfoFromToken(httpClient, apiServer, token)
+		user, accessGroups, err := authenticator.GetUserInfoFromToken(httpClient, apiServer, token)
+		if err != nil {
+			log.Fatal(err)
+		}
 		uSplit := strings.Split(userpass, ":")
 		if len(uSplit) > 1 {
 			user["password"] = uSplit[1]
