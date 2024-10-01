@@ -31,32 +31,36 @@ func ReadAndCheckMetadata(client *http.Client, APIServer string, metadatafile st
 	if err != nil {
 		return nil, "", false, err
 	}
+	sourceFolder, beamlineAccount, err = CheckMetadata(client, APIServer, metaDataMap, user, accessGroups)
+	return metaDataMap, sourceFolder, beamlineAccount, err
+}
 
+func CheckMetadata(client *http.Client, APIServer string, metaDataMap map[string]interface{}, user map[string]string, accessGroups []string) (sourceFolder string, beamlineAccount bool, err error) {
 	if keys := CollectIllegalKeys(metaDataMap); len(keys) > 0 {
-		return nil, "", false, errors.New(ErrIllegalKeys + ": \"" + strings.Join(keys, "\", \"") + "\"")
+		return "", false, errors.New(ErrIllegalKeys + ": \"" + strings.Join(keys, "\", \"") + "\"")
 	}
 
 	beamlineAccount, err = CheckUserAndOwnerGroup(user, accessGroups, metaDataMap)
 	if err != nil {
-		return nil, "", false, err
+		return "", false, err
 	}
 
 	err = GatherMissingMetadata(user, metaDataMap, client, APIServer, accessGroups)
 	if err != nil {
-		return nil, "", false, err
+		return "", false, err
 	}
 
 	err = CheckMetadataValidity(client, APIServer, metaDataMap)
 	if err != nil {
-		return nil, "", false, err
+		return "", false, err
 	}
 
 	sourceFolder, err = GetSourceFolder(metaDataMap)
 	if err != nil {
-		return nil, "", false, err
+		return "", false, err
 	}
 
-	return metaDataMap, sourceFolder, beamlineAccount, nil
+	return sourceFolder, beamlineAccount, nil
 }
 
 // ReadMetadataFromFile reads the metadata from the file and unmarshals it into a map.
@@ -175,7 +179,7 @@ func CheckUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 }
 
 // getHost is a function that attempts to retrieve and return the fully qualified domain name (FQDN) of the current host.
-// If it encounters any error during the process, it gracefully falls back to returning the simple hostname or "unknown".
+// If it encounters any error during the process, it falls back to returning "unknown", as a simple hostname won't work with v4 backend
 func getHost() string {
 	// Try to get the hostname of the current machine.
 	hostname, err := os.Hostname()
@@ -185,24 +189,24 @@ func getHost() string {
 
 	addrs, err := net.LookupIP(hostname)
 	if err != nil {
-		return hostname
+		return unknown
 	}
 
 	for _, addr := range addrs {
 		if ipv4 := addr.To4(); ipv4 != nil {
 			ip, err := ipv4.MarshalText()
 			if err != nil {
-				return hostname
+				return unknown
 			}
 			hosts, err := net.LookupAddr(string(ip))
 			if err != nil || len(hosts) == 0 {
-				return hostname
+				return unknown
 			}
 			fqdn := hosts[0]
 			return strings.TrimSuffix(fqdn, ".") // return fqdn without trailing dot
 		}
 	}
-	return hostname
+	return unknown
 }
 
 // GatherMissingMetadata augments missing metadata fields.
@@ -288,25 +292,7 @@ func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap ma
 
 // CheckMetadataValidity checks the validity of the metadata by calling the appropriate API.
 func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap map[string]interface{}) error {
-	dstype, ok := metaDataMap["type"].(string)
-	if !ok {
-		return fmt.Errorf("metadata type isn't a string")
-	}
-
-	myurl := ""
-	switch dstype {
-	case raw:
-		myurl = APIServer + "/RawDatasets/isValid"
-	case "derived":
-		myurl = APIServer + "/DerivedDatasets/isValid"
-	case "base":
-		myurl = APIServer + "/Datasets/isValid"
-	default:
-		return fmt.Errorf("unknown dataset type encountered: %s", dstype)
-	}
-
 	// add dummy data for fields which can only be filled after file scan to pass the validity test
-
 	if _, exists := metaDataMap["ownerGroup"]; !exists {
 		metaDataMap["ownerGroup"] = DUMMY_OWNER
 	}
@@ -320,7 +306,6 @@ func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 	}
 
 	// add accessGroups entry for beamline if creationLocation is defined
-
 	if value, exists := metaDataMap["creationLocation"]; exists {
 		var parts = strings.Split(value.(string), "/")
 		var groups []string
@@ -347,7 +332,7 @@ func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 		return err
 	}
 
-	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bmm))
+	req, err := http.NewRequest("POST", "datasets/isValid", bytes.NewBuffer(bmm))
 	if err != nil {
 		return err
 	}
