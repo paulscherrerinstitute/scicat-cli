@@ -1,11 +1,12 @@
 package datasetIngestor
 
 import (
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestGetHost(t *testing.T) {
@@ -25,24 +26,32 @@ func TestGetHost(t *testing.T) {
 
 func TestCheckMetadata(t *testing.T) {
 	// Define mock parameters for the function
-	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3" // TODO: Test Improvement. Change this to a mock server. At the moment, tests will fail if we change this to a mock server.
-	var APIServer = TEST_API_SERVER
 	var metadatafile1 = "testdata/metadata.json"
 	var metadatafile2 = "testdata/metadata-short.json"
 
-	// Mock HTTP client
-	client := &http.Client{
-		Timeout:   5 * time.Second, // Set a timeout for requests
-		Transport: &http.Transport{
-			// Customize the transport settings if needed (e.g., proxy, TLS config)
-			// For a dummy client, default settings are usually sufficient
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Customize how redirects are handled if needed
-			// For a dummy client, default behavior is usually sufficient
-			return http.ErrUseLastResponse // Use the last response for redirects
-		},
-	}
+	var numRequests uint = 0
+	// Create a mock HTTP server
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		// Increment the request count for each request
+		numRequests++
+
+		// Check if the request method is POST
+		if req.Method != http.MethodPost {
+			t.Errorf("Expected POST request, got %s", req.Method)
+		}
+
+		// Check if the request URL is correct
+		expectedURL := "/datasets/isValid"
+		if req.URL.String() != expectedURL {
+			t.Errorf("Expected request to %s, got %s", expectedURL, req.URL.String())
+		}
+
+		rw.WriteHeader(http.StatusOK)
+		rw.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(rw, `{"valid":true}`)
+	}))
+	// Close the server when test finishes
+	defer server.Close()
 
 	// Mock user map
 	user := map[string]string{
@@ -54,7 +63,7 @@ func TestCheckMetadata(t *testing.T) {
 	accessGroups := []string{"group1", "group2"}
 
 	// Call the function with mock parameters
-	metaDataMap, sourceFolder, beamlineAccount, err := ReadAndCheckMetadata(client, APIServer, metadatafile1, user, accessGroups)
+	metaDataMap, sourceFolder, beamlineAccount, err := ReadAndCheckMetadata(server.Client(), server.URL, metadatafile1, user, accessGroups)
 	if err != nil {
 		t.Error("Error in CheckMetadata function: ", err)
 	}
@@ -101,7 +110,7 @@ func TestCheckMetadata(t *testing.T) {
 	}
 
 	// test with the second metadata file
-	metaDataMap2, sourceFolder2, beamlineAccount2, err := ReadAndCheckMetadata(client, APIServer, metadatafile2, user, accessGroups)
+	metaDataMap2, sourceFolder2, beamlineAccount2, err := ReadAndCheckMetadata(server.Client(), server.URL, metadatafile2, user, accessGroups)
 	if err != nil {
 		t.Error("Error in CheckMetadata function: ", err)
 	}
@@ -126,23 +135,34 @@ func TestCheckMetadata(t *testing.T) {
 
 func TestCheckMetadata_CrashCase(t *testing.T) {
 	// Define mock parameters for the function
-	var TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3" // TODO: Test Improvement. Change this to a mock server. At the moment, tests will fail if we change this to a mock server.
-	var APIServer = TEST_API_SERVER
 	var metadatafile3 = "testdata/metadata_illegal.json"
 
-	// Mock HTTP client
-	client := &http.Client{
-		Timeout:   5 * time.Second, // Set a timeout for requests
-		Transport: &http.Transport{
-			// Customize the transport settings if needed (e.g., proxy, TLS config)
-			// For a dummy client, default settings are usually sufficient
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Customize how redirects are handled if needed
-			// For a dummy client, default behavior is usually sufficient
-			return http.ErrUseLastResponse // Use the last response for redirects
-		},
-	}
+	var numRequests uint = 0
+	// Create a mock HTTP server
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		// Increment the request count for each request
+		numRequests++
+
+		// Check if the request method is POST
+		if req.Method != http.MethodPost {
+			t.Errorf("Expected POST request, got %s", req.Method)
+		}
+
+		// Check if the request URL is correct
+		expectedURL := "/datasets/isValid"
+		if req.URL.String() != expectedURL {
+			t.Errorf("Expected request to %s, got %s", expectedURL, req.URL.String())
+		}
+
+		rw.WriteHeader(http.StatusOK)
+		rw.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(rw, `{"valid":false}`)
+	}))
+	// Close the server when test finishes
+	defer server.Close()
+
+	// Create a mock HTTP client
+	client := server.Client()
 
 	// Mock user map
 	user := map[string]string{
@@ -154,7 +174,7 @@ func TestCheckMetadata_CrashCase(t *testing.T) {
 	accessGroups := []string{"group1", "group2"}
 
 	// Call the function that should return an error
-	_, _, _, err := ReadAndCheckMetadata(client, APIServer, metadatafile3, user, accessGroups)
+	_, _, _, err := ReadAndCheckMetadata(client, server.URL, metadatafile3, user, accessGroups)
 
 	// Check that the function returned the expected error
 	if err == nil {

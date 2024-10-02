@@ -1,12 +1,9 @@
 package datasetIngestor
 
 import (
-	"bytes"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -76,7 +73,7 @@ func TestSendIngestCommand(t *testing.T) {
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Respond with a fixed dataset ID when a new dataset is created
-		if strings.HasPrefix(req.URL.Path, "/RawDatasets") || strings.HasPrefix(req.URL.Path, "/DerivedDatasets") || strings.HasPrefix(req.URL.Path, "/Datasets") {
+		if strings.HasPrefix(req.URL.Path, "/datasets") {
 			rw.Write([]byte(`{"pid": "test-dataset-id"}`))
 		} else {
 			// Respond with a 200 status code when a new data block is created
@@ -96,39 +93,6 @@ func TestSendIngestCommand(t *testing.T) {
 	}
 }
 
-func TestGetEndpoint(t *testing.T) {
-	// Redirect log output to a buffer
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	defer func() {
-		log.SetOutput(os.Stderr)
-	}()
-
-	testCases := []struct {
-		dsType string
-		want   string
-	}{
-		{"raw", "/RawDatasets"},
-		{"derived", "/DerivedDatasets"},
-		{"base", "/Datasets"},
-		{"unknown", ""},
-	}
-
-	for _, tc := range testCases {
-		got, err := getEndpoint(tc.dsType)
-		if err != nil && tc.dsType != "unknown" {
-			t.Errorf("getEndpoint(%q) returned unexpected error: %v", tc.dsType, err)
-		}
-		if got != tc.want {
-			t.Errorf("getEndpoint(%q) = %q; want %q", tc.dsType, got, tc.want)
-		}
-		if tc.dsType == "unknown" && err == nil {
-			t.Errorf("Expected error for unknown dataset type not found")
-		}
-		buf.Reset()
-	}
-}
-
 func TestSendRequest(t *testing.T) {
 	// Create a test server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -140,7 +104,7 @@ func TestSendRequest(t *testing.T) {
 	client := &http.Client{}
 
 	// Call the sendRequest function
-	resp, err := sendRequest(client, "GET", ts.URL, nil)
+	resp, err := sendRequest(client, "GET", ts.URL, "", nil)
 	if err != nil {
 		t.Errorf("received unexpected error: %v", err)
 	}
@@ -209,7 +173,7 @@ func TestCreateOrigDatablocks(t *testing.T) {
 				}
 
 				// Check if the request URL is correct
-				expectedURL := "/OrigDatablocks?access_token=testToken"
+				expectedURL := "/origdatablocks"
 				if req.URL.String() != expectedURL {
 					t.Errorf("Expected request to %s, got %s", expectedURL, req.URL.String())
 				}

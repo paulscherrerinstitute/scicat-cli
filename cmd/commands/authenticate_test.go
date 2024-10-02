@@ -17,8 +17,8 @@ func (m *MockAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer 
 	return map[string]string{"username": "testuser", "password": "testpass"}, []string{"group1", "group2"}
 }
 
-func (m *MockAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string) {
-	return map[string]string{"username": "tokenuser", "password": "tokenpass"}, []string{"group3", "group4"}
+func (m *MockAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string, error) {
+	return map[string]string{"username": "tokenuser", "password": "tokenpass"}, []string{"group3", "group4"}, nil
 }
 
 func TestAuthenticate(t *testing.T) {
