@@ -327,12 +327,13 @@ func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 		metaDataMap["accessGroups"] = groups
 	}
 
+	// request validity check (must be logged-in)
 	bmm, err := json.Marshal(metaDataMap)
 	if err != nil {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", "datasets/isValid", bytes.NewBuffer(bmm))
+	req, err := http.NewRequest("POST", APIServer+"/datasets/isValid", bytes.NewBuffer(bmm))
 	if err != nil {
 		return err
 	}
@@ -348,9 +349,26 @@ func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	_, err = io.ReadAll(resp.Body)
+	// check response (if {"valid": true} then the metadata is correct)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
+	}
+
+	var responseMap map[string]interface{}
+	json.Unmarshal(body, &responseMap)
+	isValid, ok := responseMap["valid"]
+	if !ok {
+		return fmt.Errorf("no 'valid' attribute was returned in JSON response")
+	}
+
+	switch v := isValid.(type) {
+	case bool:
+		if !v {
+			return fmt.Errorf("metadata is not valid")
+		}
+	default:
+		return fmt.Errorf("'valid' contains non-boolean value")
 	}
 
 	return nil
