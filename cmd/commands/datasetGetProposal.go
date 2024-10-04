@@ -37,6 +37,7 @@ For further help see "` + MANUAL + `"`,
 		fieldname, _ := cmd.Flags().GetString("field")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
+		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
 		if datasetUtils.TestFlags != nil {
@@ -60,6 +61,10 @@ For further help see "` + MANUAL + `"`,
 		// check for program version only if running interactively
 		datasetUtils.CheckForNewVersion(client, APP, VERSION)
 
+		if localenvFlag {
+			APIServer = LOCAL_API_SERVER
+			env = "local"
+		}
 		if devenvFlag {
 			APIServer = DEV_API_SERVER
 			env = "dev"
@@ -106,6 +111,7 @@ func init() {
 	datasetGetProposalCmd.Flags().String("field", "", "Defines optional field name , whose value should be returned instead of full information")
 	datasetGetProposalCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead or production")
 	datasetGetProposalCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
+	datasetGetProposalCmd.Flags().Bool("localenv", false, "Use local environment instead of production environment (developers only)")
 
-	datasetGetProposalCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
+	datasetGetProposalCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv")
 }
