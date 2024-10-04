@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
-	"time"
 )
 
 type Job struct {
@@ -46,7 +46,7 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 	jobMap := make(map[string]interface{})
 	jobMap["emailJobInitiator"] = user["mail"]
 	jobMap["type"] = "archive"
-	jobMap["creationTime"] = time.Now().Format(time.RFC3339)
+	//jobMap["creationTime"] = time.Now().Format(time.RFC3339)
 	// TODO these job parameters may become obsolete
 	tc := "one"
 	if *tapecopies == 2 {
@@ -69,8 +69,9 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 	// fmt.Printf("Marshalled job description : %s\n", string(bmm))
 
 	// now send  archive job request
-	myurl := APIServer + "/Jobs?access_token=" + user["accessToken"]
+	myurl := APIServer + "/jobs"
 	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bmm))
+	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -79,17 +80,20 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == 200 {
-		// the request succeeded based on status code
-		// an email should be sent by SciCat to user["email"]
-		decoder := json.NewDecoder(resp.Body)
-		var j Job
-		err := decoder.Decode(&j)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return "", fmt.Errorf("CreateJob - could not decode id from job: %v", err)
+			return "", fmt.Errorf("CreateJob - request returned error status code: %d", resp.StatusCode)
 		}
-		return j.Id, err
-	} else {
-		return "", fmt.Errorf("CreateJob - request returned unexpected status code: %d", resp.StatusCode)
+		return "", fmt.Errorf("CreateJob - request returned error status code: %d, body: %s", resp.StatusCode, string(body))
 	}
+	// the request succeeded based on status code
+	// an email should be sent by SciCat to user["email"]
+	decoder := json.NewDecoder(resp.Body)
+	var j Job
+	err = decoder.Decode(&j)
+	if err != nil {
+		return "", fmt.Errorf("CreateJob - could not decode id from job: %v", err)
+	}
+	return j.Id, err
 }

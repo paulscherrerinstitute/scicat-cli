@@ -105,9 +105,12 @@ For further help see "` + MANUAL + `"`,
 
 		user, _ := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 
-		archivableDatasets := datasetUtils.GetArchivableDatasets(client, APIServer, ownerGroup, inputdatasetList, user["accessToken"])
+		archivableDatasets, err := datasetUtils.GetArchivableDatasets(client, APIServer, ownerGroup, inputdatasetList, user["accessToken"])
+		if err != nil {
+			log.Fatalf("GetArchivableDatasets: %s\n", err.Error())
+		}
 		if len(archivableDatasets) <= 0 {
-			log.Fatalf("No archivable datasets remaining")
+			log.Fatalln("No archivable datasets remaining")
 		}
 
 		archive := ""
