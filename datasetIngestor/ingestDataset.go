@@ -89,13 +89,13 @@ func createDataset(client *http.Client, APIServer string, metaDataMap map[string
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == 200 {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		datasetId, err = decodePid(resp)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		return "", fmt.Errorf("SendIngestCommand: Failed to create new dataset: status code %v", resp.StatusCode)
+		return "", fmt.Errorf("createDataset: Failed to create new dataset: status code %v", resp.StatusCode)
 	}
 
 	return datasetId, nil
@@ -176,7 +176,7 @@ func createOrigDatablocks(client *http.Client, APIServer string, fullFileArray [
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != 200 {
+		if resp.StatusCode >= 300 || resp.StatusCode < 200 {
 			return fmt.Errorf("unexpected response code \"%v\" when adding origDatablock for dataset id: \"%v\"", resp.Status, datasetId)
 		}
 

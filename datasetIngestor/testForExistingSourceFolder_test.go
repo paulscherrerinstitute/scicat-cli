@@ -15,7 +15,7 @@ func TestTestForExistingSourceFolder(t *testing.T) {
 		// Create a mock server
 		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			// Test request parameters
-			assert.Equal(t, req.URL.String(), "/Datasets?access_token=testToken")
+			assert.Equal(t, req.URL.String(), "/datasets")
 			// Send response to be tested
 			rw.Write([]byte(`[]`))
 		}))
@@ -37,7 +37,7 @@ func TestTestForExistingSourceFolder(t *testing.T) {
 		// Create a mock server
 		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			// Test request parameters
-			assert.Equal(t, req.URL.String(), "/Datasets?access_token=testToken")
+			assert.Equal(t, req.URL.String(), "/datasets")
 			// Send response to be tested
 			rw.Write([]byte(`[{"folder": "folder1"}]`))
 		}))
