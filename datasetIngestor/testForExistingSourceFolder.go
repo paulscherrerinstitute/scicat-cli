@@ -53,8 +53,7 @@ func TestForExistingSourceFolder(folders []string, client *http.Client, APIServe
 			end = all
 		}
 
-		sourceFolderList := strings.Join(folders[start:end], "\",\"")
-		filter := createFilter(sourceFolderList)
+		filter := createFilter(folders[start:end])
 		resp, err := datasetSearchRequest(client, APIServer, accessToken, filter)
 		if err != nil {
 			return DatasetQuery{}, err
@@ -69,10 +68,10 @@ func TestForExistingSourceFolder(folders []string, client *http.Client, APIServe
 	return foundList, err
 }
 
-func createFilter(sourceFolderList string) string {
+func createFilter(sourceFolderList []string) string {
 	header := `{"where":{"sourceFolder":{"inq":["`
 	tail := `"]}},"fields": {"pid":1,"size":1,"sourceFolder":1}}`
-	return fmt.Sprintf("%s%s%s", header, sourceFolderList, tail)
+	return fmt.Sprintf("%s%s%s", header, strings.Join(sourceFolderList, "\",\""), tail)
 }
 
 func datasetSearchRequest(client *http.Client, APIServer string, token string, filter string) (*http.Response, error) {

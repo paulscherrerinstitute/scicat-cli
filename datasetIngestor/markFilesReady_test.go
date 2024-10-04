@@ -12,16 +12,19 @@ func TestSendFilesReadyCommand(t *testing.T) {
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Test method and path
-		if req.URL.String() != "/Datasets/testDatasetId?access_token=testToken" {
-			t.Errorf("Expected URL '/Datasets/testDatasetId?access_token=testToken', got '%s'", req.URL.String())
+		if req.URL.String() != "/Datasets/testDatasetId" {
+			t.Errorf("Expected URL '/Datasets/testDatasetId', got '%s'", req.URL.String())
 		}
-		if req.Method != "PUT" {
-			t.Errorf("Expected method 'PUT', got '%s'", req.Method)
+		if req.Method != "PATCH" {
+			t.Errorf("Expected method 'PATCH', got '%s'", req.Method)
 		}
 
 		// Test headers
 		if req.Header.Get("Content-Type") != "application/json" {
 			t.Errorf("Expected header 'Content-Type: application/json', got '%s'", req.Header.Get("Content-Type"))
+		}
+		if req.Header.Get("Authorization") != "Bearer testToken" {
+			t.Errorf("Invalid token received: got '%s', wanted 'Bearer testToken'", req.Header.Get("Authorization"))
 		}
 
 		// Test body
