@@ -79,7 +79,7 @@ func TestCreateJob(t *testing.T) {
 			t.Errorf("Expected an error to be returned from CreateJob")
 		}
 
-		const expectedError = "CreateJob - request returned unexpected status code: 500"
+		const expectedError = "CreateJob - request returned error status code: 500, body: "
 		if err.Error() != expectedError {
 			t.Errorf("Got incorrect error from CreateJob - expected: \"%s\", gotten: \"%s\"", expectedError, err.Error())
 		}
