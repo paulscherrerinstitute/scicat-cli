@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -44,7 +45,6 @@ func TestForExistingSourceFolder(folders []string, client *http.Client, APIServe
 	const chunkSize = 100
 	all := len(folders)
 	chunks := (all-1)/chunkSize + 1
-	url := APIServer + "/Datasets?access_token=" + accessToken
 
 	for i := 0; i < chunks; i++ {
 		start := i * chunkSize
@@ -55,7 +55,7 @@ func TestForExistingSourceFolder(folders []string, client *http.Client, APIServe
 
 		sourceFolderList := strings.Join(folders[start:end], "\",\"")
 		filter := createFilter(sourceFolderList)
-		resp, err := makeRequest(client, url, filter)
+		resp, err := datasetSearchRequest(client, APIServer, accessToken, filter)
 		if err != nil {
 			return DatasetQuery{}, err
 		}
@@ -75,13 +75,13 @@ func createFilter(sourceFolderList string) string {
 	return fmt.Sprintf("%s%s%s", header, sourceFolderList, tail)
 }
 
-func makeRequest(client *http.Client, url string, filter string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
+func datasetSearchRequest(client *http.Client, APIServer string, token string, filter string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", APIServer+"/datasets?filter="+url.QueryEscape(filter), nil)
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("filter", filter)
 
 	resp, err := client.Do(req)
 	if err != nil {
