@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strings"
+	"net/url"
 )
 
 type PublishedDataInfo struct {
@@ -15,10 +15,9 @@ type PublishedDataInfo struct {
 }
 
 func GetDatasetsOfPublication(client *http.Client, APIServer string, publishedDataId string) (datasetList []string, title string, doi string) {
-	publishedDataIdEncoded := strings.Replace(publishedDataId, "/", "%2F", 1)
 	datasetList = make([]string, 0)
 
-	var myurl = APIServer + "/PublishedData/" + publishedDataIdEncoded
+	var myurl = APIServer + "/PublishedData/" + url.QueryEscape(publishedDataId)
 	// log.Println("Url:", myurl)
 
 	resp, err := client.Get(myurl)
