@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -220,11 +221,12 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 			cmm, _ := json.Marshal(updateData)
 			// metadataString := string(cmm)
 
-			myurl := APIServer + "/PublishedData/" + strings.Replace(publishedDataId, "/", "%2F", 1) + "?access_token=" + user["accessToken"]
+			myurl := APIServer + "/PublishedData/" + url.QueryEscape(publishedDataId)
 			req, err := http.NewRequest("PATCH", myurl, bytes.NewBuffer(cmm))
 			if err != nil {
 				log.Fatal(err)
 			}
+			req.Header.Set("Authentication", "Bearer "+user["accessToken"])
 			req.Header.Set("Content-Type", "application/json")
 			// fmt.Printf("request to message broker:%v\n", req)
 			resp, err := client.Do(req)

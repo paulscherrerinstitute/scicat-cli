@@ -2,13 +2,14 @@ package datasetUtils
 
 import (
 	"encoding/json"
-	"github.com/fatih/color"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
-	"fmt"
+
+	"github.com/fatih/color"
 )
 
 type Dataset struct {
@@ -46,22 +47,20 @@ func GetDatasetDetails(client *http.Client, APIServer string, accessToken string
 		if end > len(datasetList) {
 			end = len(datasetList)
 		}
-		
+
 		filter := `{"where":{"pid":{"inq":["` +
-		strings.Join(datasetList[i:end], `","`) +
-		`"]}},"fields":{"pid":true,"sourceFolder":true,"size":true,"ownerGroup":true}}`
-		
+			strings.Join(datasetList[i:end], `","`) +
+			`"]}},"fields":{"pid":true,"sourceFolder":true,"size":true,"ownerGroup":true}}`
+
 		v := url.Values{}
 		v.Set("filter", filter)
-		v.Add("access_token", accessToken)
-		
 		myurl := APIServer + "/Datasets?" + v.Encode()
-		
-		datasetDetails, err := fetchDatasetDetails(client, myurl)
+
+		datasetDetails, err := fetchDatasetDetails(client, accessToken, myurl)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		for _, datasetId := range datasetList[i:end] {
 			detailsFound := false
 			for _, datasetDetail := range datasetDetails {
@@ -86,27 +85,32 @@ func GetDatasetDetails(client *http.Client, APIServer string, accessToken string
 	return outputDatasetDetails, nil
 }
 
-func fetchDatasetDetails(client *http.Client, url string) ([]Dataset, error) {
-	resp, err := client.Get(url)
+func fetchDatasetDetails(client *http.Client, token string, url string) ([]Dataset, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authentication", "Bearer "+token)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("querying dataset details failed with status code %v", resp.StatusCode)
 	}
-	
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	datasetDetails := make([]Dataset, 0)
 	err = json.Unmarshal(body, &datasetDetails)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return datasetDetails, nil
 }
