@@ -3,13 +3,14 @@ package datasetUtils
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 )
 
-func AuthenticateUser(client *http.Client, APIServer string, username string, password string) (map[string]string, []string) {
+func AuthenticateUser(client *http.Client, APIServer string, username string, password string) (map[string]string, []string, error) {
 	u := make(map[string]string)
 	accessGroups := make([]string, 0)
 
@@ -27,12 +28,12 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 
 	req, err := http.NewRequest("POST", APIServer+"/Users/login", bytes.NewBuffer(cred))
 	if err != nil {
-		log.Fatal(err)
+		return map[string]string{}, []string{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return map[string]string{}, []string{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 200 {
@@ -45,7 +46,7 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 		var auth Auth
 		err := decoder.Decode(&auth)
 		if err != nil {
-			log.Fatal(err)
+			return map[string]string{}, []string{}, err
 		}
 		// now get email from User collections
 		type User struct {
@@ -63,12 +64,12 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 		// then try normal user account
 		req, err = http.NewRequest("POST", strings.Replace(APIServer, "api/v3", "auth/msad", 1), bytes.NewBuffer(cred))
 		if err != nil {
-			log.Fatal(err)
+			return map[string]string{}, []string{}, err
 		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err = client.Do(req)
 		if err != nil {
-			log.Fatal(err)
+			return map[string]string{}, []string{}, err
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode == 200 {
@@ -82,13 +83,13 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 			var auth2 Auth2
 			err := decoder.Decode(&auth2)
 			if err != nil {
-				log.Fatal(err)
+				return map[string]string{}, []string{}, err
 			}
 			// now get email from UserIdentity collections
 			var myurl = APIServer + "/UserIdentities?filter=%7B%22where%22%3A%7B%22userId%22%3A%22" + auth2.UserId + "%22%7D%7D&access_token=" + auth2.Access_token
 			resp, err := client.Get(myurl)
 			if err != nil {
-				log.Fatal(err)
+				return map[string]string{}, []string{}, err
 			}
 			defer resp.Body.Close()
 			body, _ := io.ReadAll(resp.Body)
@@ -113,7 +114,7 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 	}
 
 	if resp.StatusCode != 200 {
-		log.Fatalf("User %s: authentication failed", username)
+		return map[string]string{}, []string{}, fmt.Errorf("user %s: authentication failed", username)
 	}
 
 	u["username"] = username
@@ -123,5 +124,5 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 	u["password"] = password
 	log.Printf("User authenticated: %s %s\n", displayName, mail)
 	log.Printf("User is member in following a or p groups: %v\n", accessGroups)
-	return u, accessGroups
+	return u, accessGroups, nil
 }

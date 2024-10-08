@@ -69,7 +69,6 @@ The ID of the created dataset.
 */
 func IngestDataset(client *http.Client, APIServer string, metaDataMap map[string]interface{},
 	fullFileArray []Datafile, user map[string]string) (datasetId string, err error) {
-
 	datasetId, err = createDataset(client, APIServer, metaDataMap, user)
 	if err != nil {
 		return datasetId, err

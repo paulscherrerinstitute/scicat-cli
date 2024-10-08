@@ -204,7 +204,10 @@ For Windows you need instead to specify -user username:password on the command l
 		log.Printf("You are about to add a dataset to the === %s === data catalog environment...", env)
 		color.Unset()
 
-		user, accessGroups := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, accessGroups, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		/* TODO Add info about policy settings and that autoarchive will take place or not */
 		metaDataMap, metadataSourceFolder, beamlineAccount, err := datasetIngestor.ReadAndCheckMetadata(client, APIServer, metadatafile, user, accessGroups)

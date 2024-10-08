@@ -209,7 +209,10 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 
 			// set value in publishedData ==============================
 
-			user, _ := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+			user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			type PublishedDataPart struct {
 				DownloadLink string `json:"downloadLink"`
@@ -307,7 +310,10 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 			return
 		}
 
-		datasetList, title, doi := datasetUtils.GetDatasetsOfPublication(client, APIServer, publishedDataId)
+		datasetList, title, doi, err := datasetUtils.GetDatasetsOfPublication(client, APIServer, publishedDataId)
+		if err != nil {
+			log.Fatalf("GetDatasetsOfPublication failed: %s\n", err.Error())
+		}
 
 		// get sourceFolder and other dataset related info for all Datasets
 		datasetDetails, urls := datasetUtils.GetDatasetDetailsPublished(client, APIServer, datasetList)

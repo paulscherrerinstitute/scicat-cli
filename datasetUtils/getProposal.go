@@ -27,7 +27,6 @@ Returns:
 */
 func GetProposal(client *http.Client, APIServer string, ownerGroup string, user map[string]string,
 	accessGroups []string) (map[string]interface{}, error) {
-
 	filter := fmt.Sprintf(`{"where":{"ownerGroup":"%s"}}`, ownerGroup)
 	url := fmt.Sprintf("%s/proposals?filters=%s", APIServer, url.QueryEscape(filter))
 

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -10,11 +11,11 @@ import (
 // Create a mock implementation of the interface
 type MockAuthenticator struct{}
 
-func (m *MockAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string) {
+func (m *MockAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string, error) {
 	if username == "" && password == "" {
-		return map[string]string{}, []string{}
+		return map[string]string{}, []string{}, fmt.Errorf("no username or password was provided")
 	}
-	return map[string]string{"username": "testuser", "password": "testpass"}, []string{"group1", "group2"}
+	return map[string]string{"username": "testuser", "password": "testpass"}, []string{"group1", "group2"}, nil
 }
 
 func (m *MockAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string, error) {
@@ -82,7 +83,10 @@ func TestAuthenticate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			httpClient := server.Client()
-			user, group := authenticate(auth, httpClient, server.URL, tt.userpass, tt.token, noExit)
+			user, group, err := authenticate(auth, httpClient, server.URL, tt.userpass, tt.token, noExit)
+			if err != nil {
+				t.Errorf("authenticate returned an error: %s", err.Error())
+			}
 
 			if !reflect.DeepEqual(user, tt.wantUser) {
 				t.Errorf("got %v, want %v", user, tt.wantUser)

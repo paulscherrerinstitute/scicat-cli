@@ -91,9 +91,15 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 			return
 		}
 
-		user, _ := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		datasetList, _, _ := datasetUtils.GetDatasetsOfPublication(client, APIServer, publishedDataId)
+		datasetList, _, _, err := datasetUtils.GetDatasetsOfPublication(client, APIServer, publishedDataId)
+		if err != nil {
+			log.Fatalf("GetDatasetsOfPublication failed: %s\n", err.Error())
+		}
 
 		// get sourceFolder and other dataset related info for all Datasets and print them
 		datasetUtils.GetDatasetDetailsPublished(client, APIServer, datasetList)

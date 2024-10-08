@@ -103,7 +103,10 @@ For further help see "` + MANUAL + `"`,
 			inputdatasetList = args[0:]
 		}
 
-		user, _ := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		archivableDatasets, err := datasetUtils.GetArchivableDatasets(client, APIServer, ownerGroup, inputdatasetList, user["accessToken"])
 		if err != nil {
