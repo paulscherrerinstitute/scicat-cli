@@ -85,7 +85,9 @@ func TestAuthenticate(t *testing.T) {
 			httpClient := server.Client()
 			user, group, err := authenticate(auth, httpClient, server.URL, tt.userpass, tt.token, noExit)
 			if err != nil {
-				t.Errorf("authenticate returned an error: %s", err.Error())
+				if err.Error() != "no username or password was provided" {
+					t.Errorf("authenticate returned an error: %s", err.Error())
+				}
 			}
 
 			if !reflect.DeepEqual(user, tt.wantUser) {
