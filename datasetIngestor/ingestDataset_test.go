@@ -108,6 +108,7 @@ func TestSendRequest(t *testing.T) {
 	if err != nil {
 		t.Errorf("received unexpected error: %v", err)
 	}
+	defer resp.Body.Close()
 
 	// Check the response
 	if resp.StatusCode != http.StatusOK {

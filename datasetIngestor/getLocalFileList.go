@@ -81,12 +81,8 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallba
 	} else {
 		lines, err = readLines(filelistingPath)
 		if err != nil {
-			//log.Fatalf("readLines: %s", err)
 			return []Datafile{}, time.Time{}, time.Time{}, "", 0, 0, err
 		}
-		/*for i, line := range lines {
-			log.Println(i, line)
-		}*/
 	}
 
 	// TODO verify that filelisting have no overlap, e.g. no lines X/ and X/Y,
@@ -107,7 +103,6 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallba
 	}
 
 	if err := os.Chdir(sourceFolder); err != nil {
-		//log.Printf("Can not step into sourceFolder %v - dataset will be ignored.\n", sourceFolder)
 		return []Datafile{}, time.Time{}, time.Time{}, "", 0, 0, err
 	}
 	/*dir, err := os.Getwd()
@@ -115,10 +110,6 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallba
 		return fullFileArray, startTime, endTime, owner, numFiles, totalSize, err
 	}
 	log.Printf("Scanning source folder: %s at %s", sourceFolder, dir)*/
-
-	// spin := spinner.New(spinner.CharSets[9], 100*time.Millisecond) // spinner for progress indication
-	// spin.Writer = os.Stderr
-	// spin.Color("green")
 
 	for _, line := range lines {
 		if len(line) == 0 {
@@ -171,21 +162,16 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallba
 			if keep {
 				numFiles++
 				totalSize += f.Size()
-				//fmt.Println(numFiles, totalSize)
-				//fullFileArray = append(fullFileArray, fileline)
 				fullFileArray = append(fullFileArray, fileStruct)
 				// find out earlist creation time
 				modTime := f.ModTime()
-				//fmt.Printf("FileTime:", modTime)
 				diff := modTime.Sub(startTime)
 				if diff < (time.Duration(0) * time.Second) {
 					startTime = modTime
-					// fmt.Printf("Earliest Time:%v\n", startTime)
 				}
 				diff = modTime.Sub(endTime)
 				if diff > (time.Duration(0) * time.Second) {
 					endTime = modTime
-					//fmt.Printf("Last Time:%v\n", endTime)
 				}
 				owner = gidName
 			}
@@ -211,7 +197,6 @@ func handleSymlink(symlinkPath string, sourceFolder string) (bool, error) {
 			err = fmt.Errorf("could not find absolute path of symlink at \"%s\": %v", symlinkPath, err)
 			return false, err
 		}
-		// log.Printf(" CWD path pointee :%v %v %v", dir, filepath.Dir(path), pointee)
 		pointeeAbs := filepath.Join(symlinkAbs, pointee)
 		pointee, err = filepath.EvalSymlinks(pointeeAbs)
 		if err != nil {

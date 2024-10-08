@@ -13,13 +13,13 @@ import (
 
 // An interface with the methods so that we can mock them in tests
 type Authenticator interface {
-	AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string)
+	AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string, error)
 	GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string, error)
 }
 
 type RealAuthenticator struct{}
 
-func (r RealAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string) {
+func (r RealAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string, error) {
 	return datasetUtils.AuthenticateUser(httpClient, APIServer, username, password)
 }
 
@@ -32,7 +32,7 @@ func (r RealAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServ
 // and returning an authentication token if the credentials are valid.
 // This token can then be used for authenticated requests to the server.
 // If the credentials are not valid, the function returns an error.
-func authenticate(authenticator Authenticator, httpClient *http.Client, apiServer string, userpass string, token string, overrideFatalExit ...func(v ...any)) (map[string]string, []string) {
+func authenticate(authenticator Authenticator, httpClient *http.Client, apiServer string, userpass string, token string, overrideFatalExit ...func(v ...any)) (map[string]string, []string, error) {
 	fatalExit := log.Fatal // by default, call log fatal
 	if len(overrideFatalExit) == 1 {
 		fatalExit = overrideFatalExit[0]
@@ -40,13 +40,13 @@ func authenticate(authenticator Authenticator, httpClient *http.Client, apiServe
 	if token != "" {
 		user, accessGroups, err := authenticator.GetUserInfoFromToken(httpClient, apiServer, token)
 		if err != nil {
-			log.Fatal(err)
+			return map[string]string{}, []string{}, err
 		}
 		uSplit := strings.Split(userpass, ":")
 		if len(uSplit) > 1 {
 			user["password"] = uSplit[1]
 		}
-		return user, accessGroups
+		return user, accessGroups, nil
 	}
 
 	if userpass != "" {

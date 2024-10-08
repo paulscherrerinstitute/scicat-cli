@@ -134,7 +134,11 @@ For further help see "` + MANUAL + `"`,
 		// logging into scicat and globus...
 		var user map[string]string
 		if markArchivable {
-			user, _ = authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+			var err error
+			user, _, err = authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
 		globusClient, gConfig, err := cliutils.GlobusLogin(globusConfigPath)

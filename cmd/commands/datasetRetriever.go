@@ -59,14 +59,14 @@ For further help see "` + MANUAL + `"`,
 
 		// internal functions
 		assembleRsyncCommands := func(username string, datasetDetails []datasetUtils.Dataset, destinationPath string) ([]string, []string) {
-			batchCommands := make([]string, 0)
-			destinationFolders := make([]string, 0)
-			for _, dataset := range datasetDetails {
+			batchCommands := make([]string, len(datasetDetails))
+			destinationFolders := make([]string, len(datasetDetails))
+			for i, dataset := range datasetDetails {
 				shortDatasetId := strings.Split(dataset.Pid, "/")[1]
 				fullDest := destinationPath + dataset.SourceFolder
 				command := "mkdir -p " + fullDest + ";" + "/usr/bin/rsync -av -e 'ssh -o StrictHostKeyChecking=no' " + username + "@" + RSYNCServer + ":retrieve/" + shortDatasetId + "/ " + fullDest
-				batchCommands = append(batchCommands, command)
-				destinationFolders = append(destinationFolders, fullDest)
+				batchCommands[i] = command
+				destinationFolders[i] = fullDest
 			}
 			return batchCommands, destinationFolders
 		}
@@ -170,7 +170,10 @@ For further help see "` + MANUAL + `"`,
 		}
 		destinationPath = args[0]
 
-		user, _ := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		datasetList, err := datasetUtils.GetAvailableDatasets(user["username"], RSYNCServer, datasetId)
 		if err != nil {

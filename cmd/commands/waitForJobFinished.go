@@ -117,7 +117,10 @@ var waitForJobFinishedCmd = &cobra.Command{
 			return
 		}
 
-		user, _ := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		filter := `{"where":{"id":"` + jobId + `"}}`
 

@@ -3,10 +3,10 @@ package datasetUtils
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
-	"fmt"
 )
 
 func constructJobRequest(user map[string]string, datasetList []string) ([]byte, error) {
@@ -29,9 +29,9 @@ func constructJobRequest(user map[string]string, datasetList []string) ([]byte, 
 
 	emptyfiles := make([]string, 0)
 
-	var dsMap []datasetStruct
-	for _, dataset := range datasetList {
-		dsMap = append(dsMap, datasetStruct{dataset, emptyfiles})
+	dsMap := make([]datasetStruct, len(datasetList))
+	for i, dataset := range datasetList {
+		dsMap[i] = datasetStruct{dataset, emptyfiles}
 	}
 	jobMap["datasetList"] = dsMap
 
@@ -91,17 +91,17 @@ func CreateRetrieveJob(client *http.Client, APIServer string, user map[string]st
 	if err != nil {
 		return "", err
 	}
-	
+
 	resp, err := sendJobRequest(client, APIServer, user, bmm)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-	
+
 	jobId, err = handleJobResponse(resp, user)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return jobId, nil
 }

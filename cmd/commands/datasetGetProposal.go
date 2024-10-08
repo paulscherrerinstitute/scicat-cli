@@ -84,7 +84,10 @@ For further help see "` + MANUAL + `"`,
 		}
 		ownerGroup := args[0]
 
-		user, accessGroups := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, accessGroups, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		if err != nil {
+			log.Fatal(err)
+		}
 		proposal, err := datasetUtils.GetProposal(client, APIServer, ownerGroup, user, accessGroups)
 		if err != nil {
 			log.Fatal(err)
