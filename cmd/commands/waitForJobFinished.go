@@ -27,17 +27,13 @@ var waitForJobFinishedCmd = &cobra.Command{
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
 			Timeout:   10 * time.Second}
 
-		const PROD_API_SERVER string = "https://dacat.psi.ch/api/v3"
-		const TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3"
-		const DEV_API_SERVER string = "https://dacat-development.psi.ch/api/v3"
-
 		var APIServer string = PROD_API_SERVER
 		var env string = "production"
 
 		// structs
 		type Job struct {
-			Id               string
-			JobStatusMessage string
+			Id            string `json:"id"`
+			StatusMessage string `json:"statusMessage"`
 		}
 
 		// funcs
@@ -52,15 +48,12 @@ var waitForJobFinishedCmd = &cobra.Command{
 				return true, err
 			}
 
-			var jobDetails []Job
+			var jobDetails Job
 			err = json.Unmarshal(body, &jobDetails)
 			if err != nil {
 				return true, err
 			}
-			if len(jobDetails) == 0 {
-				return false, nil
-			}
-			if jobDetails[0].JobStatusMessage == "finished" {
+			if jobDetails.StatusMessage == "finished" {
 				return true, nil
 			} else {
 				return false, nil
@@ -73,6 +66,7 @@ var waitForJobFinishedCmd = &cobra.Command{
 		jobId, _ := cmd.Flags().GetString("job") // shouldn't jobID be a positional argument? it's obligatory
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
+		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
 		if datasetUtils.TestFlags != nil {
@@ -93,6 +87,10 @@ var waitForJobFinishedCmd = &cobra.Command{
 			return
 		}
 
+		if localenvFlag {
+			APIServer = LOCAL_API_SERVER
+			env = "local"
+		}
 		if devenvFlag {
 			APIServer = DEV_API_SERVER
 			env = "dev"
@@ -122,13 +120,12 @@ var waitForJobFinishedCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		filter := `{"where":{"id":"` + jobId + `"}}`
-
-		v := url.Values{}
-		v.Set("filter", filter)
-		v.Add("access_token", user["accessToken"])
-
-		var myurl = APIServer + "/Jobs?" + v.Encode()
+		req, err := http.NewRequest("GET", APIServer+"/Jobs/"+url.QueryEscape(jobId), nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer "+user["accessToken"])
+		req.Header.Set("accept", "application/json")
 
 		timeoutchan := make(chan bool)
 		ticker := time.NewTicker(5 * time.Second)
@@ -137,7 +134,7 @@ var waitForJobFinishedCmd = &cobra.Command{
 			for {
 				select {
 				case <-ticker.C:
-					resp, err := client.Get(myurl)
+					resp, err := client.Do(req)
 					if err != nil {
 						log.Fatal("Get Job failed:", err)
 					}
@@ -173,6 +170,7 @@ func init() {
 	waitForJobFinishedCmd.Flags().String("job", "", "Defines the job id to poll")
 	waitForJobFinishedCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead or production")
 	waitForJobFinishedCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
+	waitForJobFinishedCmd.Flags().Bool("localenv", false, "Use local environment (local) instead or production")
 
-	waitForJobFinishedCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
+	waitForJobFinishedCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv")
 }

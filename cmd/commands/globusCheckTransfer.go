@@ -133,9 +133,10 @@ For further help see "` + MANUAL + `"`,
 
 		// logging into scicat and globus...
 		var user map[string]string
+		var accessGroups []string
 		if markArchivable {
 			var err error
-			user, _, err = authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+			user, accessGroups, err = authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -157,7 +158,7 @@ For further help see "` + MANUAL + `"`,
 
 		// === create archive job ===
 		if autoarchiveFlag {
-			globusCheckTransferCreateArchiveJob(client, APIServer, user, archivableDatasetList, tapecopies)
+			globusCheckTransferCreateArchiveJob(client, APIServer, user, accessGroups, archivableDatasetList, tapecopies)
 		}
 	},
 }
@@ -181,11 +182,11 @@ func init() {
 	globusCheckTransfer.MarkFlagsMutuallyExclusive("dry-run", "tapecopies")
 }
 
-func globusCheckTransferCreateArchiveJob(client *http.Client, APIServer string, user map[string]string, archivableDatasetList []string, tapecopies int) {
+func globusCheckTransferCreateArchiveJob(client *http.Client, APIServer string, user map[string]string, accessGroups []string, archivableDatasetList []string, tapecopies int) {
 	log.Printf("Submitting Archive Job for archivable datasets.\n")
 	// TODO: change param type from pointer to regular as it is unnecessary
 	//   for it to be passed as pointer
-	jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasetList, &tapecopies)
+	jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, accessGroups, archivableDatasetList, &tapecopies)
 	if err != nil {
 		color.Set(color.FgRed)
 		log.Printf("Could not create the archival job for the ingested datasets: %s", err.Error())
