@@ -229,7 +229,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 			if err != nil {
 				log.Fatal(err)
 			}
-			req.Header.Set("Authentication", "Bearer "+user["accessToken"])
+			req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 			req.Header.Set("Content-Type", "application/json")
 			// fmt.Printf("request to message broker:%v\n", req)
 			resp, err := client.Do(req)

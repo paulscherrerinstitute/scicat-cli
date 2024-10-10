@@ -34,7 +34,7 @@ func GetProposal(client *http.Client, APIServer string, ownerGroup string, user 
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authentication", "Bearer "+user["accessToken"])
+	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 
 	resp, err := client.Do(req)
 	if err != nil {
