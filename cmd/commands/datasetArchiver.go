@@ -103,7 +103,7 @@ For further help see "` + MANUAL + `"`,
 			inputdatasetList = args[0:]
 		}
 
-		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, accessGroups, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -131,7 +131,7 @@ For further help see "` + MANUAL + `"`,
 
 		log.Printf("You chose to archive the new datasets\n")
 		log.Printf("Submitting Archive Job for the ingested datasets.\n")
-		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasets, &tapecopies)
+		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, accessGroups, archivableDatasets, &tapecopies)
 		if err != nil {
 			log.Fatalf("Couldn't create a job: %s\n", err.Error())
 		}
