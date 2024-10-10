@@ -303,7 +303,7 @@ func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap ma
 		return fmt.Errorf("ownerGroup is not a string")
 	}
 
-	proposal, err := datasetUtils.GetProposal(client, APIServer, ownerGroup, user, accessGroups)
+	proposal, err := datasetUtils.GetProposal(client, APIServer, ownerGroup, user)
 	if err != nil {
 		return fmt.Errorf("failed to get proposal: %v", err)
 	}

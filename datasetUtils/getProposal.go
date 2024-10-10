@@ -16,7 +16,6 @@ Parameters:
 - APIServer: A string representing the base URL of the API server.
 - ownerGroup: A string representing the owner group of the proposal.
 - user: A map containing user information, including an access token.
-- accessGroups: A slice of strings representing the access groups of the user.
 
 The function constructs a filter based on the ownerGroup, then sends a GET request to the API server with the filter and user's access token. The response is then parsed into a map and returned.
 
@@ -25,8 +24,7 @@ If the request or JSON unmarshalling fails, the function will log the error and 
 Returns:
 - A map representing the proposal. If no proposal is found, an empty map is returned.
 */
-func GetProposal(client *http.Client, APIServer string, ownerGroup string, user map[string]string,
-	accessGroups []string) (map[string]interface{}, error) {
+func GetProposal(client *http.Client, APIServer string, ownerGroup string, user map[string]string) (map[string]interface{}, error) {
 	filter := fmt.Sprintf(`{"where":{"ownerGroup":"%s"}}`, ownerGroup)
 	url := fmt.Sprintf("%s/proposals?filters=%s", APIServer, url.QueryEscape(filter))
 
