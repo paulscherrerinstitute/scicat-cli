@@ -1,18 +1,18 @@
-package cmd
+package cliutils
 
 import (
 	"fmt"
 	"strings"
 )
 
-type transferType int
+type TransferType int
 
 const (
-	Ssh transferType = iota
+	Ssh TransferType = iota
 	Globus
 )
 
-func convertToTransferType(input string) (transferType, error) {
+func ConvertToTransferType(input string) (TransferType, error) {
 	input = strings.ToLower(input)
 	switch input {
 	case "ssh":

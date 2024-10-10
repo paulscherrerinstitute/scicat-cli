@@ -82,7 +82,7 @@ For Windows you need instead to specify -user username:password on the command l
 		// TODO: read in CFG!
 
 		// transfer type
-		transferType, err := convertToTransferType(transferTypeFlag)
+		transferType, err := cliutils.ConvertToTransferType(transferTypeFlag)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -94,9 +94,9 @@ For Windows you need instead to specify -user username:password on the command l
 		var gConfig cliutils.GlobusConfig
 
 		switch transferType {
-		case Ssh:
+		case cliutils.Ssh:
 			transferFiles = cliutils.SshTransfer
-		case Globus:
+		case cliutils.Globus:
 			transferFiles = cliutils.GlobusTransfer
 			var globusConfigPath string
 			if cmd.Flags().Lookup("globus-cfg").Changed {
@@ -521,7 +521,7 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Printf("Submitting Archive Job for the ingested datasets.\n")
 			// TODO: change param type from pointer to regular as it is unnecessary
 			//   for it to be passed as pointer
-			jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasetList, &tapecopies)
+			jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, accessGroups, archivableDatasetList, &tapecopies)
 			if err != nil {
 				color.Set(color.FgRed)
 				log.Printf("Could not create the archival job for the ingested datasets: %s", err.Error())
