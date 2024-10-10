@@ -154,7 +154,28 @@ func TestCreateJob(t *testing.T) {
 					// Parse the actual and expected payloads
 					var actualPayload, expectedPayload map[string]interface{}
 					json.Unmarshal(body, &actualPayload)
-					json.Unmarshal([]byte(`{"creationTime":"2024-05-21T15:25:34+02:00","datasetList":[{"pid":"dataset1","files":[]},{"pid":"dataset2","files":[]}],"emailJobInitiator":"test@example.com","jobParams":{"tapeCopies":"two","username":"testuser"},"jobStatusMessage":"jobSubmitted","type":"archive"}`), &expectedPayload)
+					json.Unmarshal([]byte(`
+					{
+					    "creationTime": "2024-05-21T15:25:34+02:00",
+					    "contactEmail": "test@example.com",
+					    "jobParams": {
+					        "tapeCopies": "two",
+					        "username": "testuser",
+					        "datasetList": [
+					            {
+					                "pid": "dataset1",
+					                "files": []
+					            },
+					            {
+					                "pid": "dataset2",
+					                "files": []
+					            }
+					        ]
+					    },
+					    "type": "archive",
+						"ownerUser": "testuser",
+						"ownerGroup": "group1"
+					}`), &expectedPayload)
 
 					// Ignore the creationTime field
 					delete(actualPayload, "creationTime")
