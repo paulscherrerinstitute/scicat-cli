@@ -34,13 +34,10 @@ For further help see "` + MANUAL + `"`,
 	Args: exactArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		//consts & vars
-		const PROD_API_SERVER string = "https://dacat.psi.ch/api/v3"
-		const TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3"
-		const DEV_API_SERVER string = "https://dacat-development.psi.ch/api/v3"
-
 		const PROD_RSYNC_RETRIEVE_SERVER string = "pb-retrieve.psi.ch"
 		const TEST_RSYNC_RETRIEVE_SERVER string = "pbt-retrieve.psi.ch"
 		const DEV_RSYNC_RETRIEVE_SERVER string = "arematest2in.psi.ch"
+		const LOCAL_RSYNC_RETRIEVE_SERVER string = "localhost"
 
 		// const PROD_RSYNC_RETRIEVE_SERVER string = "ebarema4in.psi.ch"
 		// const TEST_RSYNC_RETRIEVE_SERVER string = "ebaremat1in.psi.ch"
@@ -116,6 +113,7 @@ For further help see "` + MANUAL + `"`,
 		ownerGroup, _ := cmd.Flags().GetString("ownergroup")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
+		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
 		if datasetUtils.TestFlags != nil {
@@ -141,6 +139,10 @@ For further help see "` + MANUAL + `"`,
 
 		datasetUtils.CheckForNewVersion(client, APP, VERSION)
 
+		if localenvFlag {
+			APIServer = LOCAL_API_SERVER
+			RSYNCServer = LOCAL_RSYNC_RETRIEVE_SERVER
+		}
 		if devenvFlag {
 			APIServer = DEV_API_SERVER
 			RSYNCServer = DEV_RSYNC_RETRIEVE_SERVER
@@ -186,9 +188,21 @@ For further help see "` + MANUAL + `"`,
 		}
 
 		// get sourceFolder and other dataset related info for all Datasets
-		datasetDetails, err := datasetUtils.GetDatasetDetails(client, APIServer, user["accessToken"], datasetList, ownerGroup)
+		datasetDetails, missingDatasetIds, err := datasetUtils.GetDatasetDetails(client, APIServer, user["accessToken"], datasetList, ownerGroup)
 		if err != nil {
 			log.Fatal(err)
+		}
+		fmt.Printf("\nFound datasets:\n")
+		fmt.Println("Dataset ID                                         Size[MB]  Owner                      SourceFolder")
+		fmt.Println("====================================================================================================")
+		for _, datasetDetail := range datasetDetails {
+			log.Printf("%s %9d %v %v\n", datasetId, datasetDetail.Size/1024./1024., datasetDetail.OwnerGroup, datasetDetail.SourceFolder)
+		}
+		if len(missingDatasetIds) > 0 {
+			fmt.Printf("\nThe following dataset id's were missing or had non-matching ownerGroups so they won't be copied: \n")
+			for _, id := range missingDatasetIds {
+				fmt.Printf(" - \"%s\"\n", id)
+			}
 		}
 
 		// assemble rsync commands to be submitted
@@ -218,6 +232,7 @@ func init() {
 	datasetRetrieverCmd.Flags().String("ownergroup", "", "Defines to fetch only datasets of the specified ownerGroup (default is to fetch all available datasets)")
 	datasetRetrieverCmd.Flags().Bool("testenv", false, "Use test environment (qa) (default is to use production system)")
 	datasetRetrieverCmd.Flags().Bool("devenv", false, "Use development environment (default is to use production system)")
+	datasetRetrieverCmd.Flags().Bool("localenv", false, "Use local environment instead of production environment (developers only)")
 
 	datasetRetrieverCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }

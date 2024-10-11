@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
-
-	"github.com/fatih/color"
 )
 
 type Dataset struct {
@@ -35,10 +33,9 @@ The function sends HTTP GET requests to the API server in chunks of 100 datasets
 Returns:
 - A slice of Dataset structs containing the details of the datasets that match the owner group filter.
 */
-func GetDatasetDetails(client *http.Client, APIServer string, accessToken string, datasetList []string, ownerGroup string) ([]Dataset, error) {
-	outputDatasetDetails := make([]Dataset, 0)
-	log.Println("Dataset ID                                         Size[MB]  Owner                      SourceFolder")
-	log.Println("====================================================================================================")
+func GetDatasetDetails(client *http.Client, APIServer string, accessToken string, datasetList []string, ownerGroup string) ([]Dataset, []string, error) {
+	var returnedDatasets []Dataset
+	var missingDatasetIds []string
 
 	// split large request into chunks
 	chunkSize := 100
@@ -58,31 +55,23 @@ func GetDatasetDetails(client *http.Client, APIServer string, accessToken string
 
 		datasetDetails, err := fetchDatasetDetails(client, accessToken, myurl)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		for _, datasetId := range datasetList[i:end] {
-			detailsFound := false
-			for _, datasetDetail := range datasetDetails {
-				if datasetDetail.Pid == datasetId {
-					detailsFound = true
-					if ownerGroup == "" || ownerGroup == datasetDetail.OwnerGroup {
-						outputDatasetDetails = append(outputDatasetDetails, datasetDetail)
-						color.Set(color.FgGreen)
-					}
-					log.Printf("%s %9d %v %v\n", datasetId, datasetDetail.Size/1024./1024., datasetDetail.OwnerGroup, datasetDetail.SourceFolder)
-					color.Unset()
-					break
-				}
+			datasetHasIdAndOwnerGroup := func(dataset Dataset) bool {
+				return dataset.Pid == datasetId && (ownerGroup == "" || dataset.OwnerGroup == ownerGroup)
 			}
-			if !detailsFound {
-				color.Set(color.FgRed)
-				log.Printf("Dataset %s no infos found in catalog - will not be copied !\n", datasetId)
-				color.Unset()
+
+			i := slices.IndexFunc(datasetDetails, datasetHasIdAndOwnerGroup) // linear search!
+			if i >= 0 {
+				returnedDatasets = append(returnedDatasets, datasetDetails[i]) // found id
+			} else {
+				missingDatasetIds = append(missingDatasetIds, datasetId) // id missing
 			}
 		}
 	}
-	return outputDatasetDetails, nil
+	return returnedDatasets, missingDatasetIds, nil
 }
 
 func fetchDatasetDetails(client *http.Client, token string, url string) ([]Dataset, error) {
