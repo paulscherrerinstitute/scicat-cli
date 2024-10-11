@@ -79,7 +79,7 @@ func fetchDatasetDetails(client *http.Client, token string, url string) ([]Datas
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authentication", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
