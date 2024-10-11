@@ -3,9 +3,10 @@ package datasetUtils
 import (
 	"fmt"
 	"os/exec"
-	"strings"
-	version "github.com/mcuadros/go-version"
 	"regexp"
+	"strings"
+
+	version "github.com/mcuadros/go-version"
 )
 
 const DatasetIdPrefix = "20.500.11935"
@@ -50,13 +51,13 @@ func fetchDatasetsFromServer(username string, RSYNCServer string) ([]string, err
 	if err != nil {
 		return nil, fmt.Errorf("error getting rsync version: %w", err)
 	}
-	
+
 	cmd := buildRsyncCommand(username, RSYNCServer, versionNumber)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return parseRsyncOutput(out), nil
 }
 
@@ -87,14 +88,14 @@ var getRsyncVersion = func() (string, error) {
 		return "", err
 	}
 	version := string(output)
-	
+
 	// Use a regular expression to find the version number
 	re := regexp.MustCompile(`\d+\.\d+\.\d+`)
 	versionNumber := re.FindString(version)
 	if versionNumber == "" {
 		return "", fmt.Errorf("could not find version number in rsync version string: %s", version)
 	}
-	
+
 	return versionNumber, nil
 }
 

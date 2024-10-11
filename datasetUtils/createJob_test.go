@@ -41,7 +41,7 @@ func TestCreateJob(t *testing.T) {
 		*tapecopies = 1
 
 		// Call the function
-		jobId, err := CreateArchivalJob(client, APIServer, user, datasetList, tapecopies)
+		jobId, err := CreateArchivalJob(client, APIServer, user, []string{"group1"}, datasetList, tapecopies)
 		if err != nil {
 			t.Errorf("Unexpected error received: %v", err)
 		}
@@ -74,12 +74,12 @@ func TestCreateJob(t *testing.T) {
 		*tapecopies = 1
 
 		// Call the function
-		jobId, err := CreateArchivalJob(client, APIServer, user, datasetList, tapecopies)
+		jobId, err := CreateArchivalJob(client, APIServer, user, []string{"group1"}, datasetList, tapecopies)
 		if err == nil {
 			t.Errorf("Expected an error to be returned from CreateJob")
 		}
 
-		const expectedError = "CreateJob - request returned unexpected status code: 500"
+		const expectedError = "CreateJob - request returned error status code: 500, body: "
 		if err.Error() != expectedError {
 			t.Errorf("Got incorrect error from CreateJob - expected: \"%s\", gotten: \"%s\"", expectedError, err.Error())
 		}
@@ -112,7 +112,7 @@ func TestCreateJob(t *testing.T) {
 		*tapecopies = 1
 
 		// Call the function
-		jobId, err := CreateArchivalJob(client, APIServer, user, datasetList, tapecopies)
+		jobId, err := CreateArchivalJob(client, APIServer, user, []string{"group1"}, datasetList, tapecopies)
 
 		if err == nil {
 			t.Error("Expected an error to be returned from CreateJob")
@@ -154,7 +154,28 @@ func TestCreateJob(t *testing.T) {
 					// Parse the actual and expected payloads
 					var actualPayload, expectedPayload map[string]interface{}
 					json.Unmarshal(body, &actualPayload)
-					json.Unmarshal([]byte(`{"creationTime":"2024-05-21T15:25:34+02:00","datasetList":[{"pid":"dataset1","files":[]},{"pid":"dataset2","files":[]}],"emailJobInitiator":"test@example.com","jobParams":{"tapeCopies":"two","username":"testuser"},"jobStatusMessage":"jobSubmitted","type":"archive"}`), &expectedPayload)
+					json.Unmarshal([]byte(`
+					{
+					    "creationTime": "2024-05-21T15:25:34+02:00",
+					    "contactEmail": "test@example.com",
+					    "jobParams": {
+					        "tapeCopies": "two",
+					        "username": "testuser",
+					        "datasetList": [
+					            {
+					                "pid": "dataset1",
+					                "files": []
+					            },
+					            {
+					                "pid": "dataset2",
+					                "files": []
+					            }
+					        ]
+					    },
+					    "type": "archive",
+						"ownerUser": "testuser",
+						"ownerGroup": "group1"
+					}`), &expectedPayload)
 
 					// Ignore the creationTime field
 					delete(actualPayload, "creationTime")
@@ -175,7 +196,7 @@ func TestCreateJob(t *testing.T) {
 		}
 
 		// Call the function with the mock client
-		jobId, err := CreateArchivalJob(client, server.URL, user, datasetList, tapecopies)
+		jobId, err := CreateArchivalJob(client, server.URL, user, []string{"group1"}, datasetList, tapecopies)
 		if err != nil {
 			t.Errorf("Got an error when creating a job: %s", err.Error())
 		}

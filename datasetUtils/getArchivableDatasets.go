@@ -1,14 +1,16 @@
 package datasetUtils
 
 import (
+	"bytes"
 	"encoding/json"
-	"github.com/fatih/color"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
-	"fmt"
+
+	"github.com/fatih/color"
 )
 
 type DatasetInfo struct {
@@ -44,13 +46,19 @@ Note: The function logs a fatal error and terminates the program if it fails to 
 func addResult(client *http.Client, APIServer string, filter string, accessToken string, datasetList []string) ([]string, error) {
 	v := url.Values{}
 	v.Set("filter", filter)
-	v.Add("access_token", accessToken)
 
-	myurl := fmt.Sprintf("%s/Datasets?%s", APIServer, v.Encode())
+	myurl := fmt.Sprintf("%s/datasets?%s", APIServer, v.Encode())
 
-	resp, err := client.Get(myurl)
+	var body []byte
+	req, err := http.NewRequest("GET", myurl, bytes.NewBuffer(body))
 	if err != nil {
-		return nil, fmt.Errorf("get dataset details failed: %w", err)
+		return nil, fmt.Errorf("get dataset details request creation failed: %s", err.Error())
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("get dataset details request failed: %s", err.Error())
 	}
 	defer resp.Body.Close()
 
@@ -58,7 +66,7 @@ func addResult(client *http.Client, APIServer string, filter string, accessToken
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read response body failed: %w", err)
 	}
@@ -87,7 +95,7 @@ func addResult(client *http.Client, APIServer string, filter string, accessToken
 }
 
 /*
-GetArchivableDatasets retrieves a list of datasets that are eligible for archiving. 
+GetArchivableDatasets retrieves a list of datasets that are eligible for archiving.
 
 Parameters:
 - client: An instance of http.Client used to send the request.
@@ -104,7 +112,7 @@ The function returns a list of dataset IDs that are archivable.
 
 Note: A dataset is considered archivable if its size is greater than 0.
 */
-func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup string, inputdatasetList []string, accessToken string) (datasetList []string) {
+func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup string, inputdatasetList []string, accessToken string) (datasetList []string, err error) {
 	datasetList = make([]string, 0)
 
 	filter := ""
@@ -113,7 +121,7 @@ func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup str
 		var err error
 		datasetList, err = addResult(client, APIServer, filter, accessToken, datasetList)
 		if err != nil {
-			log.Fatalf("Error: %v", err)
+			return datasetList, err
 		}
 	} else {
 		// split large request into chunks
@@ -128,9 +136,9 @@ func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup str
 			var err error
 			datasetList, err = addResult(client, APIServer, filter, accessToken, datasetList)
 			if err != nil {
-				log.Fatalf("Error: %v", err)
+				return datasetList, err
 			}
 		}
 	}
-	return datasetList
+	return datasetList, nil
 }

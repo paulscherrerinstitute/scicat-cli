@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
-	"time"
 )
 
 type Job struct {
@@ -29,7 +29,7 @@ Parameters:
 Returns:
 - jobId: A string representing the job ID if the job was successfully created, or an empty string otherwise
 */
-func CreateArchivalJob(client *http.Client, APIServer string, user map[string]string, datasetList []string, tapecopies *int) (jobId string, err error) {
+func CreateArchivalJob(client *http.Client, APIServer string, user map[string]string, accessGroups []string, datasetList []string, tapecopies *int) (jobId string, err error) {
 	// important: define field with capital names and rename fields via 'json' constructs
 	// otherwise the marshaling will omit the fields !
 
@@ -38,39 +38,62 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 		Files []string `json:"files"`
 	}
 
-	type jobparamsStruct struct {
-		TapeCopies string `json:"tapeCopies"`
-		Username   string `json:"username"`
+	type jobParamsStruct struct {
+		TapeCopies  string          `json:"tapeCopies"`
+		Username    string          `json:"username"`
+		DatasetList []datasetStruct `json:"datasetList"`
 	}
 
-	jobMap := make(map[string]interface{})
-	jobMap["emailJobInitiator"] = user["mail"]
-	jobMap["type"] = "archive"
-	jobMap["creationTime"] = time.Now().Format(time.RFC3339)
+	type createJobDto struct {
+		JobType      string          `json:"type"`
+		JobParams    jobParamsStruct `json:"jobParams"`
+		OwnerUser    string          `json:"ownerUser"`
+		OwnerGroup   string          `json:"ownerGroup"`
+		ContactEmail string          `json:"contactEmail"`
+	}
+
+	if len(accessGroups) <= 0 {
+		return "", fmt.Errorf("no access groups associated with user")
+	}
+
+	//jobMap["creationTime"] = time.Now().Format(time.RFC3339)
 	// TODO these job parameters may become obsolete
 	tc := "one"
 	if *tapecopies == 2 {
 		tc = "two"
 	}
-	jobMap["jobParams"] = jobparamsStruct{tc, user["username"]}
-	jobMap["jobStatusMessage"] = "jobSubmitted"
 
-	emptyfiles := make([]string, 0)
-
-	var dsMap []datasetStruct
-	for i := 0; i < len(datasetList); i++ {
-		dsMap = append(dsMap, datasetStruct{datasetList[i], emptyfiles})
+	emptyfiles := []string{}
+	dsMap := make([]datasetStruct, len(datasetList))
+	for i, dataset := range datasetList {
+		dsMap[i] = datasetStruct{dataset, emptyfiles}
 	}
-	jobMap["datasetList"] = dsMap
+
+	// TODO how the heck can I add a dataset list with the new format?
+	// jobMap["datasetList"] = dsMap
+	createJob := createJobDto{
+		JobType: "archive",
+		JobParams: jobParamsStruct{
+			TapeCopies:  tc,
+			Username:    user["username"],
+			DatasetList: dsMap,
+		},
+		OwnerUser:    user["username"],
+		OwnerGroup:   accessGroups[0],
+		ContactEmail: user["mail"],
+	}
 
 	// marshal to JSON
-	var bmm []byte
-	bmm, _ = json.Marshal(jobMap)
+	bmm, err := json.Marshal(createJob)
+	if err != nil {
+		return "", err
+	}
 	// fmt.Printf("Marshalled job description : %s\n", string(bmm))
 
 	// now send  archive job request
-	myurl := APIServer + "/Jobs?access_token=" + user["accessToken"]
+	myurl := APIServer + "/jobs"
 	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bmm))
+	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -79,17 +102,20 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == 200 {
-		// the request succeeded based on status code
-		// an email should be sent by SciCat to user["email"]
-		decoder := json.NewDecoder(resp.Body)
-		var j Job
-		err := decoder.Decode(&j)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return "", fmt.Errorf("CreateJob - could not decode id from job: %v", err)
+			return "", fmt.Errorf("CreateJob - request returned error status code: %d", resp.StatusCode)
 		}
-		return j.Id, err
-	} else {
-		return "", fmt.Errorf("CreateJob - request returned unexpected status code: %d", resp.StatusCode)
+		return "", fmt.Errorf("CreateJob - request returned error status code: %d, body: %s", resp.StatusCode, string(body))
 	}
+	// the request succeeded based on status code
+	// an email should be sent by SciCat to user["email"]
+	decoder := json.NewDecoder(resp.Body)
+	var j Job
+	err = decoder.Decode(&j)
+	if err != nil {
+		return "", fmt.Errorf("CreateJob - could not decode id from job: %v", err)
+	}
+	return j.Id, err
 }

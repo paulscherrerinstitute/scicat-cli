@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -208,7 +209,10 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 
 			// set value in publishedData ==============================
 
-			user, _ := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+			user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			type PublishedDataPart struct {
 				DownloadLink string `json:"downloadLink"`
@@ -220,11 +224,12 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 			cmm, _ := json.Marshal(updateData)
 			// metadataString := string(cmm)
 
-			myurl := APIServer + "/PublishedData/" + strings.Replace(publishedDataId, "/", "%2F", 1) + "?access_token=" + user["accessToken"]
+			myurl := APIServer + "/PublishedData/" + url.QueryEscape(publishedDataId)
 			req, err := http.NewRequest("PATCH", myurl, bytes.NewBuffer(cmm))
 			if err != nil {
 				log.Fatal(err)
 			}
+			req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 			req.Header.Set("Content-Type", "application/json")
 			// fmt.Printf("request to message broker:%v\n", req)
 			resp, err := client.Do(req)
@@ -305,7 +310,10 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 			return
 		}
 
-		datasetList, title, doi := datasetUtils.GetDatasetsOfPublication(client, APIServer, publishedDataId)
+		datasetList, title, doi, err := datasetUtils.GetDatasetsOfPublication(client, APIServer, publishedDataId)
+		if err != nil {
+			log.Fatalf("GetDatasetsOfPublication failed: %s\n", err.Error())
+		}
 
 		// get sourceFolder and other dataset related info for all Datasets
 		datasetDetails, urls := datasetUtils.GetDatasetDetailsPublished(client, APIServer, datasetList)

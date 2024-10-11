@@ -5,7 +5,7 @@ const MANUAL = "http://melanie.gitpages.psi.ch/SciCatPages"
 const PROD_API_SERVER string = "https://dacat.psi.ch/api/v3"
 const TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3"
 const DEV_API_SERVER string = "https://dacat-development.psi.ch/api/v3"
-const LOCAL_API_SERVER string = "http://localhost:3000/api/v3"
+const LOCAL_API_SERVER string = "http://backend.localhost/api/v3"
 const TUNNEL_API_SERVER string = "https://dacat-development.psi.ch:5443/api/v3"
 
 const PROD_RSYNC_ARCHIVE_SERVER string = "pb-archive.psi.ch"

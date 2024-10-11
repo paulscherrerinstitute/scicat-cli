@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
+	"net/url"
 )
 
 /*
@@ -33,18 +33,19 @@ func MarkFilesReady(client *http.Client, APIServer string, datasetId string, use
 	cmm, _ := json.Marshal(metaDataMap)
 	// metadataString := string(cmm)
 
-	myurl := APIServer + "/Datasets/" + strings.Replace(datasetId, "/", "%2F", 1) + "?access_token=" + user["accessToken"]
-	req, err := http.NewRequest("PUT", myurl, bytes.NewBuffer(cmm))
+	myurl := APIServer + "/Datasets/" + url.QueryEscape(datasetId)
+	req, err := http.NewRequest("PATCH", myurl, bytes.NewBuffer(cmm))
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode >= 300 || resp.StatusCode < 200 {
 		return fmt.Errorf("failed to update datasetLifecycle %v %v", resp.StatusCode, metaDataMap)
 	}
 	return nil
