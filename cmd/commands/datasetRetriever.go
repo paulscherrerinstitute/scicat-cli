@@ -196,7 +196,7 @@ For further help see "` + MANUAL + `"`,
 		fmt.Println("Dataset ID                                         Size[MB]  Owner                      SourceFolder")
 		fmt.Println("====================================================================================================")
 		for _, datasetDetail := range datasetDetails {
-			log.Printf("%s %9d %v %v\n", datasetId, datasetDetail.Size/1024./1024., datasetDetail.OwnerGroup, datasetDetail.SourceFolder)
+			fmt.Printf("%s %9d %v %v\n", datasetId, datasetDetail.Size/1024./1024., datasetDetail.OwnerGroup, datasetDetail.SourceFolder)
 		}
 		if len(missingDatasetIds) > 0 {
 			fmt.Printf("\nThe following dataset id's were missing or had non-matching ownerGroups so they won't be copied: \n")
