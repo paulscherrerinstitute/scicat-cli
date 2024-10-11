@@ -251,7 +251,7 @@ func GatherMissingMetadata(user map[string]string, metaDataMap map[string]interf
 	}
 
 	// for raw data add PI if missing
-	if err := addPrincipalInvestigatorFromProposal(user, metaDataMap, client, APIServer, accessGroups); err != nil {
+	if err := addPrincipalInvestigatorFromProposal(user, metaDataMap, client, APIServer); err != nil {
 		return err
 	}
 
@@ -276,7 +276,7 @@ func GatherMissingMetadata(user map[string]string, metaDataMap map[string]interf
 	return nil
 }
 
-func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap map[string]interface{}, client *http.Client, APIServer string, accessGroups []string) error {
+func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap map[string]interface{}, client *http.Client, APIServer string) error {
 	typeVal, ok := metaDataMap["type"]
 	if !ok {
 		return fmt.Errorf("type doesn't exist as an attribute")
