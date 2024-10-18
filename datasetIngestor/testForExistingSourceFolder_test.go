@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,10 +13,12 @@ import (
 
 func TestTestForExistingSourceFolder(t *testing.T) {
 	t.Run("test with empty response", func(t *testing.T) {
+		folders := []string{"folder1", "folder2"}
+
 		// Create a mock server
 		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			// Test request parameters
-			assert.Equal(t, req.URL.String(), "/Datasets?access_token=testToken")
+			assert.Equal(t, req.URL.String(), "/datasets?filter="+url.QueryEscape(createFilter(folders)))
 			// Send response to be tested
 			rw.Write([]byte(`[]`))
 		}))
@@ -27,19 +30,19 @@ func TestTestForExistingSourceFolder(t *testing.T) {
 		APIServer := server.URL
 		accessToken := "testToken"
 
-		folders := []string{"folder1", "folder2"}
-
 		// TODO test the results of this function
 		TestForExistingSourceFolder(folders, client, APIServer, accessToken)
 	})
 
 	t.Run("test with existing folders and allowExistingSourceFolder true", func(t *testing.T) {
+		folders := []string{"folder1", "folder2"}
+
 		// Create a mock server
 		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			// Test request parameters
-			assert.Equal(t, req.URL.String(), "/Datasets?access_token=testToken")
+			assert.Equal(t, req.URL.String(), "/datasets?filter="+url.QueryEscape(createFilter(folders)))
 			// Send response to be tested
-			rw.Write([]byte(`[{"folder": "folder1"}]`))
+			rw.Write([]byte(`[{"sourceFolder":"folder1","size":1,"ownerGroup":"group1"}]`))
 		}))
 		// Close the server when test finishes
 		defer server.Close()
@@ -48,8 +51,6 @@ func TestTestForExistingSourceFolder(t *testing.T) {
 		client := server.Client()
 		APIServer := server.URL
 		accessToken := "testToken"
-
-		folders := []string{"folder1", "folder2"}
 
 		// TODO test the results of this function.
 		TestForExistingSourceFolder(folders, client, APIServer, accessToken)

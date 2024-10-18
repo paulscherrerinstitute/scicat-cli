@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/fatih/color"
@@ -31,32 +32,36 @@ func ReadAndCheckMetadata(client *http.Client, APIServer string, metadatafile st
 	if err != nil {
 		return nil, "", false, err
 	}
+	sourceFolder, beamlineAccount, err = CheckMetadata(client, APIServer, metaDataMap, user, accessGroups)
+	return metaDataMap, sourceFolder, beamlineAccount, err
+}
 
+func CheckMetadata(client *http.Client, APIServer string, metaDataMap map[string]interface{}, user map[string]string, accessGroups []string) (sourceFolder string, beamlineAccount bool, err error) {
 	if keys := CollectIllegalKeys(metaDataMap); len(keys) > 0 {
-		return nil, "", false, errors.New(ErrIllegalKeys + ": \"" + strings.Join(keys, "\", \"") + "\"")
+		return "", false, errors.New(ErrIllegalKeys + ": \"" + strings.Join(keys, "\", \"") + "\"")
 	}
 
 	beamlineAccount, err = CheckUserAndOwnerGroup(user, accessGroups, metaDataMap)
 	if err != nil {
-		return nil, "", false, err
+		return "", false, err
 	}
 
 	err = GatherMissingMetadata(user, metaDataMap, client, APIServer, accessGroups)
 	if err != nil {
-		return nil, "", false, err
+		return "", false, err
 	}
 
-	err = CheckMetadataValidity(client, APIServer, metaDataMap)
+	err = CheckMetadataValidity(client, APIServer, user["accessToken"], metaDataMap)
 	if err != nil {
-		return nil, "", false, err
+		return "", false, err
 	}
 
 	sourceFolder, err = GetSourceFolder(metaDataMap)
 	if err != nil {
-		return nil, "", false, err
+		return "", false, err
 	}
 
-	return metaDataMap, sourceFolder, beamlineAccount, nil
+	return sourceFolder, beamlineAccount, nil
 }
 
 // ReadMetadataFromFile reads the metadata from the file and unmarshals it into a map.
@@ -174,8 +179,15 @@ func CheckUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 	return false, nil
 }
 
+func isValidDomain(domain string) bool {
+	// Regular expression to validate domain name
+	regex := `^(?:a-zA-Z0-9?\.)+[a-zA-Z]{2,}$`
+	match, _ := regexp.MatchString(regex, domain)
+	return match
+}
+
 // getHost is a function that attempts to retrieve and return the fully qualified domain name (FQDN) of the current host.
-// If it encounters any error during the process, it gracefully falls back to returning the simple hostname or "unknown".
+// If it encounters any error during the process, it falls back to returning "unknown", as a simple hostname won't work with v4 backend
 func getHost() string {
 	// Try to get the hostname of the current machine.
 	hostname, err := os.Hostname()
@@ -185,24 +197,29 @@ func getHost() string {
 
 	addrs, err := net.LookupIP(hostname)
 	if err != nil {
-		return hostname
+		return unknown
 	}
 
 	for _, addr := range addrs {
-		if ipv4 := addr.To4(); ipv4 != nil {
-			ip, err := ipv4.MarshalText()
-			if err != nil {
-				return hostname
-			}
-			hosts, err := net.LookupAddr(string(ip))
-			if err != nil || len(hosts) == 0 {
-				return hostname
-			}
-			fqdn := hosts[0]
-			return strings.TrimSuffix(fqdn, ".") // return fqdn without trailing dot
+		ipv4 := addr.To4()
+		if ipv4 == nil {
+			continue
 		}
+		ip, err := ipv4.MarshalText()
+		if err != nil {
+			continue
+		}
+		hosts, err := net.LookupAddr(string(ip))
+		if err != nil || len(hosts) == 0 {
+			continue
+		}
+		fqdn := strings.TrimSuffix(hosts[0], ".") // fqdn without trailing dot
+		if !isValidDomain(fqdn) {
+			continue
+		}
+		return fqdn
 	}
-	return hostname
+	return unknown
 }
 
 // GatherMissingMetadata augments missing metadata fields.
@@ -234,14 +251,32 @@ func GatherMissingMetadata(user map[string]string, metaDataMap map[string]interf
 	}
 
 	// for raw data add PI if missing
-	if err := addPrincipalInvestigatorFromProposal(user, metaDataMap, client, APIServer, accessGroups); err != nil {
+	if err := addPrincipalInvestigatorFromProposal(user, metaDataMap, client, APIServer); err != nil {
 		return err
+	}
+
+	// add/append accessGroups entry for beamline if creationLocation is defined
+	if value, exists := metaDataMap["creationLocation"]; exists {
+		var parts = strings.Split(value.(string), "/")
+		if len(parts) == 4 {
+			newGroup := strings.ToLower(parts[2]) + strings.ToLower(parts[3])
+			if accessGroups, ok := metaDataMap["accessGroups"]; ok {
+				switch v := accessGroups.(type) {
+				case []string:
+					metaDataMap["accessGroups"] = append(v, newGroup)
+				default:
+					return fmt.Errorf("'accessGroups' is not a list of strings")
+				}
+			} else {
+				metaDataMap["accessGroups"] = []string{newGroup}
+			}
+		}
 	}
 
 	return nil
 }
 
-func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap map[string]interface{}, client *http.Client, APIServer string, accessGroups []string) error {
+func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap map[string]interface{}, client *http.Client, APIServer string) error {
 	typeVal, ok := metaDataMap["type"]
 	if !ok {
 		return fmt.Errorf("type doesn't exist as an attribute")
@@ -268,7 +303,7 @@ func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap ma
 		return fmt.Errorf("ownerGroup is not a string")
 	}
 
-	proposal, err := datasetUtils.GetProposal(client, APIServer, ownerGroup, user, accessGroups)
+	proposal, err := datasetUtils.GetProposal(client, APIServer, ownerGroup, user)
 	if err != nil {
 		return fmt.Errorf("failed to get proposal: %v", err)
 	}
@@ -287,26 +322,8 @@ func addPrincipalInvestigatorFromProposal(user map[string]string, metaDataMap ma
 }
 
 // CheckMetadataValidity checks the validity of the metadata by calling the appropriate API.
-func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap map[string]interface{}) error {
-	dstype, ok := metaDataMap["type"].(string)
-	if !ok {
-		return fmt.Errorf("metadata type isn't a string")
-	}
-
-	myurl := ""
-	switch dstype {
-	case raw:
-		myurl = APIServer + "/RawDatasets/isValid"
-	case "derived":
-		myurl = APIServer + "/DerivedDatasets/isValid"
-	case "base":
-		myurl = APIServer + "/Datasets/isValid"
-	default:
-		return fmt.Errorf("unknown dataset type encountered: %s", dstype)
-	}
-
+func CheckMetadataValidity(client *http.Client, APIServer string, token string, metaDataMap map[string]interface{}) error {
 	// add dummy data for fields which can only be filled after file scan to pass the validity test
-
 	if _, exists := metaDataMap["ownerGroup"]; !exists {
 		metaDataMap["ownerGroup"] = DUMMY_OWNER
 	}
@@ -319,38 +336,17 @@ func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 		}
 	}
 
-	// add accessGroups entry for beamline if creationLocation is defined
-
-	if value, exists := metaDataMap["creationLocation"]; exists {
-		var parts = strings.Split(value.(string), "/")
-		var groups []string
-		if len(parts) == 4 {
-			newGroup := strings.ToLower(parts[2]) + strings.ToLower(parts[3])
-
-			if ag, exists := metaDataMap["accessGroups"]; exists {
-				// a direct typecast does not work, this loop is needed
-				aInterface := ag.([]interface{})
-				aString := make([]string, len(aInterface))
-				for i, v := range aInterface {
-					aString[i] = v.(string)
-				}
-				groups = append(aString, newGroup)
-			} else {
-				groups = append(groups, newGroup)
-			}
-		}
-		metaDataMap["accessGroups"] = groups
-	}
-
+	// request validity check (must be logged-in)
 	bmm, err := json.Marshal(metaDataMap)
 	if err != nil {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bmm))
+	req, err := http.NewRequest("POST", APIServer+"/datasets/isValid", bytes.NewBuffer(bmm))
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -363,9 +359,26 @@ func CheckMetadataValidity(client *http.Client, APIServer string, metaDataMap ma
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	_, err = io.ReadAll(resp.Body)
+	// check response (if {"valid": true} then the metadata is correct)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
+	}
+
+	var responseMap map[string]interface{}
+	json.Unmarshal(body, &responseMap)
+	isValid, ok := responseMap["valid"]
+	if !ok {
+		return fmt.Errorf("no 'valid' attribute was returned in JSON response")
+	}
+
+	switch v := isValid.(type) {
+	case bool:
+		if !v {
+			return fmt.Errorf("metadata is not valid")
+		}
+	default:
+		return fmt.Errorf("'valid' contains non-boolean value")
 	}
 
 	return nil

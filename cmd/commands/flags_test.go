@@ -26,8 +26,9 @@ func TestMainFlags(t *testing.T) {
 				"user":           "",
 				"token":          "",
 				"tapecopies":     1,
+				"ownergroup":     "a",
 			},
-			args: []string{"datasetArchiver", "an argument placeholder"},
+			args: []string{"datasetArchiver", "--ownergroup", "a", "an argument placeholder"},
 		},
 		{
 			name: "datasetArchiver test with all flags set",
@@ -40,6 +41,7 @@ func TestMainFlags(t *testing.T) {
 				"user":           "usertest:passtest",
 				"token":          "token",
 				"tapecopies":     6571579,
+				"ownergroup":     "group1",
 			},
 			args: []string{
 				"datasetArchiver",
@@ -55,6 +57,8 @@ func TestMainFlags(t *testing.T) {
 				"6571579",
 				"--version",
 				"an argument placeholder",
+				"--ownergroup",
+				"group1",
 			},
 		},
 		// datasetCleaner
