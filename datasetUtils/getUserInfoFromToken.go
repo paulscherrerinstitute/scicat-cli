@@ -54,8 +54,7 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 	if err != nil {
 		return map[string]string{}, []string{}, err
 	}
-	filterString := url.QueryEscape(fmt.Sprintf("{\"where\":{\"userId\":\"%s\"}}", newUserInfo.Id))
-	req2, err := http.NewRequest("GET", APIServer+"/useridentities/findOne?filter="+filterString, nil)
+	req2, err := http.NewRequest("GET", APIServer+"/users/"+url.QueryEscape(newUserInfo.Id)+"/userIdentity", nil)
 	if err != nil {
 		return map[string]string{}, []string{}, err
 	}
