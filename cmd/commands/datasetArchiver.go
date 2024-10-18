@@ -58,6 +58,7 @@ For further help see "` + MANUAL + `"`,
 				"devenv":         devenvFlag,
 				"noninteractive": nonInteractiveFlag,
 				"version":        showVersion,
+				"ownergroup":     ownergroupFlag,
 			})
 			return
 		}
