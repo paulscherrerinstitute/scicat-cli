@@ -116,7 +116,7 @@ func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup str
 	datasetList = make([]string, 0)
 
 	filter := ""
-	if ownerGroup != "" {
+	if len(inputdatasetList) == 0 {
 		filter = `{"where":{"ownerGroup":"` + ownerGroup + `","datasetlifecycle.archivable":true},"fields": {"pid":1,"size":1,"sourceFolder":1}}`
 		var err error
 		datasetList, err = addResult(client, APIServer, filter, accessToken, datasetList)

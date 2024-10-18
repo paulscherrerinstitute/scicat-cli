@@ -309,6 +309,10 @@ For Windows you need instead to specify -user username:password on the command l
 
 		// now everything is prepared, prepare to loop over all folders
 		var archivableDatasetList []string
+		archivableDatasetListOwnerGroup, ok := metaDataMap["ownerGroup"].(string)
+		if !ok {
+			log.Fatal("can't recover ownerGroup. This should normally be impossible as the checkMetadata function should've caught it already.")
+		}
 		for _, datasetSourceFolder := range datasetPaths {
 			log.Printf("===== Ingesting: \"%s\" =====\n", datasetSourceFolder)
 			// ignore empty lines
@@ -516,17 +520,19 @@ For Windows you need instead to specify -user username:password on the command l
 			os.Exit(1)
 		}
 
-		// === create archive job ===
+		// === create archive jobs ===
 		if autoarchiveFlag && ingestFlag {
 			log.Printf("Submitting Archive Job for the ingested datasets.\n")
 			// TODO: change param type from pointer to regular as it is unnecessary
 			//   for it to be passed as pointer
-			jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, accessGroups, archivableDatasetList, &tapecopies)
+			jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasetListOwnerGroup, archivableDatasetList, &tapecopies)
+
 			if err != nil {
 				color.Set(color.FgRed)
-				log.Printf("Could not create the archival job for the ingested datasets: %s", err.Error())
+				log.Printf("Could not create the archival job for the ingested datasets: %s\n", err.Error())
 				color.Unset()
 			}
+
 			log.Println("Submitted job:", jobId)
 		}
 

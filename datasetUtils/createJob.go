@@ -19,17 +19,19 @@ The function constructs a job map with various parameters, including the email o
 
 The job map is then marshalled into JSON and sent as a POST request to the server. If the server responds with a status code of 200, the function decodes the job ID from the response and returns it. If the server responds with any other status code, the function returns an empty string.
 
+Note that the job will belong to one specific ownerGroup. Use CreateArchivalJobs to create a job per ownergroup.
+
 Parameters:
 - client: A pointer to an http.Client instance
 - APIServer: A string representing the API server URL
 - user: A map with string keys and values representing user information
-- datasetList: A slice of strings representing the list of datasets
+- datasetMap: A list of datasets grouped by ownerGroups
 - tapecopies: A pointer to an integer representing the number of tape copies
 
 Returns:
 - jobId: A string representing the job ID if the job was successfully created, or an empty string otherwise
 */
-func CreateArchivalJob(client *http.Client, APIServer string, user map[string]string, accessGroups []string, datasetList []string, tapecopies *int) (jobId string, err error) {
+func CreateArchivalJob(client *http.Client, APIServer string, user map[string]string, ownerGroup string, datasetList []string, tapecopies *int) (jobId string, err error) {
 	// important: define field with capital names and rename fields via 'json' constructs
 	// otherwise the marshaling will omit the fields !
 
@@ -52,8 +54,8 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 		ContactEmail string          `json:"contactEmail"`
 	}
 
-	if len(accessGroups) <= 0 {
-		return "", fmt.Errorf("no access groups associated with user")
+	if ownerGroup == "" {
+		return "", fmt.Errorf("no owner group was specified")
 	}
 
 	//jobMap["creationTime"] = time.Now().Format(time.RFC3339)
@@ -79,7 +81,7 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 			DatasetList: dsMap,
 		},
 		OwnerUser:    user["username"],
-		OwnerGroup:   accessGroups[0],
+		OwnerGroup:   ownerGroup,
 		ContactEmail: user["mail"],
 	}
 
@@ -118,4 +120,40 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 		return "", fmt.Errorf("CreateJob - could not decode id from job: %v", err)
 	}
 	return j.Id, err
+}
+
+// Auxilary function to CreateArchivalJob when you need to use a list of datasets grouped by ownerGroups
+func CreateArchivalJobs(client *http.Client, APIServer string, user map[string]string, groupedDatasetLists map[string][]string, tapecopies *int) (jobIds []string, errs []error) {
+	jobIds = make([]string, len(groupedDatasetLists))
+	errs = make([]error, len(groupedDatasetLists))
+	i := 0
+	for group := range groupedDatasetLists {
+		jobIds[i], errs[i] = CreateArchivalJob(client, APIServer, user, group, groupedDatasetLists[group], tapecopies)
+	}
+	return jobIds, errs
+}
+
+// This function creates a map that groups datasets by ownerGroups
+func GroupDatasetsByOwnerGroup(datasetList []string, ownerGroupList []string) (groupedDatasets map[string][]string, err error) {
+	if len(datasetList) != len(ownerGroupList) {
+		return nil, fmt.Errorf("datasetList and ownerGroupList are not the same length")
+	}
+
+	groupedDatasets = make(map[string][]string)
+
+	for _, ownerGroup := range ownerGroupList {
+		groupedDatasets[ownerGroup] = []string{}
+	}
+
+	for ownerGroup := range groupedDatasets {
+		var currList []string
+		for i, currentOwnerGroup := range ownerGroupList {
+			if ownerGroup == currentOwnerGroup {
+				currList = append(currList, datasetList[i])
+			}
+		}
+		groupedDatasets[ownerGroup] = currList
+	}
+
+	return groupedDatasets, nil
 }

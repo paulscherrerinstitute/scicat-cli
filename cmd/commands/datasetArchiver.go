@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -26,7 +25,6 @@ Or you choose a (list of) datasetIds, in which case all archivable datasets
 of this list not yet archived will be archived. 
 
 For further help see "` + MANUAL + `"`,
-	Args: minArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// consts & vars
 		var client = &http.Client{
@@ -47,6 +45,7 @@ For further help see "` + MANUAL + `"`,
 		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		nonInteractiveFlag, _ := cmd.Flags().GetBool("noninteractive")
+		ownergroupFlag, _ := cmd.Flags().GetString("ownergroup")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
 		if datasetUtils.TestFlags != nil {
@@ -89,21 +88,15 @@ For further help see "` + MANUAL + `"`,
 		log.Printf("You are about to archive dataset(s) to the === %s === data catalog environment...", env)
 		color.Unset()
 
-		ownerGroup := ""
-		inputdatasetList := make([]string, 0)
+		ownerGroup := ownergroupFlag
 
-		// argsWithoutProg := os.Args[1:]
-		if len(args) <= 0 {
-			log.Fatalln("invalid number of args")
-		}
-
-		if len(args) == 1 && !strings.Contains(args[0], "/") {
-			ownerGroup = args[0]
-		} else {
+		// optional list of dataset id's, if not specified, the full list of datasets of the ownergroup will be archived
+		var inputdatasetList []string
+		if len(args) > 0 {
 			inputdatasetList = args[0:]
 		}
 
-		user, accessGroups, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -131,7 +124,7 @@ For further help see "` + MANUAL + `"`,
 
 		log.Printf("You chose to archive the new datasets\n")
 		log.Printf("Submitting Archive Job for the ingested datasets.\n")
-		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, accessGroups, archivableDatasets, &tapecopies)
+		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, ownerGroup, archivableDatasets, &tapecopies)
 		if err != nil {
 			log.Fatalf("Couldn't create a job: %s\n", err.Error())
 		}
@@ -147,6 +140,8 @@ func init() {
 	datasetArchiverCmd.Flags().Bool("localenv", false, "Use local environment (local) instead or production")
 	datasetArchiverCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
 	datasetArchiverCmd.Flags().Bool("noninteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
+	datasetArchiverCmd.Flags().String("ownergroup", "", "Specifies to which owner group should the archival job belong. If no datasets id's are passed, all datasets belonging to this ownergroup that can also be marked as archivable will be included")
 
 	datasetArchiverCmd.MarkFlagsMutuallyExclusive("testenv", "localenv", "devenv")
+	datasetArchiverCmd.MarkFlagRequired("ownergroup")
 }

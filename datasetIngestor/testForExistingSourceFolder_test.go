@@ -42,7 +42,7 @@ func TestTestForExistingSourceFolder(t *testing.T) {
 			// Test request parameters
 			assert.Equal(t, req.URL.String(), "/datasets?filter="+url.QueryEscape(createFilter(folders)))
 			// Send response to be tested
-			rw.Write([]byte(`[{"folder": "folder1"}]`))
+			rw.Write([]byte(`[{"sourceFolder":"folder1","size":1,"ownerGroup":"group1"}]`))
 		}))
 		// Close the server when test finishes
 		defer server.Close()
