@@ -122,7 +122,7 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 	return j.Id, err
 }
 
-// Auxilary function to CreateArchivalJob when you need to use a list of datasets grouped by ownerGroups
+// Auxiliary function to CreateArchivalJob when you need to use a list of datasets grouped by ownerGroups
 func CreateArchivalJobs(client *http.Client, APIServer string, user map[string]string, groupedDatasetLists map[string][]string, tapecopies *int) (jobIds []string, errs []error) {
 	jobIds = make([]string, len(groupedDatasetLists))
 	errs = make([]error, len(groupedDatasetLists))
