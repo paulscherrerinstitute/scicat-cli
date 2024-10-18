@@ -53,8 +53,10 @@ func TestSendIngestCommand(t *testing.T) {
 	}
 
 	// Mock user map
+	const token = "sometoken"
 	user := map[string]string{
 		"displayName": "test user",
+		"accessToken": token,
 	}
 
 	// Mock metaDataMap
@@ -70,10 +72,16 @@ func TestSendIngestCommand(t *testing.T) {
 		{Size: 400},
 	}
 
+	const expectedAuthHeaderValue = "Bearer " + token
+
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Respond with a fixed dataset ID when a new dataset is created
 		if strings.HasPrefix(req.URL.Path, "/datasets") {
+			authVal := req.Header.Get("Authorization")
+			if authVal != expectedAuthHeaderValue {
+				t.Errorf("Invalid Auth header value: %s", authVal)
+			}
 			rw.Write([]byte(`{"pid": "test-dataset-id"}`))
 		} else {
 			// Respond with a 200 status code when a new data block is created
