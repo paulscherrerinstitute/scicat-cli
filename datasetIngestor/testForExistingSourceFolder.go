@@ -24,6 +24,7 @@ type DatasetInfo struct {
 	Pid          string `json:"pid"`
 	SourceFolder string `json:"sourceFolder"`
 	Size         int    `json:"size"`
+	OwnerGroup   string `json:"ownerGroup"`
 }
 
 type DatasetQuery []DatasetInfo
@@ -70,7 +71,7 @@ func TestForExistingSourceFolder(folders []string, client *http.Client, APIServe
 
 func createFilter(sourceFolderList []string) string {
 	header := `{"where":{"sourceFolder":{"inq":["`
-	tail := `"]}},"fields": {"pid":1,"size":1,"sourceFolder":1}}`
+	tail := `"]}},"fields": {"pid":1,"size":1,"sourceFolder":1,"ownerGroup":1}}`
 	return fmt.Sprintf("%s%s%s", header, strings.Join(sourceFolderList, "\",\""), tail)
 }
 

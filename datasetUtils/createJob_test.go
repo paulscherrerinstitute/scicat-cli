@@ -41,7 +41,7 @@ func TestCreateJob(t *testing.T) {
 		*tapecopies = 1
 
 		// Call the function
-		jobId, err := CreateArchivalJob(client, APIServer, user, []string{"group1"}, datasetList, tapecopies)
+		jobId, err := CreateArchivalJob(client, APIServer, user, "group1", datasetList, tapecopies)
 		if err != nil {
 			t.Errorf("Unexpected error received: %v", err)
 		}
@@ -74,7 +74,7 @@ func TestCreateJob(t *testing.T) {
 		*tapecopies = 1
 
 		// Call the function
-		jobId, err := CreateArchivalJob(client, APIServer, user, []string{"group1"}, datasetList, tapecopies)
+		jobId, err := CreateArchivalJob(client, APIServer, user, "group1", datasetList, tapecopies)
 		if err == nil {
 			t.Errorf("Expected an error to be returned from CreateJob")
 		}
@@ -112,7 +112,7 @@ func TestCreateJob(t *testing.T) {
 		*tapecopies = 1
 
 		// Call the function
-		jobId, err := CreateArchivalJob(client, APIServer, user, []string{"group1"}, datasetList, tapecopies)
+		jobId, err := CreateArchivalJob(client, APIServer, user, "group1", datasetList, tapecopies)
 
 		if err == nil {
 			t.Error("Expected an error to be returned from CreateJob")
@@ -196,7 +196,7 @@ func TestCreateJob(t *testing.T) {
 		}
 
 		// Call the function with the mock client
-		jobId, err := CreateArchivalJob(client, server.URL, user, []string{"group1"}, datasetList, tapecopies)
+		jobId, err := CreateArchivalJob(client, server.URL, user, "group1", datasetList, tapecopies)
 		if err != nil {
 			t.Errorf("Got an error when creating a job: %s", err.Error())
 		}

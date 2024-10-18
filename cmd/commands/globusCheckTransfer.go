@@ -133,10 +133,9 @@ For further help see "` + MANUAL + `"`,
 
 		// logging into scicat and globus...
 		var user map[string]string
-		var accessGroups []string
 		if markArchivable {
 			var err error
-			user, accessGroups, err = authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+			user, _, err = authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -148,17 +147,21 @@ For further help see "` + MANUAL + `"`,
 		}
 
 		// go through each transfer task, and execute the requested operations
-		var archivableDatasetList []string
+		archivableDatasetMap := make(map[string][]string)
 		for _, taskId := range args {
-			archivableDatasetList = append(
-				archivableDatasetList,
-				globusCheckTransferHandleTransferTask(globusClient, taskId, markArchivable, gConfig, skipDestPathCheck, dryRun, client, APIServer, user)...,
-			)
+			groupedDatasets := globusCheckTransferHandleTransferTask(globusClient, taskId, markArchivable, gConfig, skipDestPathCheck, dryRun, client, APIServer, user)
+			for group := range groupedDatasets {
+				if _, ok := archivableDatasetMap[group]; ok {
+					archivableDatasetMap[group] = append(archivableDatasetMap[group], groupedDatasets[group]...)
+				} else {
+					archivableDatasetMap[group] = groupedDatasets[group]
+				}
+			}
 		}
 
 		// === create archive job ===
 		if autoarchiveFlag {
-			globusCheckTransferCreateArchiveJob(client, APIServer, user, accessGroups, archivableDatasetList, tapecopies)
+			globusCheckTransferCreateArchiveJobs(client, APIServer, user, archivableDatasetMap, tapecopies)
 		}
 	},
 }
@@ -182,17 +185,23 @@ func init() {
 	globusCheckTransfer.MarkFlagsMutuallyExclusive("dry-run", "tapecopies")
 }
 
-func globusCheckTransferCreateArchiveJob(client *http.Client, APIServer string, user map[string]string, accessGroups []string, archivableDatasetList []string, tapecopies int) {
+func globusCheckTransferCreateArchiveJobs(client *http.Client, APIServer string, user map[string]string, archivableDatasetMap map[string][]string, tapecopies int) {
 	log.Printf("Submitting Archive Job for archivable datasets.\n")
 	// TODO: change param type from pointer to regular as it is unnecessary
 	//   for it to be passed as pointer
-	jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, accessGroups, archivableDatasetList, &tapecopies)
-	if err != nil {
-		color.Set(color.FgRed)
-		log.Printf("Could not create the archival job for the ingested datasets: %s", err.Error())
-		color.Unset()
+	jobIds, errs := datasetUtils.CreateArchivalJobs(client, APIServer, user, archivableDatasetMap, &tapecopies)
+
+	color.Set(color.FgRed)
+	for _, err := range errs {
+		if err != nil {
+			// normally this only happens if either not the same user checks the completion, the tool somehow adds others' datasets into the list or
+			// the user lost access groups in the mean time
+			log.Printf("Could not create the archival job for a set of the ingested datasets: %s\n", err.Error())
+		}
 	}
-	log.Println("Submitted job:", jobId)
+	color.Unset()
+
+	log.Println("Submitted jobs:", jobIds)
 }
 
 func globusCheckTransferHandleTransferTask(
@@ -204,11 +213,13 @@ func globusCheckTransferHandleTransferTask(
 	client *http.Client,
 	APIServer string,
 	user map[string]string,
-) (archivableDatasetList []string) {
+) (archivableDatasetMap map[string][]string) {
+	archivableDatasetMap = make(map[string][]string)
+
 	task, err := globusClient.TransferGetTaskByID(taskId)
 	if err != nil {
 		log.Printf("Transfer task with ID \"%s\" returned error: %v\n", taskId, err)
-		return []string{}
+		return nil
 	}
 	fmt.Printf("Task status: \n=====\n%v\n=====\n", task)
 
@@ -216,7 +227,7 @@ func globusCheckTransferHandleTransferTask(
 	if markArchivable && task.Status == "SUCCEEDED" {
 		if task.SourceBasePath == nil {
 			log.Printf("Can't get source base path for task \"%s\". It will not be marked as archivable, but can probably be archived.\n", taskId)
-			return []string{}
+			return nil
 		}
 
 		// get source and dest folders
@@ -227,7 +238,7 @@ func globusCheckTransferHandleTransferTask(
 		if !skipDestPathCheck {
 			if task.DestinationBasePath == nil {
 				log.Printf("Can't get destination base path for task \"%s\". It will not be marked as archivable, but can probably be archived.\n", taskId)
-				return []string{}
+				return nil
 			}
 			destFolder = *task.DestinationBasePath
 		}
@@ -238,12 +249,12 @@ func globusCheckTransferHandleTransferTask(
 		if err != nil {
 			log.Printf("WARNING - an error has occurred when querying the sourcefolder \"%s\" of task id \"%s\": %v\n", sourceFolder, taskId, err)
 			log.Printf("Can't set %s task's dataset to archivable.\n", taskId)
-			return []string{}
+			return nil
 		}
 		if len(list) <= 0 {
 			log.Printf("WARNING - empty dataset list returned for the sourcefolder \"%s\" of task id \"%s\": %v\n", sourceFolder, taskId, err)
 			log.Printf("Can't set %s task's dataset to archivable.\n", taskId)
-			return []string{}
+			return nil
 		}
 		if dryRun {
 			log.Println("list of found datasets:")
@@ -251,7 +262,7 @@ func globusCheckTransferHandleTransferTask(
 				fmt.Printf(" - %s\n", result.Pid)
 			}
 			log.Println("since dry-run is set, the command will not attempt to mark the above datasets as archivable, or try to archive them")
-			return []string{}
+			return nil
 		}
 
 		for _, result := range list {
@@ -275,7 +286,11 @@ func globusCheckTransferHandleTransferTask(
 				continue
 			}
 			log.Printf("%s dataset was successfully marked as archivable.\n", result.Pid)
-			archivableDatasetList = append(archivableDatasetList, result.Pid)
+			if _, ok := archivableDatasetMap[result.OwnerGroup]; ok {
+				archivableDatasetMap[result.OwnerGroup] = append(archivableDatasetMap[result.OwnerGroup], result.Pid)
+			} else {
+				archivableDatasetMap[result.OwnerGroup] = []string{result.Pid}
+			}
 		}
 	}
 
@@ -284,5 +299,5 @@ func globusCheckTransferHandleTransferTask(
 		log.Printf("%s task's status is %s, the corresponding dataset can't be marked as archivable.\n", taskId, task.Status)
 	}
 
-	return archivableDatasetList
+	return archivableDatasetMap
 }
