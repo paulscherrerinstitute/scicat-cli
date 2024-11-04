@@ -6,8 +6,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
+
+	"golang.org/x/exp/maps"
 )
 
 type Dataset struct {
@@ -34,8 +35,8 @@ Returns:
 - A slice of Dataset structs containing the details of the datasets that match the owner group filter.
 */
 func GetDatasetDetails(client *http.Client, APIServer string, accessToken string, datasetList []string, ownerGroup string) ([]Dataset, []string, error) {
-	var returnedDatasets []Dataset
 	var missingDatasetIds []string
+	datasetMap := make(map[string]Dataset)
 
 	// split large request into chunks
 	chunkSize := 100
@@ -45,9 +46,12 @@ func GetDatasetDetails(client *http.Client, APIServer string, accessToken string
 			end = len(datasetList)
 		}
 
-		filter := `{"where":{"pid":{"inq":["` +
-			strings.Join(datasetList[i:end], `","`) +
-			`"]}},"fields":{"pid":true,"sourceFolder":true,"size":true,"ownerGroup":true}}`
+		// assembling filter for the query
+		filter := `{"where":{"pid":{"inq":["` + strings.Join(datasetList[i:end], `","`) + `"]}`
+		if ownerGroup != "" {
+			filter += `,"ownerGroup":"` + ownerGroup + `"`
+		}
+		filter += `},"fields":{"pid":true,"sourceFolder":true,"size":true,"ownerGroup":true}}`
 
 		v := url.Values{}
 		v.Set("filter", filter)
@@ -58,20 +62,19 @@ func GetDatasetDetails(client *http.Client, APIServer string, accessToken string
 			return nil, nil, err
 		}
 
-		for _, datasetId := range datasetList[i:end] {
-			datasetHasIdAndOwnerGroup := func(dataset Dataset) bool {
-				return dataset.Pid == datasetId && (ownerGroup == "" || dataset.OwnerGroup == ownerGroup)
-			}
-
-			i := slices.IndexFunc(datasetDetails, datasetHasIdAndOwnerGroup) // linear search!
-			if i >= 0 {
-				returnedDatasets = append(returnedDatasets, datasetDetails[i]) // found id
-			} else {
-				missingDatasetIds = append(missingDatasetIds, datasetId) // id missing
-			}
+		for _, dataset := range datasetDetails {
+			fmt.Printf("ALMA\n")
+			datasetMap[dataset.Pid] = dataset
 		}
 	}
-	return returnedDatasets, missingDatasetIds, nil
+
+	for _, datasetId := range datasetList {
+		if _, ok := datasetMap[datasetId]; !ok {
+			missingDatasetIds = append(missingDatasetIds, datasetId)
+		}
+	}
+
+	return maps.Values(datasetMap), missingDatasetIds, nil
 }
 
 func fetchDatasetDetails(client *http.Client, token string, url string) ([]Dataset, error) {
