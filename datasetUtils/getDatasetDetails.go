@@ -33,6 +33,8 @@ The function sends HTTP GET requests to the API server in chunks of 100 datasets
 
 Returns:
 - A slice of Dataset structs containing the details of the datasets that match the owner group filter.
+- A slice of id's that were not found with the given parameters
+- error if something goes wrong
 */
 func GetDatasetDetails(client *http.Client, APIServer string, accessToken string, datasetList []string, ownerGroup string) ([]Dataset, []string, error) {
 	var missingDatasetIds []string
