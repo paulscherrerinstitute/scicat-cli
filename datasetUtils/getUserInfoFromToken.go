@@ -54,12 +54,12 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 	if err != nil {
 		return map[string]string{}, []string{}, err
 	}
-	req2, err := http.NewRequest("GET", APIServer+"/users/"+url.QueryEscape(newUserInfo.Id)+"/userIdentity", nil)
+	filterString := url.QueryEscape(fmt.Sprintf("{\"where\":{\"userId\":\"%s\"}}", newUserInfo.Id))
+	req2, err := http.NewRequest("GET", APIServer+"/useridentities/findOne?filter="+filterString, nil)
 	if err != nil {
 		return map[string]string{}, []string{}, err
 	}
 	req2.Header.Set("Authorization", bearerToken)
-
 	resp2, err := client.Do(req2)
 	if err != nil {
 		return map[string]string{}, []string{}, err
@@ -88,6 +88,5 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 	u["displayName"] = respObj.Profile.DisplayName
 	u["accessToken"] = token
 	accessGroups = respObj.Profile.AccessGroups
-
 	return u, accessGroups, nil
 }
