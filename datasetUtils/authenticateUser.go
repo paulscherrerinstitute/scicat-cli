@@ -26,7 +26,7 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 
 	// try functional accounts first
 
-	req, err := http.NewRequest("POST", APIServer+"/Users/login", bytes.NewBuffer(cred))
+	req, err := http.NewRequest("POST", APIServer+"/auth/login", bytes.NewBuffer(cred))
 	if err != nil {
 		return map[string]string{}, []string{}, err
 	}
@@ -36,7 +36,8 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 		return map[string]string{}, []string{}, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == 200 {
+
+	if resp.StatusCode == 201 {
 		// important: use capital first character in field names!
 		type Auth struct {
 			UserId string
@@ -72,7 +73,7 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 			return map[string]string{}, []string{}, err
 		}
 		defer resp.Body.Close()
-		if resp.StatusCode == 200 {
+		if resp.StatusCode == 201 {
 			// response Body: {"access_token":"9EeA7sNeJrzAHpltZi8yVWMntgEPEjikmzFns7GXgtd00GYNEezZUO4at4q5MDIz","userId":"5971bfd88051720800aafc51"}
 			// important: use capital first character in field names!
 			type Auth2 struct {
@@ -113,7 +114,7 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 		}
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 201 {
 		return map[string]string{}, []string{}, fmt.Errorf("user %s: authentication failed", username)
 	}
 
