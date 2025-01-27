@@ -53,8 +53,10 @@ func authenticate(authenticator Authenticator, httpClient *http.Client, apiServe
 		var user, pass string
 		uSplit := strings.Split(userpass, ":")
 		if len(uSplit) > 1 {
+			user = uSplit[0]
 			pass = uSplit[1]
 		} else {
+			user = userpass
 			fmt.Print("Password: ")
 			pw, err := term.ReadPassword(int(syscall.Stdin))
 			if err != nil {
