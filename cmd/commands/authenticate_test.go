@@ -12,13 +12,16 @@ import (
 type MockAuthenticator struct{}
 
 func (m *MockAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string, error) {
-	if username == "" && password == "" {
+	if username == "" || password == "" {
 		return map[string]string{}, []string{}, fmt.Errorf("no username or password was provided")
 	}
-	return map[string]string{"username": "testuser", "password": "testpass"}, []string{"group1", "group2"}, nil
+	return map[string]string{"username": username, "password": password}, []string{"group1", "group2"}, nil
 }
 
 func (m *MockAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string, error) {
+	if token == "" {
+		return map[string]string{}, []string{}, fmt.Errorf("no token was provided")
+	}
 	return map[string]string{"username": "tokenuser", "password": "tokenpass"}, []string{"group3", "group4"}, nil
 }
 
