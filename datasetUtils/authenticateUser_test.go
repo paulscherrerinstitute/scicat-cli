@@ -242,5 +242,4 @@ func TestAuthenticateUser(t *testing.T) {
 		})
 	}
 	_ = tests
-
 }
