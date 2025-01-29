@@ -5,28 +5,46 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"strings"
 )
 
-func AuthenticateUser(client *http.Client, APIServer string, username string, password string) (map[string]string, []string, error) {
-	u := make(map[string]string)
-	accessGroups := make([]string, 0)
+type loginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
 
-	var credential = make(map[string]string)
+type loginResponse struct {
+	AccessToken string `json:"access_token"`
+}
 
-	credential["username"] = username
-	credential["password"] = password
-	cred, _ := json.Marshal(credential)
+type identityResponse struct {
+	Profile struct {
+		Username     string   `json:"username"`
+		DisplayName  string   `json:"displayName"`
+		Email        string   `json:"email"`
+		AccessGroups []string `json:"accessGroups"`
+	} `json:"profile"`
+}
 
-	mail := ""
-	displayName := ""
-	accessToken := ""
+func newLoginRequestJson(username string, password string) ([]byte, error) {
+	l := loginRequest{
+		Username: username,
+		Password: password,
+	}
+	return json.Marshal(l)
+}
 
-	// try functional accounts first
+func AuthenticateUser(client *http.Client, APIServer string, username string, password string, ldapLogin bool) (map[string]string, []string, error) {
+	loginReqJson, err := newLoginRequestJson(username, password)
+	if err != nil {
+		return map[string]string{}, []string{}, err
+	}
 
-	req, err := http.NewRequest("POST", APIServer+"/auth/login", bytes.NewBuffer(cred))
+	reqUrl := APIServer + "/auth/login" // "local" user login
+	if ldapLogin {
+		reqUrl = APIServer + "/auth/ldap" // "normal" user login
+	}
+	req, err := http.NewRequest("POST", reqUrl, bytes.NewBuffer(loginReqJson))
 	if err != nil {
 		return map[string]string{}, []string{}, err
 	}
@@ -37,93 +55,54 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == 201 {
-		// important: use capital first character in field names!
-		type Auth struct {
-			UserId string
-			Id     string
-		}
-		decoder := json.NewDecoder(resp.Body)
-		var auth Auth
-		err := decoder.Decode(&auth)
-		if err != nil {
-			return map[string]string{}, []string{}, err
-		}
-		// now get email from User collections
-		type User struct {
-			Username string
-			Email    string
-		}
-		user := new(User)
-		var myurl = APIServer + "/Users/" + auth.UserId + "?access_token=" + auth.Id
-		//fmt.Println("Url:", myurl)
-		GetJson(client, myurl, user)
-		mail = user.Email
-		displayName = user.Username
-		accessToken = auth.Id
-	} else {
-		// then try normal user account
-		req, err = http.NewRequest("POST", strings.Replace(APIServer, "api/v3", "auth/msad", 1), bytes.NewBuffer(cred))
-		if err != nil {
-			return map[string]string{}, []string{}, err
-		}
-		req.Header.Set("Content-Type", "application/json")
-		resp, err = client.Do(req)
-		if err != nil {
-			return map[string]string{}, []string{}, err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode == 201 {
-			// response Body: {"access_token":"9EeA7sNeJrzAHpltZi8yVWMntgEPEjikmzFns7GXgtd00GYNEezZUO4at4q5MDIz","userId":"5971bfd88051720800aafc51"}
-			// important: use capital first character in field names!
-			type Auth2 struct {
-				UserId       string
-				Access_token string
-			}
-			decoder := json.NewDecoder(resp.Body)
-			var auth2 Auth2
-			err := decoder.Decode(&auth2)
-			if err != nil {
-				return map[string]string{}, []string{}, err
-			}
-			// now get email from UserIdentity collections
-			var myurl = APIServer + "/UserIdentities?filter=%7B%22where%22%3A%7B%22userId%22%3A%22" + auth2.UserId + "%22%7D%7D&access_token=" + auth2.Access_token
-			resp, err := client.Get(myurl)
-			if err != nil {
-				return map[string]string{}, []string{}, err
-			}
-			defer resp.Body.Close()
-			body, _ := io.ReadAll(resp.Body)
-			//fmt.Printf("Result:%s",string(body))
-			type NormalUser struct {
-				Profile struct {
-					DisplayName  string
-					Email        string
-					AccessGroups []string
-				}
-			}
-			var users []NormalUser
-			_ = json.Unmarshal(body, &users)
-			mail = users[0].Profile.Email
-			displayName = users[0].Profile.DisplayName
-			accessGroups = users[0].Profile.AccessGroups
-			accessToken = auth2.Access_token
-
-			// create Kerberos TGT for normal user account, if not yet existing
-			RunKinit(username, password)
-		}
-	}
-
 	if resp.StatusCode != 201 {
-		return map[string]string{}, []string{}, fmt.Errorf("user %s: authentication failed", username)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return map[string]string{}, []string{}, fmt.Errorf("error when logging in: unknown error (can't parse body)")
+		}
+		return map[string]string{}, []string{}, fmt.Errorf("error when logging in: '%s'", string(body))
 	}
 
-	u["username"] = username
-	u["mail"] = mail
-	u["displayName"] = displayName
-	u["accessToken"] = accessToken
+	respJson, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return map[string]string{}, []string{}, err
+	}
+
+	var lr loginResponse
+	err = json.Unmarshal(respJson, &lr)
+	if err != nil {
+		return map[string]string{}, []string{}, err
+	}
+
+	req, err = http.NewRequest("GET", APIServer+"/users/my/identity", nil)
+	if err != nil {
+		return map[string]string{}, []string{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+lr.AccessToken)
+
+	resp, err = client.Do(req)
+	if err != nil {
+		return map[string]string{}, []string{}, err
+	}
+	defer resp.Body.Close()
+
+	respJson, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return map[string]string{}, []string{}, err
+	}
+
+	var ir identityResponse
+	err = json.Unmarshal(respJson, &ir)
+	if err != nil {
+		return map[string]string{}, []string{}, err
+	}
+
+	u := make(map[string]string)
+	u["username"] = ir.Profile.Username
+	u["mail"] = ir.Profile.Email
+	u["displayName"] = ir.Profile.DisplayName
+	u["accessToken"] = lr.AccessToken
 	u["password"] = password
-	log.Printf("User authenticated: %s %s\n", displayName, mail)
-	log.Printf("User is member in following a or p groups: %v\n", accessGroups)
-	return u, accessGroups, nil
+	return u, ir.Profile.AccessGroups, nil
 }

@@ -20,7 +20,15 @@ type Authenticator interface {
 type RealAuthenticator struct{}
 
 func (r RealAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string, error) {
-	return datasetUtils.AuthenticateUser(httpClient, APIServer, username, password)
+	user, groups, err := datasetUtils.AuthenticateUser(httpClient, APIServer, username, password, false)
+	if err != nil {
+		user, groups, err = datasetUtils.AuthenticateUser(httpClient, APIServer, username, password, true)
+		if err != nil {
+			return map[string]string{}, []string{}, err
+		}
+		datasetUtils.RunKinit(username, password) // PSI specific KerberOS user creation
+	}
+	return user, groups, err
 }
 
 func (r RealAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string, error) {
