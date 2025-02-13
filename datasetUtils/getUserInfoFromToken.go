@@ -27,6 +27,12 @@ type Email struct {
 	Value string `json:"value"`
 }
 
+type ErrorMsg struct {
+	Message    string `json:"message,omitempty"`
+	Error      string `json:"error,omitempty"`
+	StatusCode int    `json:"statusCode,omitempty"`
+}
+
 func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (map[string]string, []string, error) {
 	var newUserInfo ReturnedUser
 	var accessGroups []string
@@ -45,6 +51,14 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 	}
 	defer resp1.Body.Close()
 	body1, err := io.ReadAll(resp1.Body)
+	if resp1.StatusCode != 200 {
+		var e ErrorMsg
+		err := json.Unmarshal(body1, &e)
+		if err != nil {
+			return map[string]string{}, []string{}, fmt.Errorf("status %d - unknown response body: '%s'", resp1.StatusCode, string(body1))
+		}
+		return map[string]string{}, []string{}, fmt.Errorf("could not login with token: status %d - '%s'", resp1.StatusCode, e.Message)
+	}
 	if err := json.Unmarshal(body1, &newUserInfo); err != nil {
 		return map[string]string{}, []string{}, err
 	}
@@ -65,12 +79,17 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 		return map[string]string{}, []string{}, err
 	}
 	defer resp2.Body.Close()
-	if resp2.StatusCode != 200 {
-		return map[string]string{}, []string{}, fmt.Errorf("could not login with token:%v, status %v", token, resp1.StatusCode)
-	}
 	body2, err := io.ReadAll(resp2.Body)
 	if err != nil {
 		return map[string]string{}, []string{}, err
+	}
+	if resp2.StatusCode != 200 {
+		var e ErrorMsg
+		err := json.Unmarshal(body2, &e)
+		if err != nil {
+			return map[string]string{}, []string{}, fmt.Errorf("status %d - unknown response body: '%s'", resp1.StatusCode, string(body2))
+		}
+		return map[string]string{}, []string{}, fmt.Errorf("could not login with token: status %d - '%s'", resp1.StatusCode, e.Message)
 	}
 	err = json.Unmarshal(body2, &respObj)
 	if err != nil {
