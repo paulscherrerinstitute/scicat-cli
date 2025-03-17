@@ -40,6 +40,7 @@ For further help see "` + MANUAL + `"`,
 		// pass parameters
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
+		oidc, _ := cmd.Flags().GetBool("oidc")
 		tapecopies, _ := cmd.Flags().GetInt("tapecopies")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		localenvFlag, _ := cmd.Flags().GetBool("localenv")
@@ -97,7 +98,7 @@ For further help see "` + MANUAL + `"`,
 			inputdatasetList = args[0:]
 		}
 
-		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {
 			log.Fatal(err)
 		}

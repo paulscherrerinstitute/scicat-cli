@@ -37,5 +37,8 @@ func init() {
 	rootCmd.PersistentFlags().StringP("user", "u", "", "Defines optional username:password string")
 	rootCmd.PersistentFlags().String("token", "", "Defines optional API token instead of username:password")
 	rootCmd.PersistentFlags().StringP("config", "c", "", "A path to a config file for connecting to SciCat and transfer services")
+	rootCmd.PersistentFlags().Bool("oidc", false, "Use OIDC for login instead of internal user")
 	rootCmd.PersistentFlags().BoolP("version", "v", false, "Show version")
+
+	rootCmd.MarkFlagsMutuallyExclusive("user", "token", "oidc")
 }

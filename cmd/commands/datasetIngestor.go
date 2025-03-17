@@ -67,6 +67,7 @@ For Windows you need instead to specify -user username:password on the command l
 		noninteractiveFlag, _ := cmd.Flags().GetBool("noninteractive")
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
+		oidc, _ := cmd.Flags().GetBool("oidc")
 		copyFlag, _ := cmd.Flags().GetBool("copy")
 		nocopyFlag, _ := cmd.Flags().GetBool("nocopy")
 		transferTypeFlag, _ := cmd.Flags().GetString("transfer-type")
@@ -204,7 +205,7 @@ For Windows you need instead to specify -user username:password on the command l
 		log.Printf("You are about to add a dataset to the === %s === data catalog environment...", env)
 		color.Unset()
 
-		user, accessGroups, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, accessGroups, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {
 			log.Fatal(err)
 		}

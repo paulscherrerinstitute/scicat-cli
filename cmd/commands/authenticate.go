@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"golang.org/x/term"
 )
@@ -40,11 +41,21 @@ func (r RealAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServ
 // and returning an authentication token if the credentials are valid.
 // This token can then be used for authenticated requests to the server.
 // If the credentials are not valid, the function returns an error.
-func authenticate(authenticator Authenticator, httpClient *http.Client, apiServer string, userpass string, token string, overrideFatalExit ...func(v ...any)) (map[string]string, []string, error) {
+func authenticate(authenticator Authenticator, httpClient *http.Client, apiServer string, userpass string, token string, oidc bool, overrideFatalExit ...func(v ...any)) (map[string]string, []string, error) {
 	fatalExit := log.Fatal // by default, call log fatal
 	if len(overrideFatalExit) == 1 {
 		fatalExit = overrideFatalExit[0]
 	}
+
+	if oidc {
+		token = cliutils.GetScicatToken(apiServer + "/auth/oidc?client=CLI")
+		user, accessGroups, err := authenticator.GetUserInfoFromToken(httpClient, apiServer, token)
+		if err != nil {
+			return map[string]string{}, []string{}, err
+		}
+		return user, accessGroups, nil
+	}
+
 	if token != "" {
 		user, accessGroups, err := authenticator.GetUserInfoFromToken(httpClient, apiServer, token)
 		if err != nil {
