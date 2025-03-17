@@ -1,6 +1,6 @@
 run:
   # Timeout for analysis, e.g. 30s, 5m, default is 1m
-  deadline: 3m
+  timeout: 3m
 
   # Exit code when at least one issue was found, default is 1
   issues-exit-code: 1
@@ -48,13 +48,10 @@ linters-settings:
   gocyclo:
     # Minimal code complexity to report
     min-complexity: 10
-  golint:
-    # Minimal confidence to report a problem, low by default
-    min-confidence: 0.8
   unused:
     # Treat code as a program (not a library) and report unused exported identifiers; default is false.
     # The argument specifies the Go source directory to analyze.
-    check-exported: false
+    exported-fields-are-used: false
 
 output:
   formats:
@@ -62,10 +59,17 @@ output:
       path: stdout
   print-issued-lines: true
   print-linter-name: true
-  uniq-by-line: true
   sort-results: true
   sort-order:
     - file
     - linter
     - severity
   show-stats: true
+
+severity:
+  default-severity: error
+  case-sensitive: false
+  rules:
+    - linters:
+        - dupl
+      severity: info
