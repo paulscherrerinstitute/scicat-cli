@@ -65,7 +65,6 @@ func GetDatasetDetails(client *http.Client, APIServer string, accessToken string
 		}
 
 		for _, dataset := range datasetDetails {
-			fmt.Printf("ALMA\n")
 			datasetMap[dataset.Pid] = dataset
 		}
 	}
