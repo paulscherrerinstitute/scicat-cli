@@ -20,6 +20,8 @@ func TestAuthenticateUser(t *testing.T) {
 	var currentUsername, currentDisplayName, currentPassword, currentToken string
 	var groupsToReturn []string
 
+	timeStamp := time.Now().Format(time.RFC3339)
+
 	// mock controller for POST /auth/login
 	loginController := func(rw http.ResponseWriter, req *http.Request, ldapLogin bool) {
 		body, err := io.ReadAll(req.Body)
@@ -58,7 +60,7 @@ func TestAuthenticateUser(t *testing.T) {
   "id": "example_id",
   "expires_in": 3600,
   "ttl": 3600,
-  "created": "` + time.Now().Format(time.RFC3339) + `",
+  "created": "` + timeStamp + `",
   "userId": "example_user_id",
   "user": {
     "_id": "example_user_id",
@@ -173,6 +175,8 @@ func TestAuthenticateUser(t *testing.T) {
 				"mail":        "user@your.site",
 				"displayName": "Some Name",
 				"accessToken": "sometoken",
+				"expiresIn":   "3600",
+				"created":     timeStamp,
 				"password":    "password",
 			},
 		},
