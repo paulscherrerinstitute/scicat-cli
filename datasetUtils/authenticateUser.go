@@ -15,6 +15,8 @@ type loginRequest struct {
 
 type loginResponse struct {
 	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+	Created     string `json:"created"`
 }
 
 type identityResponse struct {
@@ -103,6 +105,8 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 	u["mail"] = ir.Profile.Email
 	u["displayName"] = ir.Profile.DisplayName
 	u["accessToken"] = lr.AccessToken
+	u["expiresIn"] = fmt.Sprintf("%d", lr.ExpiresIn)
+	u["created"] = lr.Created
 	u["password"] = password
 	return u, ir.Profile.AccessGroups, nil
 }
