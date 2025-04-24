@@ -64,6 +64,8 @@ For Windows you need instead to specify -user username:password on the command l
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		tunnelenvFlag, _ := cmd.Flags().GetBool("tunnelenv")
+		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
+		rsyncUrl, _ := cmd.Flags().GetString("rsync-url")
 		noninteractiveFlag, _ := cmd.Flags().GetBool("noninteractive")
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
@@ -126,6 +128,8 @@ For Windows you need instead to specify -user username:password on the command l
 				"devenv":              devenvFlag,
 				"localenv":            localenvFlag,
 				"tunnelenv":           tunnelenvFlag,
+				"scicat-url":          scicatUrl,
+				"rsync-url":           rsyncUrl,
 				"noninteractive":      noninteractiveFlag,
 				"user":                userpass,
 				"token":               token,
@@ -198,6 +202,15 @@ For Windows you need instead to specify -user username:password on the command l
 			APIServer = TEST_API_SERVER
 			RSYNCServer = TEST_RSYNC_ARCHIVE_SERVER
 			env = "test"
+		}
+		if scicatUrl != "" {
+			APIServer = scicatUrl
+			if rsyncUrl != "" {
+				RSYNCServer = rsyncUrl
+				env = "custom"
+			} else {
+				env = "custom-" + env
+			}
 		}
 
 		color.Set(color.FgGreen)
@@ -552,6 +565,7 @@ func init() {
 	datasetIngestorCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
 	datasetIngestorCmd.Flags().Bool("localenv", false, "Use local environment instead of production environment (developers only)")
 	datasetIngestorCmd.Flags().Bool("tunnelenv", false, "Use tunneled API server at port 5443 to access development instance (developers only)")
+	datasetIngestorCmd.Flags().String("rsync-url", "", "Custom URL for the rsync server. It is a complementary parameter 'scicat-url', but is not required. When not given, the chosen environment's RSYNC server is used.")
 	datasetIngestorCmd.Flags().Bool("noninteractive", false, "If set no questions will be asked and the default settings for all undefined flags will be assumed")
 	datasetIngestorCmd.Flags().Bool("copy", false, "Defines if files should be copied from your local system to a central server before ingest (i.e. your data is not centrally available and therefore needs to be copied ='decentral' case). copyFlag has higher priority than nocopyFlag. If neither flag is defined the tool will try to make the best guess.")
 	datasetIngestorCmd.Flags().Bool("nocopy", false, "Defines if files should *not* be copied from your local system to a central server before ingest (i.e. your data is centrally available and therefore does not need to be copied ='central' case).")
@@ -564,7 +578,7 @@ func init() {
 	datasetIngestorCmd.Flags().String("addcaption", "", "Optional caption to be stored with attachment (single dataset case only)")
 	datasetIngestorCmd.Flags().String("globus-cfg", "", "Override globus transfer config file location [default: globus.yaml next to executable]")
 
-	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
+	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv", "scicat-url")
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
 }
 
