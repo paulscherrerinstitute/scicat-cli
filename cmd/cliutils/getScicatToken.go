@@ -13,7 +13,7 @@ import (
 func GetScicatToken(scicatUrl string) string {
 	semaphore := sync.Mutex{}
 
-	fmt.Printf("You must login using your credentials in the browser!")
+	fmt.Printf("You must login using your credentials in the browser!\n")
 	var scicatToken string
 
 	mux := http.NewServeMux()

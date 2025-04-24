@@ -54,10 +54,13 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 	if resp1.StatusCode != 200 {
 		var e ErrorMsg
 		err := json.Unmarshal(body1, &e)
+		var msg string
 		if err != nil {
-			return map[string]string{}, []string{}, fmt.Errorf("status %d - unknown response body: '%s'", resp1.StatusCode, string(body1))
+			msg = string(body1)
+		} else {
+			msg = e.Message
 		}
-		return map[string]string{}, []string{}, fmt.Errorf("could not login with token: status %d - '%s'", resp1.StatusCode, e.Message)
+		return map[string]string{}, []string{}, fmt.Errorf("Unable to login with token. %s/users/my/self returned %d - '%s'", APIServer, resp1.StatusCode, msg)
 	}
 	if err := json.Unmarshal(body1, &newUserInfo); err != nil {
 		return map[string]string{}, []string{}, err
