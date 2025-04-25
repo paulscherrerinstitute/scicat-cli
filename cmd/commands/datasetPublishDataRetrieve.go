@@ -36,6 +36,7 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 		publishedDataId, _ := cmd.Flags().GetString("publisheddata") // NOTE shouldn't this be a positional argument? it's obligatory
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
+		oidc, _ := cmd.Flags().GetBool("oidc")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
@@ -91,7 +92,7 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 			return
 		}
 
-		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {
 			log.Fatal(err)
 		}

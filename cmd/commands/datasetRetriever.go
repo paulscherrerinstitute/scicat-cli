@@ -108,6 +108,7 @@ For further help see "` + MANUAL + `"`,
 		retrieveFlag, _ := cmd.Flags().GetBool("retrieve")
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
+		oidc, _ := cmd.Flags().GetBool("oidc")
 		nochksumFlag, _ := cmd.Flags().GetBool("nochksum")
 		datasetId, _ := cmd.Flags().GetString("dataset")
 		ownerGroup, _ := cmd.Flags().GetString("ownergroup")
@@ -172,7 +173,7 @@ For further help see "` + MANUAL + `"`,
 		}
 		destinationPath = args[0]
 
-		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {
 			log.Fatal(err)
 		}

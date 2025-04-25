@@ -43,6 +43,7 @@ For further help see "` + MANUAL + `"`,
 		tunnelenvFlag, _ := cmd.Flags().GetBool("tunnelenv")
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
+		oidc, _ := cmd.Flags().GetBool("oidc")
 		showVersion, _ := cmd.Flags().GetBool("version")
 		globusCfgFlag, _ := cmd.Flags().GetString("globus-cfg")
 		markArchivable, _ := cmd.Flags().GetBool("mark-archivable")
@@ -135,7 +136,7 @@ For further help see "` + MANUAL + `"`,
 		var user map[string]string
 		if markArchivable {
 			var err error
-			user, _, err = authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+			user, _, err = authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 			if err != nil {
 				log.Fatal(err)
 			}

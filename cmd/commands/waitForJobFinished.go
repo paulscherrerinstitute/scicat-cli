@@ -63,6 +63,7 @@ var waitForJobFinishedCmd = &cobra.Command{
 		// retrieve flags
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
+		oidc, _ := cmd.Flags().GetBool("oidc")
 		jobId, _ := cmd.Flags().GetString("job") // shouldn't jobID be a positional argument? it's obligatory
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
@@ -115,7 +116,7 @@ var waitForJobFinishedCmd = &cobra.Command{
 			return
 		}
 
-		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {
 			log.Fatal(err)
 		}

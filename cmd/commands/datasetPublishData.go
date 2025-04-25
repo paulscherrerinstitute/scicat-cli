@@ -97,7 +97,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 		}
 
 		createWebpage := func(urls []string, title string, doi string, datasetDetails []datasetUtils.Dataset,
-			publishedDataId string, userpass string, token string) {
+			publishedDataId string, userpass string, token string, oidc bool) {
 			// A Function that returns the longest common prefix path (runes)
 			// from the array of strings
 			commonPrefix := func(arr []string) string {
@@ -209,7 +209,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 
 			// set value in publishedData ==============================
 
-			user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token)
+			user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -253,6 +253,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 		// ownerGroup := cmd.Flags().GetString("ownergroup")
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
+		oidc, _ := cmd.Flags().GetBool("oidc")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
@@ -330,7 +331,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 			color.Unset()
 		} else {
 			executeCommands(batchCommands)
-			createWebpage(urls, title, doi, datasetDetails, publishedDataId, userpass, token)
+			createWebpage(urls, title, doi, datasetDetails, publishedDataId, userpass, token, oidc)
 		}
 	},
 }
