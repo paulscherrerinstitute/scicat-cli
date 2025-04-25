@@ -41,6 +41,7 @@ For further help see "` + MANUAL + `"`,
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		tunnelenvFlag, _ := cmd.Flags().GetBool("tunnelenv")
+		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
 		oidc, _ := cmd.Flags().GetBool("oidc")
@@ -114,6 +115,9 @@ For further help see "` + MANUAL + `"`,
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 		}
+		if scicatUrl != "" {
+			APIServer = scicatUrl
+		}
 
 		// start message
 		startMessage := "Checking transfer complpetion"
@@ -181,7 +185,7 @@ func init() {
 	globusCheckTransfer.Flags().Bool("skip-dest-path-check", false, "")
 	globusCheckTransfer.Flags().Int("tapecopies", 0, "Number of tapecopies to be used for archiving")
 
-	globusCheckTransfer.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
+	globusCheckTransfer.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv", "scicat-url")
 	globusCheckTransfer.MarkFlagsMutuallyExclusive("dry-run", "autoarchive")
 	globusCheckTransfer.MarkFlagsMutuallyExclusive("dry-run", "tapecopies")
 }

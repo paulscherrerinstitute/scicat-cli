@@ -38,6 +38,7 @@ For further help see "` + MANUAL + `"`,
 		fieldname, _ := cmd.Flags().GetString("field")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
+		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
 		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
@@ -73,6 +74,10 @@ For further help see "` + MANUAL + `"`,
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			env = "test"
+		}
+		if scicatUrl != "" {
+			APIServer = scicatUrl
+			env = "custom"
 		}
 
 		color.Set(color.FgGreen)
@@ -117,5 +122,5 @@ func init() {
 	datasetGetProposalCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
 	datasetGetProposalCmd.Flags().Bool("localenv", false, "Use local environment instead of production environment (developers only)")
 
-	datasetGetProposalCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv")
+	datasetGetProposalCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "scicat-url")
 }

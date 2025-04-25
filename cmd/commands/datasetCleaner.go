@@ -45,6 +45,7 @@ For further help see "` + MANUAL + `"`,
 		nonInteractiveFlag, _ := cmd.Flags().GetBool("nonInteractive")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
+		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
 		userpass, _ := cmd.Flags().GetString("user")
 		token, _ := cmd.Flags().GetString("token")
 		oidc, _ := cmd.Flags().GetBool("oidc")
@@ -84,6 +85,10 @@ For further help see "` + MANUAL + `"`,
 			APIServer = TEST_API_SERVER
 			env = "test"
 		}
+		if scicatUrl != "" {
+			APIServer = scicatUrl
+			env = "custom"
+		}
 
 		color.Set(color.FgRed)
 		log.Printf("You are about to remove a dataset from the === %s === data catalog environment...", env)
@@ -122,5 +127,6 @@ func init() {
 	datasetCleanerCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead of production environment")
 	datasetCleanerCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
 
-	datasetCleanerCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
+	datasetCleanerCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "scicat-url")
+
 }

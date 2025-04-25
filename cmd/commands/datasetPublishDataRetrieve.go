@@ -39,6 +39,7 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 		oidc, _ := cmd.Flags().GetBool("oidc")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
+		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
 		if datasetUtils.TestFlags != nil {
@@ -67,6 +68,10 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			env = "test"
+		}
+		if scicatUrl != "" {
+			APIServer = scicatUrl
+			env = "custom"
 		}
 
 		color.Set(color.FgGreen)
@@ -129,5 +134,5 @@ func init() {
 	datasetPublishDataRetrieveCmd.Flags().Bool("testenv", false, "Use test environment (qa) (default is to use production system)")
 	datasetPublishDataRetrieveCmd.Flags().Bool("devenv", false, "Use development environment (default is to use production system)")
 
-	datasetPublishDataRetrieveCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
+	datasetPublishDataRetrieveCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "scicat-url")
 }

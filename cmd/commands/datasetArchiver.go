@@ -45,6 +45,7 @@ For further help see "` + MANUAL + `"`,
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
+		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
 		nonInteractiveFlag, _ := cmd.Flags().GetBool("noninteractive")
 		ownergroupFlag, _ := cmd.Flags().GetString("ownergroup")
 		showVersion, _ := cmd.Flags().GetBool("version")
@@ -84,6 +85,10 @@ For further help see "` + MANUAL + `"`,
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			env = "test"
+		}
+		if scicatUrl != "" {
+			APIServer = scicatUrl
+			env = "custom"
 		}
 
 		color.Set(color.FgGreen)
@@ -144,6 +149,6 @@ func init() {
 	datasetArchiverCmd.Flags().Bool("noninteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
 	datasetArchiverCmd.Flags().String("ownergroup", "", "Specifies to which owner group should the archival job belong. If no datasets id's are passed, all datasets belonging to this ownergroup that can also be marked as archivable will be included")
 
-	datasetArchiverCmd.MarkFlagsMutuallyExclusive("testenv", "localenv", "devenv")
+	datasetArchiverCmd.MarkFlagsMutuallyExclusive("testenv", "localenv", "devenv", "scicat-url")
 	datasetArchiverCmd.MarkFlagRequired("ownergroup")
 }

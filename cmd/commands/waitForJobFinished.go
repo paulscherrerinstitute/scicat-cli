@@ -67,6 +67,7 @@ var waitForJobFinishedCmd = &cobra.Command{
 		jobId, _ := cmd.Flags().GetString("job") // shouldn't jobID be a positional argument? it's obligatory
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
+		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
 		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
@@ -99,6 +100,10 @@ var waitForJobFinishedCmd = &cobra.Command{
 		if testenvFlag {
 			APIServer = TEST_API_SERVER
 			env = "test"
+		}
+		if scicatUrl != "" {
+			APIServer = scicatUrl
+			env = "custom"
 		}
 
 		color.Set(color.FgGreen)
@@ -173,5 +178,5 @@ func init() {
 	waitForJobFinishedCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
 	waitForJobFinishedCmd.Flags().Bool("localenv", false, "Use local environment (local) instead or production")
 
-	waitForJobFinishedCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv")
+	waitForJobFinishedCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "scicat-url")
 }

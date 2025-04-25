@@ -114,6 +114,7 @@ For further help see "` + MANUAL + `"`,
 		ownerGroup, _ := cmd.Flags().GetString("ownergroup")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
+		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
 		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
@@ -153,6 +154,10 @@ For further help see "` + MANUAL + `"`,
 			APIServer = TEST_API_SERVER
 			RSYNCServer = TEST_RSYNC_RETRIEVE_SERVER
 			env = "test"
+		}
+		if scicatUrl != "" {
+			APIServer = scicatUrl
+			env = "custom"
 		}
 
 		color.Set(color.FgGreen)
@@ -235,5 +240,5 @@ func init() {
 	datasetRetrieverCmd.Flags().Bool("devenv", false, "Use development environment (default is to use production system)")
 	datasetRetrieverCmd.Flags().Bool("localenv", false, "Use local environment instead of production environment (developers only)")
 
-	datasetRetrieverCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
+	datasetRetrieverCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "scicat-url")
 }
