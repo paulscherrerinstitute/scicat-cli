@@ -123,6 +123,7 @@ For further help see "` + MANUAL + `"`,
 				"retrieve":   retrieveFlag,
 				"testenv":    testenvFlag,
 				"devenv":     devenvFlag,
+				"scicat-url": scicatUrl,
 				"user":       userpass,
 				"token":      token,
 				"nochksum":   nochksumFlag,
@@ -240,5 +241,5 @@ func init() {
 	datasetRetrieverCmd.Flags().Bool("devenv", false, "Use development environment (default is to use production system)")
 	datasetRetrieverCmd.Flags().Bool("localenv", false, "Use local environment instead of production environment (developers only)")
 
-	datasetRetrieverCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "scicat-url")
+	datasetRetrieverCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }

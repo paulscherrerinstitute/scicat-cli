@@ -73,12 +73,13 @@ var waitForJobFinishedCmd = &cobra.Command{
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
-				"user":    userpass,
-				"token":   token,
-				"job":     jobId,
-				"testenv": testenvFlag,
-				"devenv":  devenvFlag,
-				"version": showVersion,
+				"user":       userpass,
+				"token":      token,
+				"job":        jobId,
+				"testenv":    testenvFlag,
+				"devenv":     devenvFlag,
+				"scicat-url": scicatUrl,
+				"version":    showVersion,
 			})
 			return
 		}
@@ -178,5 +179,5 @@ func init() {
 	waitForJobFinishedCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
 	waitForJobFinishedCmd.Flags().Bool("localenv", false, "Use local environment (local) instead or production")
 
-	waitForJobFinishedCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "scicat-url")
+	waitForJobFinishedCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv")
 }

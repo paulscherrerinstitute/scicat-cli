@@ -57,6 +57,7 @@ For further help see "` + MANUAL + `"`,
 				"token":             token,
 				"testenv":           testenvFlag,
 				"devenv":            devenvFlag,
+				"scicat-url":        scicatUrl,
 				"nonInteractive":    nonInteractiveFlag,
 				"removeFromCatalog": removeFromCatalogFlag,
 				"version":           showVersion,
@@ -127,6 +128,6 @@ func init() {
 	datasetCleanerCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead of production environment")
 	datasetCleanerCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
 
-	datasetCleanerCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "scicat-url")
+	datasetCleanerCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 
 }

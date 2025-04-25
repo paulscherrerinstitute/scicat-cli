@@ -58,6 +58,7 @@ For further help see "` + MANUAL + `"`,
 				"testenv":        testenvFlag,
 				"localenv":       localenvFlag,
 				"devenv":         devenvFlag,
+				"scicat-url":     scicatUrl,
 				"noninteractive": nonInteractiveFlag,
 				"version":        showVersion,
 				"ownergroup":     ownergroupFlag,
@@ -149,6 +150,6 @@ func init() {
 	datasetArchiverCmd.Flags().Bool("noninteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
 	datasetArchiverCmd.Flags().String("ownergroup", "", "Specifies to which owner group should the archival job belong. If no datasets id's are passed, all datasets belonging to this ownergroup that can also be marked as archivable will be included")
 
-	datasetArchiverCmd.MarkFlagsMutuallyExclusive("testenv", "localenv", "devenv", "scicat-url")
+	datasetArchiverCmd.MarkFlagsMutuallyExclusive("testenv", "localenv", "devenv")
 	datasetArchiverCmd.MarkFlagRequired("ownergroup")
 }

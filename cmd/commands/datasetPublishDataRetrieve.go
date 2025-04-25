@@ -48,6 +48,7 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 				"publisheddata": publishedDataId,
 				"testenv":       testenvFlag,
 				"devenv":        devenvFlag,
+				"scicat-url":    scicatUrl,
 				"user":          userpass,
 				"token":         token,
 				"version":       showVersion,
@@ -134,5 +135,5 @@ func init() {
 	datasetPublishDataRetrieveCmd.Flags().Bool("testenv", false, "Use test environment (qa) (default is to use production system)")
 	datasetPublishDataRetrieveCmd.Flags().Bool("devenv", false, "Use development environment (default is to use production system)")
 
-	datasetPublishDataRetrieveCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "scicat-url")
+	datasetPublishDataRetrieveCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }

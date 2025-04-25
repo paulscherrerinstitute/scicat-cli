@@ -59,6 +59,7 @@ For further help see "` + MANUAL + `"`,
 				"devenv":               devenvFlag,
 				"localenv":             localenvFlag,
 				"tunnelenv":            tunnelenvFlag,
+				"scicat-url":           scicatUrl,
 				"user":                 userpass,
 				"token":                token,
 				"version":              showVersion,
@@ -185,7 +186,7 @@ func init() {
 	globusCheckTransfer.Flags().Bool("skip-dest-path-check", false, "")
 	globusCheckTransfer.Flags().Int("tapecopies", 0, "Number of tapecopies to be used for archiving")
 
-	globusCheckTransfer.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv", "scicat-url")
+	globusCheckTransfer.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 	globusCheckTransfer.MarkFlagsMutuallyExclusive("dry-run", "autoarchive")
 	globusCheckTransfer.MarkFlagsMutuallyExclusive("dry-run", "tapecopies")
 }

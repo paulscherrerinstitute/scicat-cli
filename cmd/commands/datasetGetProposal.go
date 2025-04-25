@@ -44,12 +44,13 @@ For further help see "` + MANUAL + `"`,
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
-				"user":    userpass,
-				"token":   token,
-				"field":   fieldname,
-				"testenv": testenvFlag,
-				"devenv":  devenvFlag,
-				"version": showVersion,
+				"user":       userpass,
+				"token":      token,
+				"field":      fieldname,
+				"testenv":    testenvFlag,
+				"devenv":     devenvFlag,
+				"scicat-url": scicatUrl,
+				"version":    showVersion,
 			})
 			return
 		}
@@ -122,5 +123,5 @@ func init() {
 	datasetGetProposalCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
 	datasetGetProposalCmd.Flags().Bool("localenv", false, "Use local environment instead of production environment (developers only)")
 
-	datasetGetProposalCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "scicat-url")
+	datasetGetProposalCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv")
 }

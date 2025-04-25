@@ -265,6 +265,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 				"publisheddata": publishedDataId,
 				"testenv":       testenvFlag,
 				"devenv":        devenvFlag,
+				"scicat-url":    scicatUrl,
 				"user":          userpass,
 				"token":         token,
 				"version":       showVersion,
@@ -351,5 +352,5 @@ func init() {
 	datasetPublishDataCmd.Flags().Bool("testenv", false, "Use test environment (qa) (default is to use production system)")
 	datasetPublishDataCmd.Flags().Bool("devenv", false, "Use development environment (default is to use production system)")
 
-	datasetPublishDataCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "scicat-url")
+	datasetPublishDataCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }
