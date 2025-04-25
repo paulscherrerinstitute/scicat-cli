@@ -356,10 +356,10 @@ func CheckMetadataValidity(client *http.Client, APIServer string, token string, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusForbidden {
-		return fmt.Errorf("you don't have the right to verify the metadata, likely meaning that you are not allowed to ingest datasets (user does not have the right group)")
+		return fmt.Errorf("metadata checking error - SciCat returned 403, user is likely not allowed to ingest datasets")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return fmt.Errorf("metadata checking error - unexpected status code: %d", resp.StatusCode)
 	}
 
 	// check response (if {"valid": true} then the metadata is correct)

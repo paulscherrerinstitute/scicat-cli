@@ -51,6 +51,10 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 	}
 	defer resp1.Body.Close()
 	body1, err := io.ReadAll(resp1.Body)
+	if err != nil {
+		return map[string]string{}, []string{}, err
+	}
+
 	if resp1.StatusCode != 200 {
 		var e ErrorMsg
 		err := json.Unmarshal(body1, &e)
@@ -60,7 +64,7 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 		} else {
 			msg = e.Message
 		}
-		return map[string]string{}, []string{}, fmt.Errorf("Unable to login with token. %s/users/my/self returned %d - '%s'", APIServer, resp1.StatusCode, msg)
+		return map[string]string{}, []string{}, fmt.Errorf("unable to login with token. %s/users/my/self returned %d - '%s'", APIServer, resp1.StatusCode, msg)
 	}
 	if err := json.Unmarshal(body1, &newUserInfo); err != nil {
 		return map[string]string{}, []string{}, err
@@ -68,9 +72,6 @@ func GetUserInfoFromToken(client *http.Client, APIServer string, token string) (
 
 	// get extra details about user [2nd request]
 	var respObj UserIdentity
-	if err != nil {
-		return map[string]string{}, []string{}, err
-	}
 	req2, err := http.NewRequest("GET", APIServer+"/users/"+url.QueryEscape(newUserInfo.Id)+"/userIdentity", nil)
 	if err != nil {
 		return map[string]string{}, []string{}, err
