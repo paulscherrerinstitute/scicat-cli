@@ -109,7 +109,10 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 		}
 
 		// get sourceFolder and other dataset related info for all Datasets and print them
-		datasetUtils.GetDatasetDetailsPublished(client, APIServer, datasetList)
+		datasetDetails, urls := datasetUtils.GetDatasetDetailsPublished(client, APIServer, datasetList)
+		if datasetDetails == nil && urls == nil {
+			fmt.Println("No dataset details were retrieved.")
+		}
 
 		if !retrieveFlag {
 			color.Set(color.FgRed)
