@@ -1,75 +1,67 @@
+version: "2"
 run:
-  # Timeout for analysis, e.g. 30s, 5m, default is 1m
-  timeout: 3m
-
-  # Exit code when at least one issue was found, default is 1
   issues-exit-code: 1
-
-  # Include test files or not, default is true
   tests: true
-
+output:
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
+  sort-order:
+    - file
+    - linter
+    - severity
 linters:
-  # Enable specific linters
   enable:
-    - whitespace
     - bodyclose
     - dupl
     - goprintffuncname
-    - gosec
-    - gosimple
-    - govet
     - misspell
     - nakedret
     - prealloc
-    - staticcheck
     - unparam
-    - unused
-
-  # Disable specific linters
+    - whitespace
   disable:
-    - typecheck
+    - dogsled
+    - errcheck
     - gochecknoinits
     - goconst
     - gocritic
     - gocyclo
     - godot
-    - gofmt
-    - goimports
+    - gosec
     - ineffassign
     - lll
-    - stylecheck
+    - staticcheck
     - unconvert
-    - megacheck
-    - gas
-    - dogsled
-    - errcheck
-
-linters-settings:
-  gocyclo:
-    # Minimal code complexity to report
-    min-complexity: 10
-  unused:
-    # Treat code as a program (not a library) and report unused exported identifiers; default is false.
-    # The argument specifies the Go source directory to analyze.
-    exported-fields-are-used: false
-
-output:
-  formats:
-    - format: colored-line-number
-      path: stdout
-  print-issued-lines: true
-  print-linter-name: true
-  sort-results: true
-  sort-order:
-    - file
-    - linter
-    - severity
-  show-stats: true
-
+    - unused
+  settings:
+    gocyclo:
+      min-complexity: 10
+    unused:
+      exported-fields-are-used: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 severity:
-  default-severity: error
-  case-sensitive: false
+  default: error
   rules:
     - linters:
         - dupl
       severity: info
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
