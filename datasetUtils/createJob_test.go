@@ -156,25 +156,25 @@ func TestCreateJob(t *testing.T) {
 					json.Unmarshal(body, &actualPayload)
 					json.Unmarshal([]byte(`
 					{
-					    "creationTime": "2024-05-21T15:25:34+02:00",
-					    "contactEmail": "test@example.com",
-					    "jobParams": {
-					        "tapeCopies": "two",
-					        "username": "testuser",
-					        "datasetList": [
-					            {
-					                "pid": "dataset1",
-					                "files": []
-					            },
-					            {
-					                "pid": "dataset2",
-					                "files": []
-					            }
-					        ]
+					  "creationTime": "2024-05-21T15:25:34+02:00",
+					  "contactEmail": "test@example.com",
+					  "jobParams": {
+					    "tapeCopies": "two",
+					    "username": "testuser"
+					  },
+					  "datasetList": [
+					    {
+					      "pid": "dataset1",
+					      "files": []
 					    },
-					    "type": "archive",
-						"ownerUser": "testuser",
-						"ownerGroup": "group1"
+					    {
+					      "pid": "dataset2",
+					      "files": []
+					    }
+					  ],
+					  "type": "archive",
+					  "ownerUser": "testuser",
+					  "ownerGroup": "group1"
 					}`), &expectedPayload)
 
 					// Ignore the creationTime field
