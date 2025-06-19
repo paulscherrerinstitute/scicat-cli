@@ -129,5 +129,4 @@ func init() {
 	datasetCleanerCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
 
 	datasetCleanerCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
-
 }
