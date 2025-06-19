@@ -41,14 +41,14 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 	}
 
 	type jobParamsStruct struct {
-		TapeCopies  string          `json:"tapeCopies"`
-		Username    string          `json:"username"`
-		DatasetList []datasetStruct `json:"datasetList"`
+		TapeCopies string `json:"tapeCopies"`
+		Username   string `json:"username"`
 	}
 
 	type createJobDto struct {
 		JobType      string          `json:"type"`
 		JobParams    jobParamsStruct `json:"jobParams"`
+		DatasetList  []datasetStruct `json:"datasetList"`
 		OwnerUser    string          `json:"ownerUser"`
 		OwnerGroup   string          `json:"ownerGroup"`
 		ContactEmail string          `json:"contactEmail"`
@@ -71,15 +71,14 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 		dsMap[i] = datasetStruct{dataset, emptyfiles}
 	}
 
-	// TODO how the heck can I add a dataset list with the new format?
 	// jobMap["datasetList"] = dsMap
 	createJob := createJobDto{
 		JobType: "archive",
 		JobParams: jobParamsStruct{
-			TapeCopies:  tc,
-			Username:    user["username"],
-			DatasetList: dsMap,
+			TapeCopies: tc,
+			Username:   user["username"],
 		},
+		DatasetList:  dsMap,
 		OwnerUser:    user["username"],
 		OwnerGroup:   ownerGroup,
 		ContactEmail: user["mail"],
