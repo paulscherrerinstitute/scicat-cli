@@ -42,6 +42,7 @@ For further help see "` + MANUAL + `"`,
 		token, _ := cmd.Flags().GetString("token")
 		oidc, _ := cmd.Flags().GetBool("oidc")
 		tapecopies, _ := cmd.Flags().GetInt("tapecopies")
+		executionTimeStr, _ := cmd.Flags().GetString("executionTime")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
@@ -92,6 +93,15 @@ For further help see "` + MANUAL + `"`,
 			env = "custom"
 		}
 
+		var executionTime *time.Time = nil
+		if executionTimeStr != "" {
+			parsedTime, err := time.Parse(time.RFC3339, executionTimeStr)
+			if err != nil {
+				log.Fatalf("Execution time is invalid: %s", err.Error())
+			}
+			executionTime = &parsedTime
+		}
+
 		color.Set(color.FgGreen)
 		log.Printf("You are about to archive dataset(s) to the === %s === data catalog environment...", env)
 		color.Unset()
@@ -132,7 +142,7 @@ For further help see "` + MANUAL + `"`,
 
 		log.Printf("You chose to archive the new datasets\n")
 		log.Printf("Submitting Archive Job for the ingested datasets.\n")
-		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, ownerGroup, archivableDatasets, &tapecopies)
+		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, ownerGroup, archivableDatasets, &tapecopies, executionTime)
 		if err != nil {
 			log.Fatalf("Couldn't create a job: %s\n", err.Error())
 		}
@@ -144,6 +154,7 @@ func init() {
 	rootCmd.AddCommand(datasetArchiverCmd)
 
 	datasetArchiverCmd.Flags().Int("tapecopies", 1, "Number of tapecopies to be used for archiving")
+	datasetArchiverCmd.Flags().String("execution-time", "", "The time when the command should be executed in RFC3339 format")
 	datasetArchiverCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead or production")
 	datasetArchiverCmd.Flags().Bool("localenv", false, "Use local environment (local) instead or production")
 	datasetArchiverCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
