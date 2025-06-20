@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 type Job struct {
@@ -31,7 +32,7 @@ Parameters:
 Returns:
 - jobId: A string representing the job ID if the job was successfully created, or an empty string otherwise
 */
-func CreateArchivalJob(client *http.Client, APIServer string, user map[string]string, ownerGroup string, datasetList []string, tapecopies *int) (jobId string, err error) {
+func CreateArchivalJob(client *http.Client, APIServer string, user map[string]string, ownerGroup string, datasetList []string, tapecopies *int, executionTime *time.Time) (jobId string, err error) {
 	// important: define field with capital names and rename fields via 'json' constructs
 	// otherwise the marshaling will omit the fields !
 
@@ -46,12 +47,14 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 	}
 
 	type createJobDto struct {
-		JobType      string          `json:"type"`
-		JobParams    jobParamsStruct `json:"jobParams"`
-		DatasetList  []datasetStruct `json:"datasetList"`
-		OwnerUser    string          `json:"ownerUser"`
-		OwnerGroup   string          `json:"ownerGroup"`
-		ContactEmail string          `json:"contactEmail"`
+		JobType          string          `json:"type"`
+		JobParams        jobParamsStruct `json:"jobParams"`
+		JobStatusMessage string          `json:"jobStatusMessage"`
+		DatasetList      []datasetStruct `json:"datasetList"`
+		OwnerUser        string          `json:"ownerUser"`
+		OwnerGroup       string          `json:"ownerGroup"`
+		ContactEmail     string          `json:"emailJobInitiator"`
+		ExecutionTime    *time.Time      `json:"executionTime"` // time.Time gets marshalled into RFC3339 with the default json marshalling func
 	}
 
 	if ownerGroup == "" {
@@ -78,10 +81,12 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 			TapeCopies: tc,
 			Username:   user["username"],
 		},
-		DatasetList:  dsMap,
-		OwnerUser:    user["username"],
-		OwnerGroup:   ownerGroup,
-		ContactEmail: user["mail"],
+		JobStatusMessage: "added",
+		DatasetList:      dsMap,
+		OwnerUser:        user["username"],
+		OwnerGroup:       ownerGroup,
+		ContactEmail:     user["mail"],
+		ExecutionTime:    executionTime,
 	}
 
 	// marshal to JSON
@@ -127,7 +132,7 @@ func CreateArchivalJobs(client *http.Client, APIServer string, user map[string]s
 	errs = make([]error, len(groupedDatasetLists))
 	i := 0
 	for group := range groupedDatasetLists {
-		jobIds[i], errs[i] = CreateArchivalJob(client, APIServer, user, group, groupedDatasetLists[group], tapecopies)
+		jobIds[i], errs[i] = CreateArchivalJob(client, APIServer, user, group, groupedDatasetLists[group], tapecopies, nil)
 	}
 	return jobIds, errs
 }
