@@ -159,7 +159,8 @@ func TestCreateJob(t *testing.T) {
 					  "emailJobInitiator": "test@example.com",
 					  "jobParams": {
 					    "tapeCopies": "two",
-					    "username": "testuser"
+					    "username": "testuser",
+					    "ownerGroup": "group1"
 					  },
 					  "jobStatusMessage": "added",
 					  "datasetList": [
@@ -173,8 +174,6 @@ func TestCreateJob(t *testing.T) {
 					    }
 					  ],
 					  "type": "archive",
-					  "ownerUser": "testuser",
-					  "ownerGroup": "group1",
 					  "executionTime": null
 					}`), &expectedPayload)
 
