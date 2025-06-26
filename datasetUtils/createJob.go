@@ -44,6 +44,7 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 	type jobParamsStruct struct {
 		TapeCopies string `json:"tapeCopies"`
 		Username   string `json:"username"`
+		OwnerGroup string `json:"ownerGroup"`
 	}
 
 	type createJobDto struct {
@@ -51,8 +52,6 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 		JobParams        jobParamsStruct `json:"jobParams"`
 		JobStatusMessage string          `json:"jobStatusMessage"`
 		DatasetList      []datasetStruct `json:"datasetList"`
-		OwnerUser        string          `json:"ownerUser"`
-		OwnerGroup       string          `json:"ownerGroup"`
 		ContactEmail     string          `json:"emailJobInitiator"`
 		ExecutionTime    *time.Time      `json:"executionTime"` // time.Time gets marshalled into RFC3339 with the default json marshalling func
 	}
@@ -80,11 +79,10 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 		JobParams: jobParamsStruct{
 			TapeCopies: tc,
 			Username:   user["username"],
+			OwnerGroup: ownerGroup,
 		},
 		JobStatusMessage: "added",
 		DatasetList:      dsMap,
-		OwnerUser:        user["username"],
-		OwnerGroup:       ownerGroup,
 		ContactEmail:     user["mail"],
 		ExecutionTime:    executionTime,
 	}
