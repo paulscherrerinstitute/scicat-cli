@@ -37,15 +37,7 @@ func TestCreateDatasetEntry(t *testing.T) {
 	}
 
 	// Check the URL based on the type field
-	expectedPath := ""
-	switch metaDataMap["type"].(string) {
-	case "raw":
-		expectedPath = "/RawDatasets"
-	case "derived":
-		expectedPath = "/DerivedDatasets"
-	case "base":
-		expectedPath = "/Datasets"
-	}
+	expectedPath := "/Datasets"
 
 	// Check the URL
 	if capturedPath != expectedPath {
