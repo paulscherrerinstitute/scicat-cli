@@ -18,7 +18,7 @@ import (
 var datasetRetrieverCmd = &cobra.Command{
 	Use:   "datasetRetriever (options) local-destination-path",
 	Short: "Retrieve datasets from intermediate cache, taking into account original sourceFolder names",
-	Long: `Tool to retrieve datasets from the intermediate cache server of the tape archive to the 
+	Long: `Tool to retrieve datasets from the intermediate cache server of the tape archive to the
 destination path on your local system.
 
 This script must be run on the machine having write access to the destination folder
@@ -33,15 +33,6 @@ Use option -dataset or -ownerGroup to restrict the datasets which should be fetc
 For further help see "` + MANUAL + `"`,
 	Args: exactArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		//consts & vars
-		const PROD_RSYNC_RETRIEVE_SERVER string = "pb-retrieve.psi.ch"
-		const TEST_RSYNC_RETRIEVE_SERVER string = "pbt-retrieve.psi.ch"
-		const DEV_RSYNC_RETRIEVE_SERVER string = "arematest2in.psi.ch"
-		const LOCAL_RSYNC_RETRIEVE_SERVER string = "localhost"
-
-		// const PROD_RSYNC_RETRIEVE_SERVER string = "ebarema4in.psi.ch"
-		// const TEST_RSYNC_RETRIEVE_SERVER string = "ebaremat1in.psi.ch"
-		// const DEV_RSYNC_RETRIEVE_SERVER string = "arematest2in.psi.ch"
 
 		// TODO Windows
 		const APP = "datasetRetriever"

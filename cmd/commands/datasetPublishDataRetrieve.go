@@ -19,11 +19,6 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 	Long:  `Create a job to retrieve all datasets of a given PublishedData item.`,
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		// consts & vars
-		const PROD_API_SERVER string = "https://dacat.psi.ch/api/v3"
-		const TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3"
-		const DEV_API_SERVER string = "https://dacat-development.psi.ch/api/v3"
-
 		var APIServer string = PROD_API_SERVER
 		var env string = "production"
 

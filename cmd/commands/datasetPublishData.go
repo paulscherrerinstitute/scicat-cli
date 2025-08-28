@@ -43,10 +43,6 @@ Usage example:
 To update the PublishedData entry with the downloadLink you have to run the script as user archiveManager.`,
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		// const PROD_RSYNC_RETRIEVE_SERVER string = "ebarema4in.psi.ch"
-		// const TEST_RSYNC_RETRIEVE_SERVER string = "ebaremat1in.psi.ch"
-		// const DEV_RSYNC_RETRIEVE_SERVER string = "arematest2in.psi.ch"
-		// ===== local consts =====
 
 		// ===== variables =====
 		var APIServer string = PROD_API_SERVER
@@ -70,10 +66,10 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 			for _, dataset := range datasetDetails {
 				shortDatasetId := strings.Split(dataset.Pid, "/")[1]
 				fullDest := "/datasets" + dataset.SourceFolder
-				command := "ssh " + PUBLISHServer + " mkdir -p " + fullDest + ";" +
-					"ssh " + PUBLISHServer + " chown -R egli " + fullDest + ";" +
-					"ssh " + PUBLISHServer + " chmod -R 755 " + fullDest + ";" +
-					"/usr/bin/rsync -av -e ssh " + RETRIEVELocation + shortDatasetId + "/ " + PUBLISHServer + ":" + fullDest
+				command := "ssh " + datasetUtils.PUBLISHServer + " mkdir -p " + fullDest + ";" +
+					"ssh " + datasetUtils.PUBLISHServer + " chown -R egli " + fullDest + ";" +
+					"ssh " + datasetUtils.PUBLISHServer + " chmod -R 755 " + fullDest + ";" +
+					"/usr/bin/rsync -av -e ssh " + RETRIEVELocation + shortDatasetId + "/ " + datasetUtils.PUBLISHServer + ":" + fullDest
 				batchCommands = append(batchCommands, command)
 			}
 			return batchCommands
@@ -197,7 +193,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 
 			// copy output.html to downloadLink location (remove https://server part) as index.html
 			startPos := strings.Index(downloadLink, "/datasets")
-			command := "/usr/bin/rsync -av -e ssh output.html " + PUBLISHServer + ":" + downloadLink[startPos:] + "/index.html"
+			command := "/usr/bin/rsync -av -e ssh output.html " + datasetUtils.PUBLISHServer + ":" + downloadLink[startPos:] + "/index.html"
 			cmd := exec.Command("/bin/sh", "-c", command)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
