@@ -24,10 +24,10 @@ var datasetIngestorCmd = &cobra.Command{
 	Use:   "datasetIngestor",
 	Short: "Define and add a dataset to the SciCat datacatalog",
 	Long: `Purpose: define and add a dataset to the SciCat datacatalog
-	
-This command must be run on the machine having access to the data 
-which comprises the dataset. It takes one or two input 
-files and creates the necessary messages which trigger 
+
+This command must be run on the machine having access to the data
+which comprises the dataset. It takes one or two input
+files and creates the necessary messages which trigger
 the creation of the corresponding datacatalog entries
 
 For further help see "` + MANUAL + `"
@@ -45,10 +45,6 @@ For Windows you need instead to specify -user username:password on the command l
 		var client = &http.Client{
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
 			Timeout:   120 * time.Second}
-
-		// const PROD_RSYNC_ARCHIVE_SERVER string = "ebarema2in.psi.ch"
-		// const TEST_RSYNC_ARCHIVE_SERVER string = "ebaremat1in.psi.ch"
-		// const DEV_RSYNC_ARCHIVE_SERVER string = "arematest2in.psi.ch"
 
 		const CMD = "datasetIngestor"
 
@@ -612,12 +608,12 @@ func createLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks 
 			log.Printf("Warning: the file %s is a link pointing to %v.", symlinkPath, pointee)
 			color.Unset()
 			log.Printf(`
-	Please test if this link is meaningful and not pointing 
+	Please test if this link is meaningful and not pointing
 	outside the sourceFolder %s. The default behaviour is to
 	keep only internal links within a source folder.
-	You can also specify that you want to apply the same answer to ALL 
+	You can also specify that you want to apply the same answer to ALL
 	subsequent links within the current dataset, by appending an a (dA,ka,sa).
-	If you want to give the same answer even to all subsequent datasets 
+	If you want to give the same answer even to all subsequent datasets
 	in this command then specify a capital 'A', e.g. (dA,kA,sA)
 	Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, sourceFolder)
 			scanner.Scan()

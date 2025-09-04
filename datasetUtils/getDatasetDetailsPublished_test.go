@@ -25,7 +25,7 @@ func TestGetDatasetDetailsPublished(t *testing.T) {
 	if len(datasets) != 1 || datasets[0].Pid != "1" {
 		t.Errorf("Unexpected datasets: %v", datasets)
 	}
-	if len(urls) != 1 || urls[0] != "https://doi2.psi.ch/datasets/folder1" {
+	if len(urls) != 1 || urls[0] != "https://"+PUBLISHServer+"/datasets/folder1" {
 		t.Errorf("Unexpected URLs: %v", urls)
 	}
 }
@@ -48,7 +48,7 @@ func TestGetDatasetDetailsPublished_MissingDatasets(t *testing.T) {
 	if len(datasets) != 1 || datasets[0].Pid != "1" {
 		t.Errorf("Unexpected datasets: %v", datasets)
 	}
-	if len(urls) != 1 || urls[0] != "https://doi2.psi.ch/datasets/folder1" {
+	if len(urls) != 1 || urls[0] != "https://"+PUBLISHServer+"/datasets/folder1" {
 		t.Errorf("Unexpected URLs: %v", urls)
 	}
 }

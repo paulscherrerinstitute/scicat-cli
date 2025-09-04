@@ -2,26 +2,25 @@ package datasetUtils
 
 import (
 	"encoding/json"
-	"github.com/fatih/color"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
-const PUBLISHServer string = "doi2.psi.ch"
-
 /*
-GetDatasetDetailsPublished retrieves details of published datasets from a given API server. 
+GetDatasetDetailsPublished retrieves details of published datasets from a given API server.
 
 Parameters:
 - client: An HTTP client used to send requests.
 - APIServer: The URL of the API server from which to retrieve dataset details.
 - datasetList: A list of dataset IDs for which to retrieve details.
 
-The function sends HTTP GET requests to the API server, querying for details of datasets in chunks of 100 at a time. 
-For each dataset, it checks if the details were found and if so, it logs the details, adds the dataset to the output list, 
+The function sends HTTP GET requests to the API server, querying for details of datasets in chunks of 100 at a time.
+For each dataset, it checks if the details were found and if so, it logs the details, adds the dataset to the output list,
 and constructs a URL for the dataset. If the details were not found, it logs a message indicating that the dataset will not be copied.
 
 The function returns two lists:
@@ -79,7 +78,7 @@ func GetDatasetDetailsPublished(client *http.Client, APIServer string, datasetLi
 						color.Set(color.FgGreen)
 						log.Printf("%s %9d %v %v\n", datasetId, datasetDetail.Size/1024./1024., datasetDetail.OwnerGroup, datasetDetail.SourceFolder)
 						color.Unset()
-						//https: //doi2.psi.ch/datasets/das/work/p16/p16628/20181012_lungs/large_volume_360/R2-6/stitching/data_final_volume_fullresolution/
+						//https: //doi.psi.ch/datasets/das/work/p16/p16628/20181012_lungs/large_volume_360/R2-6/stitching/data_final_volume_fullresolution/
 						url := "https://" + PUBLISHServer + "/datasets" + datasetDetail.SourceFolder
 						urls = append(urls, url)
 						sizeArray = append(sizeArray, datasetDetail.Size)
