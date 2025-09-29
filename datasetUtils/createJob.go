@@ -81,7 +81,7 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 			Username:   user["username"],
 			OwnerGroup: ownerGroup,
 		},
-		JobStatusMessage: "added",
+		JobStatusMessage: "jobSubmitted",
 		DatasetList:      dsMap,
 		ContactEmail:     user["mail"],
 		ExecutionTime:    executionTime,
