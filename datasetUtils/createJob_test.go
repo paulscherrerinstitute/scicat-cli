@@ -162,7 +162,7 @@ func TestCreateJob(t *testing.T) {
 					    "username": "testuser",
 					    "ownerGroup": "group1"
 					  },
-					  "jobStatusMessage": "added",
+					  "jobStatusMessage": "jobSubmitted",
 					  "datasetList": [
 					    {
 					      "pid": "dataset1",
