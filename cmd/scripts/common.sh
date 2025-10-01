@@ -6,11 +6,12 @@ YEL='\033[1;33m'
 NC='\033[0m' # No Color
 WARN_STRING="${RED}Warning!${YEL} These backwards compatibilty scripts will soon be deprecated!${NC} Please use, or update your code to use, the scicat-cli executable directly."
 
+# Global empty array to hold the modified arguments
+modified_args=()
+
 function arg_conversion {
     args=("$@")
-
-    # Initialize an empty array to hold the modified arguments
-    modified_args=()
+    modified_args=()  # Reset the array for each function call
 
     for arg in "${args[@]}"
     do
@@ -23,6 +24,4 @@ function arg_conversion {
             modified_args+=("$arg")
         fi
     done
-    
-    echo "${modified_args[@]}"
 }
