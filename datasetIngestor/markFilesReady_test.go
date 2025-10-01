@@ -12,8 +12,8 @@ func TestSendFilesReadyCommand(t *testing.T) {
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Test method and path
-		if req.URL.String() != "/Datasets/testDatasetId" {
-			t.Errorf("Expected URL '/Datasets/testDatasetId', got '%s'", req.URL.String())
+		if req.URL.String() != "/Datasets/testDatasetId/datasetlifecycle" {
+			t.Errorf("Expected URL '/Datasets/testDatasetId/datasetlifecycle', got '%s'", req.URL.String())
 		}
 		if req.Method != "PATCH" {
 			t.Errorf("Expected method 'PATCH', got '%s'", req.Method)
@@ -29,7 +29,7 @@ func TestSendFilesReadyCommand(t *testing.T) {
 
 		// Test body
 		body, _ := io.ReadAll(req.Body)
-		expectedBody := `{"datasetlifecycle":{"archivable":true,"archiveStatusMessage":"datasetCreated"}}`
+		expectedBody := `{"archivable":true,"archiveStatusMessage":"datasetCreated"}`
 		if strings.TrimSpace(string(body)) != expectedBody {
 			t.Errorf("Expected body '%s', got '%s'", expectedBody, strings.TrimSpace(string(body)))
 		}
