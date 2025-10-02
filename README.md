@@ -2,11 +2,11 @@
 
 ## Building
 
-### General Informations
+### General Information
 
 For testing, build the CLI tool as follows:
 
-```
+```sh
 cd cmd
 go build -o scicat-cli
 ```
@@ -25,7 +25,22 @@ Tools are compiled for the following architectures:
 
 These can be cross-compiled from any system.
 
-### V3 Changes
+### Testing
+
+Run all tests:
+
+```sh
+go test ./...
+```
+
+Lint requires golangci-lint version v2.1.0:
+
+```sh
+golangci-lint run
+```
+
+## V3 Changes
+
 The separate executables (like `datasetIngestor`, `datasetRetriever`...) were combined into one `scicat-cli` executable, with each executable's features available as commands given as the first parameter to this executable.
 
 These commands bear the same names as the former executables. The general syntax change is that if you called `./[COMMAND] [flags]` before, now it's `./scicat-cli [COMMAND] [flags]`.
@@ -33,14 +48,16 @@ These commands bear the same names as the former executables. The general syntax
  Furthermore, the use of single hyphen, multi-letter flags is now discontinued, as it went against general convention. So, in practical terms, `-[long_flag_name]` and `--[long_flag_name]` were both accepted, but now only the latter is accepted.
 
 ### Backwards compatibility with v2
+
 A set of shell scripts are included with releases that are compatible with Linux and Mac executables in order to maintain compatibility with preexisting automation scripts.
 As these are written in BASH, Windows is not supported unless WSL2 is used.
 
 Usage informations:
- - The scripts can be found on the [Releases](https://github.com/paulscherrerinstitute/scicat-cli/releases) page, under scicat-cli_V2Scripts-[VERSION].tar.gz
- - Just extract the archive into the folder with the scicat-cli executable
- - The scripts and the scicat-cli executable **must** be kept in the **same folder** for them to work
- - The scripts will still accept single hyphen flags as well
+
+- The scripts can be found on the [Releases](https://github.com/paulscherrerinstitute/scicat-cli/releases) page, under scicat-cli_V2Scripts-[VERSION].tar.gz
+- Just extract the archive into the folder with the scicat-cli executable
+- The scripts and the scicat-cli executable **must** be kept in the **same folder** for them to work
+- The scripts will still accept single hyphen flags as well
 
 ## Deployment
 
@@ -98,7 +115,7 @@ The latest binaries will be downloaded to `scicat-cli_*/`.
 
 ### Beamline consoles
 
-*(Outdated)*
+Note: *Outdated instructions*
 
 Deploy linux versions to online beamline consoles (you need to have write access rights):
 
