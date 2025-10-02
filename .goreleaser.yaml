@@ -25,7 +25,12 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - "-s -w -X 'github.com/paulscherrerinstitute/scicat/cmd/commands.VERSION={{.Version}}'"
+      - -s
+      - -w
+      - -X github.com/paulscherrerinstitute/scicat-cli/v3/cmd/commands.VERSION={{.Version}}
+      - -X github.com/paulscherrerinstitute/scicat-cli/v3/cmd/commands.COMMIT={{.Commit}}
+      - -X github.com/paulscherrerinstitute/scicat-cli/v3/cmd/commands.BUILD_DATE={{.Date}}
+
     env:
       - CGO_ENABLED=0
     dir: ./cmd/

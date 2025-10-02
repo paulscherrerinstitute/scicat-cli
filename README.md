@@ -11,7 +11,7 @@ cd cmd
 go build -o scicat-cli
 ```
 
-The CLI is built automatically and can be downloaded from the [Releases](https://github.com/paulscherrerinstitute/scicat-cli/releases) section of this repo.
+The CLI is built automatically by CI upon tagging and can be downloaded from the [Releases](https://github.com/paulscherrerinstitute/scicat-cli/releases) section of this repo.
 
 To build the applications and target architectures locally, use GoReleaser. Check `.goreleaser.yaml` to see the configurations.
 To use GoReleaser, you can run the command `goreleaser release --snapshot --clean` in your terminal. This will build the binaries, create the archives and generate the changelog. The `--snapshot flag` ensures that no publishing will happen.
@@ -26,14 +26,14 @@ Tools are compiled for the following architectures:
 These can be cross-compiled from any system.
 
 ### V3 Changes
-The separate executables (like `datasetIngestor`, `datasetRetriever`...) were combined into one `scicat-cli` executable, with each executable's features available as commands given as the first parameter to this executable. 
+The separate executables (like `datasetIngestor`, `datasetRetriever`...) were combined into one `scicat-cli` executable, with each executable's features available as commands given as the first parameter to this executable.
 
 These commands bear the same names as the former executables. The general syntax change is that if you called `./[COMMAND] [flags]` before, now it's `./scicat-cli [COMMAND] [flags]`.
 
  Furthermore, the use of single hyphen, multi-letter flags is now discontinued, as it went against general convention. So, in practical terms, `-[long_flag_name]` and `--[long_flag_name]` were both accepted, but now only the latter is accepted.
 
 ### Backwards compatibility with v2
-A set of shell scripts are included with releases that are compatible with Linux and Mac executables in order to maintain compatibility with preexisting automation scripts. 
+A set of shell scripts are included with releases that are compatible with Linux and Mac executables in order to maintain compatibility with preexisting automation scripts.
 As these are written in BASH, Windows is not supported unless WSL2 is used.
 
 Usage informations:
