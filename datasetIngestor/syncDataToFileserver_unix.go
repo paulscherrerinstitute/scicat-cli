@@ -10,9 +10,13 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-
-	version "github.com/mcuadros/go-version"
 )
+
+type RsyncCmd struct {
+	Path        string
+	Version     string
+	StderrFlags []string
+}
 
 // functionality needed for "de-central" data
 // copies data from a local machine to a fileserver, uses RSync underneath
@@ -25,24 +29,40 @@ func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCSe
 	// no special handling for blanks in sourceFolder needed here
 	fullSourceFolderPath := sourceFolder + "/"
 
-	versionNumber, err := getRsyncVersion()
+	rsyncCmd, err := getRsyncCmd()
 	if err != nil {
-		return fmt.Errorf("error getting rsync version: %v", err)
+		return err
 	}
 
-	rsyncCmd := buildRsyncCmd(versionNumber, absFileListing, fullSourceFolderPath, serverConnectString)
+	cmd := buildRsyncCmd(rsyncCmd, absFileListing, fullSourceFolderPath, serverConnectString)
 
 	// Show rsync's output
-	rsyncCmd.Stdout = cmdOutput
-	rsyncCmd.Stderr = cmdOutput
-	fmt.Fprintf(cmdOutput, "Running: %v.\n", rsyncCmd.Args)
-	err = rsyncCmd.Run()
+	cmd.Stdout = cmdOutput
+	cmd.Stderr = cmdOutput
+	fmt.Fprintf(cmdOutput, "Running: %v.\n", cmd.Args)
+	err = cmd.Run()
 	return err
 }
 
+// Inspect the installed rsync binary
+func getRsyncCmd() (*RsyncCmd, error) {
+	path := "/usr/bin/rsync"
+	versionNumber, err := getRsyncVersion(path)
+	if err != nil {
+		return nil, err
+	}
+	stderrFlags, err := detectRsyncStderrSupport(path)
+	if err != nil {
+		return nil, err
+	}
+	return &RsyncCmd{
+		path, versionNumber, stderrFlags,
+	}, nil
+}
+
 // Get rsync version
-func getRsyncVersion() (string, error) {
-	cmd := exec.Command("/usr/bin/rsync", "--version")
+func getRsyncVersion(rsyncPath string) (string, error) {
+	cmd := exec.Command(rsyncPath, "--version")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -60,19 +80,32 @@ func getRsyncVersion() (string, error) {
 	return versionNumber, nil
 }
 
+// Detects if rsync supports --stderr and/or --msgs2stderr by parsing the output of rsync --help.
+// Returns two booleans: (supportsStderr, supportsMsgs2stderr)
+func detectRsyncStderrSupport(rsyncPath string) ([]string, error) {
+	cmd := exec.Command(rsyncPath, "--help")
+	output, err := cmd.Output()
+	if err != nil {
+		return []string{}, fmt.Errorf("error running /usr/bin/rsync --help: %v", err)
+	}
+	helpText := string(output)
+	if strings.Contains(helpText, "--stderr") {
+		return []string{"--stderr=error"}, nil
+	}
+	if strings.Contains(helpText, "--msgs2stderr") {
+		return []string{"-q", "--msgs2stderr"}, nil
+	}
+	return []string{}, nil
+}
+
 // Check rsync version and adjust command accordingly
-func buildRsyncCmd(versionNumber, absFileListing, fullSourceFolderPath, serverConnectString string) *exec.Cmd {
+func buildRsyncCmd(rsyncCmd *RsyncCmd, absFileListing, fullSourceFolderPath, serverConnectString string) *exec.Cmd {
 	rsyncFlags := []string{"-e", "ssh", "-avx", "--progress"}
 	if absFileListing != "" {
 		rsyncFlags = append([]string{"-r", "--files-from", absFileListing}, rsyncFlags...)
 	}
-	if version.Compare(versionNumber, "3.2.3", ">=") {
-		rsyncFlags = append(rsyncFlags, "--stderr=error")
-		// Full command: /usr/bin/rsync -e ssh -avx --progress -r --files-from <absFileListing> --stderr=error <fullSourceFolderPath> <serverConnectString>
-	} else {
-		rsyncFlags = append(rsyncFlags, "-q", "--msgs2stderr")
-		// Full command: /usr/bin/rsync -e ssh -avx --progress -r --files-from <absFileListing> -q --msgs2stderr <fullSourceFolderPath> <serverConnectString>
-	}
-	rsyncCmd := exec.Command("/usr/bin/rsync", append(rsyncFlags, fullSourceFolderPath, serverConnectString)...)
-	return rsyncCmd
+	rsyncFlags = append(rsyncFlags, rsyncCmd.StderrFlags...)
+
+	cmd := exec.Command(rsyncCmd.Path, append(rsyncFlags, fullSourceFolderPath, serverConnectString)...)
+	return cmd
 }
