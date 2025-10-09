@@ -1,7 +1,7 @@
 github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2 h1:+vx7roKuyA63nhn5WAunQHLTznkw5W8b1Xc0dNjp83s=
 github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2/go.mod h1:HBCaDeC1lPdgDeDbhX8XFpy1jqjK0IBG8W5K+xYqA0w=
-github.com/SwissOpenEM/globus v0.1.0 h1:ruJXjwre6a3Cu/39QTcFEluJ4OquU40BKnqL3LNL5C8=
-github.com/SwissOpenEM/globus v0.1.0/go.mod h1:HiMwPdtUdztPpnA0TamNWBBRPGYjEJWXSRUIV5vjqXc=
+github.com/SwissOpenEM/globus v0.1.2 h1:TMe8UNVSW4DO+MTb0sPixiBwD+49g9nvgjRq8jGdJFE=
+github.com/SwissOpenEM/globus v0.1.2/go.mod h1:HiMwPdtUdztPpnA0TamNWBBRPGYjEJWXSRUIV5vjqXc=
 github.com/cpuguy83/go-md2man/v2 v2.0.4/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
 github.com/creack/pty v1.1.17/go.mod h1:MOBLtS5ELjhRRrroQr9kyvTxUAFNvYEK993ew/Vr4O4=
 github.com/creack/pty v1.1.23 h1:4M6+isWdcStXEf15G/RbrMPOQj1dZ7HPZCGwE4kOeP0=
