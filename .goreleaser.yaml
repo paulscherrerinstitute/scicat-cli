@@ -129,3 +129,13 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+
+nfpms:
+  - id: scicat-cli-rpm
+    formats:
+      - rpm
+    package_name: scicat-cli
+    section: default
+
+release:
+  prerelease: auto
