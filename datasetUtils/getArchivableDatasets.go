@@ -117,7 +117,7 @@ func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup str
 
 	filter := ""
 	if len(inputdatasetList) == 0 {
-		filter = `{"where":{"ownerGroup":"` + ownerGroup + `","datasetlifecycle.archivable":true},"fields": {"pid":1,"size":1,"sourceFolder":1}}`
+		filter = `{"where":{"ownerGroup":"` + ownerGroup + `","datasetlifecycle.archivable":true},"fields": ["pid","size","sourceFolder"]}`
 		var err error
 		datasetList, err = addResult(client, APIServer, filter, accessToken, datasetList)
 		if err != nil {
@@ -132,7 +132,7 @@ func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup str
 				end = len(inputdatasetList)
 			}
 			quotedList := strings.Join(inputdatasetList[i:end], "\",\"")
-			filter = `{"where":{"pid":{"inq":["` + quotedList + `"]},"datasetlifecycle.archivable":true},"fields": {"pid":1,"size":1,"sourceFolder":1}}`
+			filter = `{"where":{"pid":{"inq":["` + quotedList + `"]},"datasetlifecycle.archivable":true},"fields": ["pid","size","sourceFolder"]}`
 			var err error
 			datasetList, err = addResult(client, APIServer, filter, accessToken, datasetList)
 			if err != nil {

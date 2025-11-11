@@ -148,7 +148,7 @@ func TestGetDatasetDetails_FilterString(t *testing.T) {
 	accessToken := "testToken"
 	datasetList := []string{"123"}
 	ownerGroup := "group1"
-	expectedFilter := `{"where":{"pid":{"inq":["` + strings.Join(datasetList, `","`) + `"]},"ownerGroup":"` + ownerGroup + `"},"fields":{"pid":true,"sourceFolder":true,"size":true,"ownerGroup":true}}`
+	expectedFilter := `{"where":{"pid":{"inq":["` + strings.Join(datasetList, `","`) + `"]},"ownerGroup":"` + ownerGroup + `"},"fields":["pid","sourceFolder","size","ownerGroup"]}`
 
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {

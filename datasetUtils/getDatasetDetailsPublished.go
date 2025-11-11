@@ -46,7 +46,7 @@ func GetDatasetDetailsPublished(client *http.Client, APIServer string, datasetLi
 
 		var filter = `{"where":{"pid":{"inq":["` +
 			strings.Join(datasetList[i:end], `","`) +
-			`"]}},"fields":{"pid":true,"sourceFolder":true,"size":true,"ownerGroup":true,"numberOfFiles":true}}`
+			`"]}},"fields":["pid","sourceFolder","size","ownerGroup","numberOfFiles"]}`
 
 		v := url.Values{}
 		v.Set("filter", filter)

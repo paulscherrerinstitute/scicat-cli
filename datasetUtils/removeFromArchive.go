@@ -27,7 +27,7 @@ type jobparamsStruct struct {
 
 func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool) {
 	// check for existing Datablocks first
-	filter := `{"where":{"datasetId":"` + pid + `"},"fields": {"id":1,"size":1}}`
+	filter := `{"where":{"datasetId":"` + pid + `"},"fields": ["id","size"]}`
 	url := APIServer + "/Datablocks?access_token=" + user["accessToken"]
 
 	//fmt.Printf("=== resulting filter:%s\n", filter)

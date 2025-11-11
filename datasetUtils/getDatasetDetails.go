@@ -53,7 +53,7 @@ func GetDatasetDetails(client *http.Client, APIServer string, accessToken string
 		if ownerGroup != "" {
 			filter += `,"ownerGroup":"` + ownerGroup + `"`
 		}
-		filter += `},"fields":{"pid":true,"sourceFolder":true,"size":true,"ownerGroup":true}}`
+		filter += `},"fields":["pid","sourceFolder","size","ownerGroup"]}`
 
 		v := url.Values{}
 		v.Set("filter", filter)

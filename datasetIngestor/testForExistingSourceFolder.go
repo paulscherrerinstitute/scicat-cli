@@ -71,7 +71,7 @@ func TestForExistingSourceFolder(folders []string, client *http.Client, APIServe
 
 func createFilter(sourceFolderList []string) string {
 	header := `{"where":{"sourceFolder":{"inq":["`
-	tail := `"]}},"fields": {"pid":1,"size":1,"sourceFolder":1,"ownerGroup":1}}`
+	tail := `"]}},"fields": ["pid","size","sourceFolder","ownerGroup"]}`
 	return fmt.Sprintf("%s%s%s", header, strings.Join(sourceFolderList, "\",\""), tail)
 }
 
