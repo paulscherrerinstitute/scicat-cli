@@ -115,7 +115,7 @@ For further help see "` + MANUAL + `"`,
 		if removeFromCatalogFlag {
 			datasetUtils.RemoveFromCatalog(client, APIServer, pid, user, nonInteractiveFlag)
 		} else {
-			log.Println("To also delete the dataset from the catalog add the flag -removeFromCatalog")
+			log.Println("To also delete the dataset from the catalog add the flag --removeFromCatalog")
 		}
 	},
 }

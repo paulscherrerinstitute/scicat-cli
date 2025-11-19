@@ -38,7 +38,7 @@ The resulting files from dataset folders will be stored under the full original 
 on the publication server.
 
 Usage example:
-./datasetPublishData -user archiveManager:password -publisheddata 10.16907/05a50450-767f-421d-9832-342b57c201
+./datasetPublishData --user archiveManager:password --publisheddata 10.16907/05a50450-767f-421d-9832-342b57c201
 
 To update the PublishedData entry with the downloadLink you have to run the script as user archiveManager.`,
 	Args: cobra.NoArgs,
@@ -295,7 +295,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 		if !publishFlag {
 			color.Set(color.FgRed)
 			log.Printf("Note: you run in 'dry' mode to simply check which data would be published.\n")
-			log.Printf("Use the -publish flag to actually publish the datasets.\n")
+			log.Printf("Use the --publish flag to actually publish the datasets.\n")
 			color.Unset() // Don't forget to unset
 		}
 
@@ -305,9 +305,9 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 			fmt.Printf("and updates the downloadLink value for the specified PublishedData document\n\n")
 			fmt.Printf("Run script without arguments, but specify options:\n\n")
 			fmt.Printf("datasetPublishData [options] \n\n")
-			fmt.Printf("Use -publisheddata option to define the datasets which should be published.\n\n")
+			fmt.Printf("Use --publisheddata option to define the datasets which should be published.\n\n")
 			fmt.Printf("For example:\n")
-			fmt.Printf("./datasetPublishData -user archiveManager:password -publisheddata 10.16907/05a50450-767f-421d-9832-342b57c201\n\n")
+			fmt.Printf("./datasetPublishData --user archiveManager:password --publisheddata 10.16907/05a50450-767f-421d-9832-342b57c201\n\n")
 			fmt.Printf("To update the PublishedData entry with the downloadLink you have to run the script as user archiveManager\n\n")
 			flag.PrintDefaults()
 			return
@@ -330,7 +330,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 		if !publishFlag {
 			color.Set(color.FgRed)
 			log.Printf("\n\nNote: you run in 'dry' mode to simply check what would happen.")
-			log.Printf("Use the -publish flag to actually copy data to publication server.")
+			log.Printf("Use the --publish flag to actually copy data to publication server.")
 			log.Printf("The following commands will be executed")
 			log.Printf("%v\n", strings.Join(batchCommands[:], "\n\n"))
 			color.Unset()

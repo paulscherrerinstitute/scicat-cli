@@ -77,7 +77,7 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 		if !retrieveFlag {
 			color.Set(color.FgRed)
 			log.Printf("Note: you run in 'dry' mode to simply check which data would be retrieved.\n")
-			log.Printf("Use the -retrieve flag to actually retrieve the datasets.\n")
+			log.Printf("Use the --retrieve flag to actually retrieve the datasets.\n")
 			color.Unset()
 		}
 
@@ -85,9 +85,9 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 			fmt.Println("\n\nTool to retrieve datasets to the intermediate cache server of the tape archive")
 			fmt.Printf("Run script without arguments, but specify options:\n\n")
 			fmt.Printf("datasetPublishDataRetrieve [options] \n\n")
-			fmt.Printf("Use -publisheddata option to define the datasets which should be published.\n\n")
+			fmt.Printf("Use --publisheddata option to define the datasets which should be published.\n\n")
 			fmt.Printf("For example:\n")
-			fmt.Printf("./datasetPublishDataRetrieve -user archiveManager:password -publisheddata 10.16907/05a50450-767f-421d-9832-342b57c201\n\n")
+			fmt.Printf("./datasetPublishDataRetrieve --user archiveManager:password --publisheddata 10.16907/05a50450-767f-421d-9832-342b57c201\n\n")
 			fmt.Printf("The script should be run as archiveManager\n\n")
 			flag.PrintDefaults()
 			return
@@ -112,7 +112,7 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 		if !retrieveFlag {
 			color.Set(color.FgRed)
 			log.Printf("\n\nNote: you run in 'dry' mode to simply check what would happen.")
-			log.Printf("Use the -retrieve flag to actually retrieve data from tape.\n")
+			log.Printf("Use the --retrieve flag to actually retrieve data from tape.\n")
 			color.Unset()
 		} else {
 			// create retrieve Job

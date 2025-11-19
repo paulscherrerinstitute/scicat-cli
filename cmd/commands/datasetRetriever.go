@@ -28,7 +28,7 @@ The resulting files from dataset folders will be stores in destinationPath/sourc
 In case there are several datasets with the same sourceFolder they will be simply enumerated by appending a "_1", "_2" etc. (not yet implemenmted)
 
 Per default all available datasets on the retrieve server will be fetched.\n")
-Use option -dataset or -ownerGroup to restrict the datasets which should be fetched.
+Use option --dataset or --ownerGroup to restrict the datasets which should be fetched.
 
 For further help see "` + MANUAL + `"`,
 	Args: exactArgsWithVersionException(1),
@@ -159,7 +159,7 @@ For further help see "` + MANUAL + `"`,
 		if !retrieveFlag {
 			color.Set(color.FgRed)
 			log.Printf("Note: you run in 'dry' mode to simply check which data would be fetched.\n")
-			log.Printf("Use the -retrieve flag to actually transfer the datasets to your chosen destination path.\n")
+			log.Printf("Use the --retrieve flag to actually transfer the datasets to your chosen destination path.\n")
 			color.Unset() // Don't forget to unset
 		}
 
@@ -210,7 +210,7 @@ For further help see "` + MANUAL + `"`,
 		if !retrieveFlag {
 			color.Set(color.FgRed)
 			log.Printf("\n\nNote: you run in 'dry' mode to simply check what would happen.")
-			log.Printf("Use the -retrieve flag to actually retrieve datasets.")
+			log.Printf("Use the --retrieve flag to actually retrieve datasets.")
 			color.Unset()
 		} else {
 			executeCommands(batchCommands)
