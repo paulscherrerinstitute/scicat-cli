@@ -63,9 +63,10 @@ func RemoveFromArchive(client *http.Client, APIServer string, pid string, user m
 
 func GetDatablocks(client *http.Client, APIServer string, pid string, user map[string]string) QueryDatablockResult {
 	filter := `{"where":{"datasetId":"` + pid + `"},"fields": {"id":1,"size":1}}`
-	url := APIServer + "/Datablocks?access_token=" + user["accessToken"]
+	url := APIServer + "/Datablocks"
 
 	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer "+ user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("filter", filter)
 
@@ -107,8 +108,9 @@ func SubmitJob(client *http.Client, APIServer string, user map[string]string, jo
 	bmm, _ = json.Marshal(jobMap)
 
 	// now send  archive job request
-	myurl := APIServer + "/Jobs?access_token=" + user["accessToken"]
+	myurl := APIServer + "/Jobs"
 	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bmm))
+	req.Header.Set("Authorization", "Bearer "+ user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
