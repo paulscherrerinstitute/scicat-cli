@@ -113,7 +113,7 @@ For further help see "` + MANUAL + `"`,
 		datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag)
 
 		if removeFromCatalogFlag {
-			datasetUtils.RemoveFromCatalog(client, APIServer, pid, user, nonInteractiveFlag)
+			datasetUtils.RemoveFromCatalog(client, APIServer, pid, user, nonInteractiveFlag, 10)
 		} else {
 			log.Println("To also delete the dataset from the catalog add the flag --removeFromCatalog")
 		}

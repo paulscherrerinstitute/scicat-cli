@@ -41,7 +41,7 @@ func ReturnCount(client *http.Client, APIServer string, pid string, user map[str
 	return respObj.Count
 }
 
-func RemoveFromCatalog(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool) {
+func RemoveFromCatalog(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, waitSeconds time.Duration) {
 	// first check that there are no datablocks anymore
 	// check for existing OrigDatablocks, attachments first
 
@@ -76,7 +76,7 @@ func RemoveFromCatalog(client *http.Client, APIServer string, pid string, user m
 			return
 		} else {
 			log.Println("Waiting for dataset being deleted from archiv.")
-			time.Sleep(time.Second * 10)
+			time.Sleep(time.Second * waitSeconds)
 		}
 	}
 }
