@@ -19,8 +19,9 @@ func returnCount(client *http.Client, APIServer string, pid string, user map[str
 	if collection != "datasets" {
 		myurl += strings.Replace(pid, "/", "%2F", 1) + "/" + collection
 	}
-	myurl += "/count?access_token=" + user["accessToken"]
+	myurl += "/count"
 	req, err := http.NewRequest("GET", myurl, nil)
+	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -89,7 +90,8 @@ func deleteDocumentsFrom(collection string, client *http.Client, APIServer strin
 	} else {
 		log.Println("Deleting the dataset entry inside catalog")
 	}
-	req, err := http.NewRequest("DELETE", myurl+"?access_token="+user["accessToken"], nil)
+	req, err := http.NewRequest("DELETE", myurl, nil)
+	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Fatal(err)
