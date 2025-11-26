@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strings"
+	"net/url"
 	"time"
 )
 
@@ -17,7 +17,7 @@ type countResult struct {
 func returnCount(client *http.Client, APIServer string, pid string, user map[string]string, collection string) (count int) {
 	myurl := APIServer + "/Datasets"
 	if collection != "datasets" {
-		myurl += strings.Replace(pid, "/", "%2F", 1) + "/" + collection
+		myurl += url.QueryEscape(pid) + "/" + collection
 	}
 	myurl += "/count"
 	req, err := http.NewRequest("GET", myurl, nil)
@@ -82,7 +82,7 @@ func RemoveFromCatalog(client *http.Client, APIServer string, pid string, user m
 }
 
 func deleteDocumentsFrom(collection string, client *http.Client, APIServer string, pid string, user map[string]string) {
-	pidEncoded := strings.Replace(pid, "/", "%2F", 1)
+	pidEncoded := url.QueryEscape(pid)
 	myurl := APIServer + "/Datasets/" + pidEncoded
 	if collection != "datasets" {
 		myurl += "/" + collection
@@ -90,6 +90,7 @@ func deleteDocumentsFrom(collection string, client *http.Client, APIServer strin
 	} else {
 		log.Println("Deleting the dataset entry inside catalog")
 	}
+	log.Println(myurl)
 	req, err := http.NewRequest("DELETE", myurl, nil)
 	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	resp, err := client.Do(req)

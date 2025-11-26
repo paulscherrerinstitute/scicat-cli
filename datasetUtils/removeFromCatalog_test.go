@@ -41,7 +41,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				datablocks:     []int{0},
 			},
 			expected: []string{
-				"/Datasets/dataset1/origdatablocks",
+				"/Datasets/dataset%2F1/origdatablocks",
 			},
 		},
 		{
@@ -53,7 +53,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				datablocks:     []int{0},
 			},
 			expected: []string{
-				"/Datasets/dataset1/attachments",
+				"/Datasets/dataset%2F1/attachments",
 			},
 		},
 		{
@@ -65,7 +65,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				datablocks:     []int{0},
 			},
 			expected: []string{
-				"/Datasets/dataset1",
+				"/Datasets/dataset%2F1",
 			},
 		},
 		{
@@ -77,9 +77,9 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				datablocks:     []int{0},
 			},
 			expected: []string{
-				"/Datasets/dataset1/origdatablocks",
-				"/Datasets/dataset1/attachments",
-				"/Datasets/dataset1",
+				"/Datasets/dataset%2F1/origdatablocks",
+				"/Datasets/dataset%2F1/attachments",
+				"/Datasets/dataset%2F1",
 			},
 		},
 		{
@@ -91,9 +91,9 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				datablocks:     []int{1, 0},
 			},
 			expected: []string{
-				"/Datasets/dataset1/origdatablocks",
-				"/Datasets/dataset1/attachments",
-				"/Datasets/dataset1",
+				"/Datasets/dataset%2F1/origdatablocks",
+				"/Datasets/dataset%2F1/attachments",
+				"/Datasets/dataset%2F1",
 			},
 		},
 	}
@@ -146,7 +146,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 						}
 
 						if req.Method == http.MethodDelete {
-							calledDeletes = append(calledDeletes, req.URL.Path)
+							calledDeletes = append(calledDeletes, req.URL.RawPath)
 							return &http.Response{
 								StatusCode: 200,
 								Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
@@ -161,7 +161,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				},
 			}
 
-			RemoveFromCatalog(client, "http://mockserver", "dataset1", user, true, 0)
+			RemoveFromCatalog(client, "http://mockserver", "dataset/1", user, true, 0)
 
 			if len(calledDeletes) != len(tt.expected) {
 				t.Errorf("Expected %d DELETE calls, got %d: %v", len(tt.expected), len(calledDeletes), calledDeletes)
