@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -63,12 +64,11 @@ func RemoveFromArchive(client *http.Client, APIServer string, pid string, user m
 
 func getDatablocks(client *http.Client, APIServer string, pid string, user map[string]string) queryDatablockResult {
 	filter := `{"where":{"datasetId":"` + pid + `"},"fields": {"id":1,"size":1}}`
-	url := APIServer + "/Datablocks"
+	url := APIServer + "/Datablocks?filter=" + url.QueryEscape(filter)
 
 	req, err := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+ user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("filter", filter)
 
 	resp, err := client.Do(req)
 	if err != nil {
