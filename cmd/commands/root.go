@@ -41,5 +41,5 @@ func init() {
 	rootCmd.PersistentFlags().Bool("oidc", false, "Use OIDC for login instead of internal user")
 	rootCmd.PersistentFlags().BoolP("version", "v", false, "Show version")
 
-	rootCmd.MarkFlagsMutuallyExclusive("user", "token", "oidc")
+	rootCmd.MarkFlagsMutuallyExclusive("token", "oidc")
 }
