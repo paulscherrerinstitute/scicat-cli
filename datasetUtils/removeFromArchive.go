@@ -120,7 +120,7 @@ func submitJob(client *http.Client, APIServer string, user map[string]string, jo
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == 200 {
+	if resp.StatusCode < 400 {
 		log.Println("Job response Status: okay")
 		log.Println("A confirmation email will be sent to", user["mail"])
 	} else {
