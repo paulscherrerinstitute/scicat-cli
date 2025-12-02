@@ -1,8 +1,10 @@
 package datasetIngestor
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"testing"
 	"time"
@@ -25,7 +27,12 @@ func TestGetAVFromPolicy(t *testing.T) {
 	}
 
 	// Test case 2: Policies available
+	var gotQuery string
 	ts2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.RawQuery
+		if got := r.Header.Get("Authorization"); got != "Bearer testToken" {
+			t.Errorf("Expected Authorization 'Bearer testToken', got '%s'", got)
+		}
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`[{"TapeRedundancy": "medium", "AutoArchive": false}]`)) // policy list with one policy
 	}))
@@ -37,6 +44,18 @@ func TestGetAVFromPolicy(t *testing.T) {
 
 	if level != "medium" {
 		t.Errorf("Expected level to be 'medium', got '%s'", level)
+	}
+
+	expectedFilterMap := map[string]interface{}{
+		"where": map[string]string{
+			"ownerGroup": "testOwner",
+		},
+	}
+	filterBytes, _ := json.Marshal(expectedFilterMap)
+	expectedQuery := "filter=" + url.QueryEscape(string(filterBytes))
+
+	if gotQuery != expectedQuery {
+		t.Errorf("Expected query '%s', got '%s'", expectedQuery, gotQuery)
 	}
 }
 

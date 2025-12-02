@@ -3,7 +3,9 @@ package datasetIngestor
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -36,8 +38,23 @@ Returns:
 func getAVFromPolicy(client *http.Client, APIServer string, user map[string]string, owner string) (level string) {
 	level = "low" // default value
 
-	var myurl = APIServer + "/Policies?filter=%7B%22where%22%3A%7B%22ownerGroup%22%3A%22" + owner + "%22%7D%7D&access_token=" + user["accessToken"]
-	resp, err := client.Get(myurl)
+	filterMap := map[string]interface{}{
+		"where": map[string]string{
+			"ownerGroup": owner,
+		},
+	}
+	filterBytes, err := json.Marshal(filterMap)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var myurl = APIServer + "/Policies?filter=" + url.QueryEscape(string(filterBytes))
+	req, err := http.NewRequest("GET", myurl, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
 	if err != nil {
 		return level
 	}
