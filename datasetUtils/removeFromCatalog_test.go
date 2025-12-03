@@ -127,13 +127,33 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 							switch {
 							case strings.Contains(req.URL.Path, "origdatablocks"):
 								count = tt.mockCount.origDatablocks
+								expected := "/Datasets/dataset%2F1/origdatablocks/count"
+								if req.URL.RawPath != expected {
+									t.Errorf("GET /count path mismatch for origdatablocks: got %s, expected %s", req.URL.RawPath, expected)
+								}
 							case strings.Contains(req.URL.Path, "attachments"):
 								count = tt.mockCount.attachments
+								expected := "/Datasets/dataset%2F1/attachments/count"
+								if req.URL.RawPath != expected {
+									t.Errorf("GET /count path mismatch for attachments: got %s, expected %s", req.URL.RawPath, expected)
+								}
 							case strings.Contains(req.URL.Path, "datablocks"):
 								count = getDatablocksCount()
 								dbCalls++
+								expected := "/Datasets/dataset%2F1/datablocks/count"
+								if req.URL.RawPath != expected {
+									t.Errorf("GET /count path mismatch for datablocks: got %s, expected %s", req.URL.RawPath, expected)
+								}
 							case strings.Contains(req.URL.Path, "Datasets"):
 								count = tt.mockCount.datasets
+								expected := "/Datasets/count"
+								if req.URL.Path != expected {
+									t.Errorf("GET /count path mismatch for datasets: got %s, expected %s", req.URL.Path, expected)
+								}
+								expectedQuery := "filter=%7B%22where%22%3A%7B%22pid%22%3A%22dataset%2F1%22%7D%7D"
+								if req.URL.RawQuery != expectedQuery {
+									t.Errorf("GET /count path mismatch for datasets: got %s, expected %s", req.URL.RawQuery, expectedQuery)
+								}
 							default:
 								count = 0
 							}

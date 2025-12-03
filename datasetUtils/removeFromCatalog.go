@@ -17,9 +17,13 @@ type countResult struct {
 func returnCount(client *http.Client, APIServer string, pid string, user map[string]string, collection string) (count int) {
 	myurl := APIServer + "/Datasets"
 	if collection != "datasets" {
-		myurl += url.QueryEscape(pid) + "/" + collection
+		myurl += "/" + url.QueryEscape(pid) + "/" + collection
 	}
 	myurl += "/count"
+	if collection == "datasets" {
+		filter := `{"where":{"pid":"` + pid + `"}}`
+		myurl += "?filter=" + url.QueryEscape(filter)
+	}
 	req, err := http.NewRequest("GET", myurl, nil)
 	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
