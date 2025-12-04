@@ -68,7 +68,7 @@ PSI deploys tools to the following locations.
 This provides the tools to the PSI clusters (ra and merlin) and linux workstations.
 
 Detailed instructions are provided with the [datacatalog
-buildblock](https://gitlab.psi.ch/Pmodules/buildblocks/-/tree/master/Tools/datacatalog).
+buildblock](https://github.com/Pmodules/buildblocks/tree/master/Tools/datacatalog).
 
 The module downloads the latest release. It can be run from any linux system with AFS
 access. Spencer typically uses `pmod7.psi.ch` as his `-adm` user for building modules.
@@ -85,8 +85,7 @@ module load Pmodules/1.0.0
 ```
 
 As described in the buildblock README, the
-[GUI](https://git.psi.ch/MELANIE/rollout/-/tree/master/Software/00-General/SciCatArchiverGUI)
-needs to be compiled separately and manually copied to AFS.
+SciCat GUI needs to be compiled separately and manually copied to AFS.
 
 ### Manual deployment and upgrade
 
