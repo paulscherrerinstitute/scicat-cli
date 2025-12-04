@@ -2,7 +2,7 @@ package cmd
 
 // See also datasetUtils/urlConstants.go
 
-const MANUAL = "http://melanie.gitpages.psi.ch/SciCatPages"
+const MANUAL = "https://data-catalog-services.pages.psi.ch/"
 
 const PROD_API_SERVER string = "https://dacat.psi.ch/api/v3"
 const TEST_API_SERVER string = "https://dacat-qa.psi.ch/api/v3"
