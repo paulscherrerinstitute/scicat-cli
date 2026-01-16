@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 )
 
@@ -75,9 +76,14 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 	if resp.StatusCode != 201 {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return map[string]string{}, []string{}, fmt.Errorf("error when logging in: unknown error (can't parse body)")
+			return map[string]string{}, []string{}, fmt.Errorf("error when logging in: got status %d from the server during login", resp.StatusCode)
 		}
+
 		msg := getMessageFromErrorResponse(string(body))
+
+		if resp.StatusCode == 401 {
+			log.Println("Unauthorized access. Either the username/password is incorrect or the user is not a functional account.")
+		}
 		return map[string]string{}, []string{}, fmt.Errorf("error when logging in: '%s'", msg)
 	}
 
