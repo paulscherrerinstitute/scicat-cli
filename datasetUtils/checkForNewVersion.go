@@ -24,7 +24,15 @@ type Release struct {
 }
 
 func fetchLatestVersion(client *http.Client) (string, error) {
-	resp, err := client.Get(GitHubAPI)
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+    defer cancel()
+
+    req, err := http.NewRequestWithContext(ctx, "GET", GitHubAPI, nil)
+    if err != nil {
+        return "", err
+    }
+
+    resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
