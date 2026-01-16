@@ -141,7 +141,8 @@ func readYAMLFile(client *http.Client) ([]byte, error) {
         return "", err
     }
 
-    resp, err := client.Do(req)	if err != nil {
+    resp, err := client.Do(req)	
+	if err != nil {
 		fmt.Println("No Information about Service Availability")
 		return nil, fmt.Errorf("failed to fetch the service availability YAML file: %w", err)
 	}
