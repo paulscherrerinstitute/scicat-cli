@@ -36,7 +36,22 @@ func newLoginRequestJson(username string, password string) ([]byte, error) {
 	return json.Marshal(l)
 }
 
+func getMessageFromErrorResponse(body string) string {
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(body), &parsed); err != nil {
+		return body
+	}
+	if message, ok := parsed["message"].(string); ok {
+		return message
+	}
+	return body
+}
+
 func AuthenticateUser(client *http.Client, APIServer string, username string, password string, ldapLogin bool) (map[string]string, []string, error) {
+	if ldapLogin {
+		return map[string]string{}, []string{}, fmt.Errorf("LDAP login is not supported by scicat v4. Use a token or functional account.")
+	}
+
 	loginReqJson, err := newLoginRequestJson(username, password)
 	if err != nil {
 		return map[string]string{}, []string{}, err
@@ -62,7 +77,8 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 		if err != nil {
 			return map[string]string{}, []string{}, fmt.Errorf("error when logging in: unknown error (can't parse body)")
 		}
-		return map[string]string{}, []string{}, fmt.Errorf("error when logging in: '%s'", string(body))
+		msg := getMessageFromErrorResponse(string(body))
+		return map[string]string{}, []string{}, fmt.Errorf("error when logging in: '%s'", msg)
 	}
 
 	respJson, err := io.ReadAll(resp.Body)

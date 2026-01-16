@@ -112,17 +112,6 @@ curl -s 'https://api.github.com/repos/paulscherrerinstitute/scicat-cli/releases/
 
 The latest binaries will be downloaded to `scicat-cli_*/`.
 
-### Beamline consoles
-
-Note: *Outdated instructions*
-
-Deploy linux versions to online beamline consoles (you need to have write access rights):
-
-```bash
-cd linux
-scp datasetArchiver datasetIngestor datasetRetriever  datasetGetProposal datasetCleaner SciCat egli@gfa-lc.psi.ch:/work/sls/bin/
-```
-
 ### PBAIngest Server
 
 Deploy linux versions to the ingest server pbaingest01. This is usually done by Michael
@@ -137,5 +126,5 @@ curl -s https://api.github.com/repos/paulscherrerinstitute/scicat-cli/releases/l
 | tr -d \" \
 | wget -qi -
 tar -xzf scicat-cli_*_Linux_x86_64.tar.gz
-chmod +x datasetIngestor datasetArchiver datasetGetProposal
+chmod +x scicat-cli
 ```
