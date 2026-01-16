@@ -1,6 +1,7 @@
 package datasetUtils
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"gopkg.in/yaml.v2"
 	"github.com/fatih/color"
+	"time"
 )
 
 type Availability struct {
@@ -131,8 +133,15 @@ func readYAMLFile(client *http.Client) ([]byte, error) {
 	// Construct the URL of the service availability YAML file
 	yamlURL := fmt.Sprintf("%s/cmd/datasetIngestor/datasetIngestorServiceAvailability.yml", GitHubMainLocation)
 	
-	// Send a GET request to fetch the service availability YAML file
-	resp, err := client.Get(yamlURL)
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+    defer cancel()
+
+    req, err := http.NewRequestWithContext(ctx, "GET", yamlURL, nil)
+    if err != nil {
+        return nil, err
+    }
+
+    resp, err := client.Do(req)	
 	if err != nil {
 		fmt.Println("No Information about Service Availability")
 		return nil, fmt.Errorf("failed to fetch the service availability YAML file: %w", err)
