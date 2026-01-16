@@ -138,7 +138,7 @@ func readYAMLFile(client *http.Client) ([]byte, error) {
 
     req, err := http.NewRequestWithContext(ctx, "GET", yamlURL, nil)
     if err != nil {
-        return "", err
+        return nil, err
     }
 
     resp, err := client.Do(req)	
