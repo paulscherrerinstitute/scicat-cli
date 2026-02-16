@@ -181,7 +181,7 @@ func CheckUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 
 func isValidDomain(domain string) bool {
 	// Regular expression to validate domain name
-	regex := `^(?:a-zA-Z0-9?\.)+[a-zA-Z]{2,}$`
+	regex := `^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$`
 	match, _ := regexp.MatchString(regex, domain)
 	return match
 }
