@@ -262,6 +262,8 @@ func GatherMissingMetadata(user map[string]string, metaDataMap map[string]interf
 			newGroup := strings.ToLower(parts[2]) + strings.ToLower(parts[3])
 			if accessGroups, ok := metaDataMap["accessGroups"]; ok {
 				switch v := accessGroups.(type) {
+				case []interface{}:
+					metaDataMap["accessGroups"] = append(v, newGroup)
 				case []string:
 					metaDataMap["accessGroups"] = append(v, newGroup)
 				default:
