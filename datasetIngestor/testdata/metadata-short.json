@@ -1,6 +1,6 @@
 {
     "principalInvestigator":"piemail@example.ch",
-    "creationLocation":"/PSI/SLS/CSAXS/SWISSFEL",
+    "creationLocation":"/PSI/SLS/CSAXS",
     "sourceFolder": "/tmp/gnome",
     "owner": "first last",
     "type": "raw",
