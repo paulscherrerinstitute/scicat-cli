@@ -5,16 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
-
-	"github.com/fatih/color"
-	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
 const (
@@ -136,13 +136,9 @@ func CheckUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 		// NOTE: so if there's no ownergroup, we can pass this check?
 		return false, fmt.Errorf("no OwnerGroup attribute present in metadata")
 	}
-
 	// Iterate over accessGroups to validate the owner group.
-	for _, b := range accessGroups {
-		if b == ownerGroup {
-			//log.Printf("OwnerGroup information %s verified successfully.\n", ownerGroup)
-			return false, nil
-		}
+	if slices.Contains(accessGroups, ownerGroup.(string)) {
+		return false, nil
 	}
 
 	// NOTE: beamline accounts seem to be very PSI specific.
@@ -155,7 +151,7 @@ func CheckUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 			expectedAccount = strings.ToLower(parts[2]) + strings.ToLower(parts[3])
 		}
 		// If the user matches the expected beamline account, grant ingest access.
-		if user["displayName"] == expectedAccount {
+		if slices.Contains(accessGroups, expectedAccount) {
 			//log.Printf("Beamline specific dataset %s - ingest granted.\n", expectedAccount)
 			return true, nil
 		} else {
@@ -175,8 +171,8 @@ func CheckUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 	}
 
 	// NOTE: we can get to this part after the last else,
-	//   this lacks an error state for not being a beamline account or part of an expected owner group?
-	return false, nil
+	// this lacks an error state for not being a beamline account or part of an expected owner group?
+	return false, fmt.Errorf("user is not part of the ownerGroup and does not have a valid beamline account")
 }
 
 func isValidDomain(domain string) bool {

@@ -227,3 +227,39 @@ func TestCheckMetadata_ValidFalse(t *testing.T) {
 		t.Errorf("Expected error to contain 'sourceFolderHost must be a URL address', got %q", err.Error())
 	}
 }
+
+func TestCheckMetadata_BeamlineAccount(t *testing.T) {
+	var metadatafile2 = "testdata/metadata-short.json"
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodPost {
+			t.Errorf("Expected POST request, got %s", req.Method)
+		}
+		expectedURL := "/datasets/isValid"
+		if req.URL.String() != expectedURL {
+			t.Errorf("Expected request to %s, got %s", expectedURL, req.URL.String())
+		}
+
+		rw.WriteHeader(http.StatusOK)
+		rw.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(rw, `{"valid":true}`)
+	}))
+	// Close the server when test finishes
+	defer server.Close()
+	client := server.Client()
+
+	// Mock user map
+	user := map[string]string{
+		"displayName": "slscsaxs1",
+		"mail":        "testuser@example.com",
+	}
+	accessGroups := []string{"slscsaxs", "slscsaxs1"}
+
+	// Call the function with mock parameters
+	_, _, beamlineAccount, err := ReadAndCheckMetadata(client, server.URL, metadatafile2, user, accessGroups)
+	if err != nil {
+		t.Error("Error in CheckMetadata function: ", err)
+	}
+	if !beamlineAccount {
+		t.Error("Expected beamline account to be true")
+	}
+}
