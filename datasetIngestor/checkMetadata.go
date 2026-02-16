@@ -378,7 +378,7 @@ func CheckMetadataValidity(client *http.Client, APIServer string, token string, 
 	switch v := isValid.(type) {
 	case bool:
 		if !v {
-			return fmt.Errorf("metadata is not valid")
+			return fmt.Errorf("metadata is not valid %s", string(responseMap["error"].(string)))
 		}
 	default:
 		return fmt.Errorf("'valid' contains non-boolean value")
