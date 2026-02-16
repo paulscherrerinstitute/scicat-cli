@@ -17,6 +17,9 @@ func TestGetHost(t *testing.T) {
 	if len(host) == 0 {
 		t.Errorf("getHost() returned an empty string")
 	}
+	if host == "unknown" {
+		t.Errorf("GetHost() failed to resolve a real hostname and returned 'unknown'")
+	}
 
 	// OUTDATED: getHost will return unknown if we can't get a hostname that is FQDN
 	// fail the test and report an error if the returned hostname is "unknown".
@@ -110,6 +113,9 @@ func TestCheckMetadata(t *testing.T) {
 		}
 	} else {
 		t.Error("scientificMetadata is not a list")
+	}
+	if host, ok := metaDataMap["sourceFolderHost"].(string); !ok {
+		t.Fatalf("sourceFolderHost is missing or not a string (got %T)", host)
 	}
 
 	// test with the second metadata file
