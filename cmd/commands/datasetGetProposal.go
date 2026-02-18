@@ -14,10 +14,11 @@ import (
 )
 
 var datasetGetProposalCmd = &cobra.Command{
-	Use:   "datasetGetProposal [options] ownerGroup",
-	Short: "Returns the proposal information for a given ownerGroup",
+	Aliases: []string{"proposal"},
+	Use:     "datasetGetProposal [options] ownerGroup",
+	Short:   "Returns the proposal information for a given ownerGroup",
 	Long: `Tool to retrieve proposal information for a given ownerGroup.
-	
+
 For further help see "` + MANUAL + `"`,
 	Args: exactArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {

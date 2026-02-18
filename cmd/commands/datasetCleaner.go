@@ -13,10 +13,11 @@ import (
 )
 
 var datasetCleanerCmd = &cobra.Command{
-	Use:   "datasetCleaner [options] datasetPid",
-	Short: "Remove dataset from archive and optionally from data catalog",
+	Aliases: []string{"c", "clean"},
+	Use:     "datasetCleaner [options] datasetPid",
+	Short:   "Remove dataset from archive and optionally from data catalog",
 	Long: `Tool to remove datasets from the data catalog.
-	
+
 If Datablock entries exist for a given dataset, a reset job will be launched.
 
 If the Dataset should be removed from the data catalog, the corresponding
