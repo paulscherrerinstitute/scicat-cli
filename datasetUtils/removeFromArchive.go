@@ -27,17 +27,21 @@ type jobParamsStruct struct {
 	Username string `json:"username"`
 }
 
-func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool) error {
+type jobSubmissionResponse struct {
+	ID string `json:"id"`
+}
+
+func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool) (string, error) {
 	respObj, err := getDatablocks(client, APIServer, pid, user)
 	if err != nil {
-		return fmt.Errorf("failed to fetch datablocks: %w", err)
+		return "", fmt.Errorf("failed to fetch datablocks: %w", err)
 	}
 
 	if len(respObj) == 0 {
 		color.Set(color.FgGreen)
 		log.Println("No datablocks found - dataset already cleaned from archive.")
 		color.Unset()
-		return nil
+		return "", nil
 	}
 
 	log.Printf("Found %d datablocks for dataset %s", len(respObj), pid)
@@ -53,17 +57,18 @@ func RemoveFromArchive(client *http.Client, APIServer string, pid string, user m
 		var input string
 		fmt.Scanln(&input)
 		if input != "y" {
-			return fmt.Errorf("clean up operation cancelled by user")
+			return "", fmt.Errorf("clean up operation cancelled by user")
 		}
 	} else {
 		log.Println("Non-interactive mode: proceeding automatically.")
 	}
 	jobMap := buildResetJobMap(pid, user)
-	if err := submitJob(client, APIServer, user, jobMap); err != nil {
-		return fmt.Errorf("archive reset job submission failed: %w", err)
+	jobID, err := submitJob(client, APIServer, user, jobMap)
+	if err != nil {
+		return "", fmt.Errorf("archive reset job submission failed: %w", err)
 	}
 
-	return nil
+	return jobID, nil
 }
 
 func getDatablocks(client *http.Client, APIServer string, pid string, user map[string]string) ([]datablockInfo, error) {
@@ -108,31 +113,36 @@ func buildResetJobMap(pid string, user map[string]string) map[string]interface{}
 	}
 }
 
-func submitJob(client *http.Client, APIServer string, user map[string]string, jobMap map[string]interface{}) error {
+func submitJob(client *http.Client, APIServer string, user map[string]string, jobMap map[string]interface{}) (string, error) {
 	jsonData, err := json.Marshal(jobMap)
 	if err != nil {
-		return fmt.Errorf("json marshal failed: %w", err)
+		return "", fmt.Errorf("json marshal failed: %w", err)
 	}
 
 	myurl := APIServer + "/Jobs"
 	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return err
+		return "", fmt.Errorf("failed to create job request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("network error on job submission: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("job submission failed (%d): %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("job submission failed (%d): %s", resp.StatusCode, string(body))
+	}
+
+	var respObj jobSubmissionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&respObj); err != nil {
+		return "", fmt.Errorf("failed to decode job submission response: %w", err)
 	}
 
 	log.Println("Job response Status: okay")
 	log.Println("A confirmation email will be sent to", user["mail"])
-	return nil
+	return respObj.ID, nil
 }

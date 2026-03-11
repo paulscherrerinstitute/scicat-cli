@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/fatih/color"
@@ -110,10 +114,24 @@ For further help see "` + MANUAL + `"`,
 			log.Fatalf("You must be archiveManager to be allowed to delete datasets\n")
 		}
 
-		datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag)
+		jobId, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag)
+		if err != nil {
+			err = patchJobStatus(client, APIServer, user, jobId, "finishedUnsuccessful")
+			if err != nil {
+				log.Printf("Failed to patch job status: %v", err)
+			}
+			log.Fatal(err)
+		}
 
 		if removeFromCatalogFlag {
-			datasetUtils.RemoveFromCatalog(client, APIServer, pid, user, nonInteractiveFlag, 10)
+			err = datasetUtils.RemoveFromCatalog(client, APIServer, pid, jobId, user, nonInteractiveFlag, 10)
+			if err != nil {
+				err = patchJobStatus(client, APIServer, user, jobId, "finishedUnsuccessful")
+				if err != nil {
+					log.Printf("Failed to patch job status: %v", err)
+				}
+				log.Fatal(err)
+			}
 		} else {
 			log.Println("To also delete the dataset from the catalog add the flag --removeFromCatalog")
 		}
@@ -129,4 +147,36 @@ func init() {
 	datasetCleanerCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
 
 	datasetCleanerCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
+}
+
+func patchJobStatus(client *http.Client, APIServer string, user map[string]string, jobID string, status string) error {
+	myurl := fmt.Sprintf("%s/Jobs/%s", APIServer, url.PathEscape(jobID))
+	payload := map[string]string{
+		"jobStatusMessage": status,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal patch payload: %w", err)
+	}
+	req, err := http.NewRequest("PATCH", myurl, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create job status request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("network error on job status: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("job status request failed (%d): %s", resp.StatusCode, string(body))
+	}
+
+	return nil
 }

@@ -18,9 +18,13 @@ type mockCount struct {
 
 func TestRemoveFromCatalog_AllCases(t *testing.T) {
 	tests := []struct {
-		name      string
-		mockCount mockCount
-		expected  []string
+		name               string
+		mockCount          mockCount
+		expected           []string
+		expectError        bool
+		expectedErrSubstr  string
+		failOrigCount      bool
+		failOrigDeleteCall bool
 	}{
 		{
 			name: "Delete none immediately",
@@ -96,6 +100,34 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				"/Datasets/dataset%2F1",
 			},
 		},
+		{
+			name: "Error when origdatablocks count fails",
+			mockCount: mockCount{
+				origDatablocks: 0,
+				attachments:    0,
+				datasets:       0,
+				datablocks:     []int{},
+			},
+			expected:           []string{},
+			expectError:        true,
+			expectedErrSubstr:  "pre-check failed: could not count origdatablocks",
+			failOrigCount:      true,
+			failOrigDeleteCall: false,
+		},
+		{
+			name: "Error when origdatablocks delete fails",
+			mockCount: mockCount{
+				origDatablocks: 1,
+				attachments:    0,
+				datasets:       0,
+				datablocks:     []int{0},
+			},
+			expected:           []string{"/Datasets/dataset%2F1/origdatablocks"},
+			expectError:        true,
+			expectedErrSubstr:  "cleanup failed at origdatablocks",
+			failOrigCount:      false,
+			failOrigDeleteCall: true,
+		},
 	}
 
 	user := map[string]string{
@@ -122,7 +154,21 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 			client := &http.Client{
 				Transport: &MockTransport{
 					RoundTripFunc: func(req *http.Request) (*http.Response, error) {
+						if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/Jobs/") {
+							return &http.Response{
+								StatusCode: 200,
+								Body:       io.NopCloser(bytes.NewBufferString(`{"jobStatusMessage":"finishedSuccessful"}`)),
+							}, nil
+						}
+
 						if req.Method == http.MethodGet && strings.HasSuffix(req.URL.Path, "/count") {
+							if tt.failOrigCount && strings.Contains(req.URL.Path, "origdatablocks") {
+								return &http.Response{
+									StatusCode: 500,
+									Body:       io.NopCloser(bytes.NewBufferString(`{"error":"boom"}`)),
+								}, nil
+							}
+
 							var count int
 							switch {
 							case strings.Contains(req.URL.Path, "origdatablocks"):
@@ -167,6 +213,12 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 
 						if req.Method == http.MethodDelete {
 							calledDeletes = append(calledDeletes, req.URL.RawPath)
+							if tt.failOrigDeleteCall && strings.Contains(req.URL.Path, "origdatablocks") {
+								return &http.Response{
+									StatusCode: 500,
+									Body:       io.NopCloser(bytes.NewBufferString(`{"error":"delete failed"}`)),
+								}, nil
+							}
 							return &http.Response{
 								StatusCode: 200,
 								Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
@@ -181,7 +233,17 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				},
 			}
 
-			RemoveFromCatalog(client, "http://mockserver", "dataset/1", user, true, 0)
+			err := RemoveFromCatalog(client, "http://mockserver", "dataset/1", "job-123", user, true, 0)
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.expectedErrSubstr)
+				}
+				if !strings.Contains(err.Error(), tt.expectedErrSubstr) {
+					t.Fatalf("expected error containing %q, got %v", tt.expectedErrSubstr, err)
+				}
+			} else if err != nil {
+				t.Fatalf("RemoveFromCatalog returned unexpected error: %v", err)
+			}
 
 			if len(calledDeletes) != len(tt.expected) {
 				t.Errorf("Expected %d DELETE calls, got %d: %v", len(tt.expected), len(calledDeletes), calledDeletes)
