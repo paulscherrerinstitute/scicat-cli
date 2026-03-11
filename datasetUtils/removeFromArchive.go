@@ -3,128 +3,136 @@ package datasetUtils
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/fatih/color"
-	"io/ioutil"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 type datablockInfo struct {
-	Id   string `json:"id"`
+	ID   string `json:"id"`
 	Size int    `json:"size"`
 }
-type queryDatablockResult []datablockInfo
 
 type datasetStruct struct {
 	Pid   string   `json:"pid"`
 	Files []string `json:"files"`
 }
 
-type jobparamsStruct struct {
+type jobParamsStruct struct {
 	Username string `json:"username"`
 }
 
-func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool) {
-	// check for existing Datablocks first
-	var respObj = getDatablocks(client, APIServer, pid, user)
+func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool) error {
+	respObj, err := getDatablocks(client, APIServer, pid, user)
+	if err != nil {
+		return fmt.Errorf("failed to fetch datablocks: %w", err)
+	}
 
-	// TODO add printout of datasets sourceFolder
 	if len(respObj) == 0 {
 		color.Set(color.FgGreen)
-		log.Println("No datablocks found for this dataset - dataset already cleaned from archive")
+		log.Println("No datablocks found - dataset already cleaned from archive.")
 		color.Unset()
-		return
+		return nil
 	}
-	log.Printf("Found the following datablocks for dataset %s", pid)
-	var item datablockInfo
-	for _, item = range respObj {
-		log.Printf("Id %v, size: %v", item.Id, item.Size)
+
+	log.Printf("Found %d datablocks for dataset %s", len(respObj), pid)
+	for _, item := range respObj {
+		log.Printf("ID: %s, Size: %d", item.ID, item.Size)
 	}
 	// Set up reset job
 	log.Println("Setting up reset job to remove dataset inside archive system")
-	color.Set(color.FgYellow)
-	if nonInteractive {
-		log.Println("You chose the non interactive flag - I will go on automatically.")
+	if !nonInteractive {
+		color.Set(color.FgYellow)
+		log.Println("Are you sure? This action cannot be undone! Type 'y' to continue:")
 		color.Unset()
-	} else {
-		log.Println("Are you sure ? This action can not be undone ! Type 'y' to continue.")
-		color.Unset()
-		scanner.Scan()
-		cont := scanner.Text()
-		if cont != "y" {
-			log.Fatalln("Clean up operation cancelled")
+		var input string
+		fmt.Scanln(&input)
+		if input != "y" {
+			return fmt.Errorf("clean up operation cancelled by user")
 		}
+	} else {
+		log.Println("Non-interactive mode: proceeding automatically.")
+	}
+	jobMap := buildResetJobMap(pid, user)
+	if err := submitJob(client, APIServer, user, jobMap); err != nil {
+		return fmt.Errorf("archive reset job submission failed: %w", err)
 	}
 
-	var jobMap = buildResetJobMap(pid, user)
-	submitJob(client, APIServer, user, jobMap)
+	return nil
 }
 
-func getDatablocks(client *http.Client, APIServer string, pid string, user map[string]string) queryDatablockResult {
-	filter := `{"where":{"datasetId":"` + pid + `"},"fields": {"id":1,"size":1}}`
-	url := APIServer + "/Datablocks?filter=" + url.QueryEscape(filter)
+func getDatablocks(client *http.Client, APIServer string, pid string, user map[string]string) ([]datablockInfo, error) {
+	filter := fmt.Sprintf(`{"where":{"datasetId":"%s"},"fields": {"id":1,"size":1}}`, pid)
+	url := fmt.Sprintf("%s/Datablocks?filter=%s", APIServer, url.QueryEscape(filter))
 
 	req, err := http.NewRequest("GET", url, nil)
-	req.Header.Set("Authorization", "Bearer "+ user["accessToken"])
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
 
-	var respObj queryDatablockResult
-	err = json.Unmarshal(body, &respObj)
-	if err != nil {
-		log.Fatal(err)
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
 	}
-	return respObj
+
+	var respObj []datablockInfo
+	if err := json.NewDecoder(resp.Body).Decode(&respObj); err != nil {
+		return nil, fmt.Errorf("failed to decode datablocks: %w", err)
+	}
+	return respObj, nil
 }
 
 func buildResetJobMap(pid string, user map[string]string) map[string]interface{} {
-	jobMap := make(map[string]interface{})
-	jobMap["emailJobInitiator"] = user["mail"]
-	jobMap["type"] = "reset"
-	jobMap["creationTime"] = time.Now().Format(time.RFC3339)
-	// TODO these job parameters may become obsolete
-	jobMap["jobParams"] = jobparamsStruct{user["username"]}
-	jobMap["jobStatusMessage"] = "jobSubmitted"
-
-	emptyfiles := make([]string, 0)
-
-	var dsMap []datasetStruct
-	dsMap = append(dsMap, datasetStruct{pid, emptyfiles})
-	jobMap["datasetList"] = dsMap
-
-	return jobMap
+	return map[string]interface{}{
+		"emailJobInitiator": user["mail"],
+		"type":              "reset",
+		"creationTime":      time.Now().Format(time.RFC3339),
+		"jobParams":         jobParamsStruct{Username: user["username"]},
+		"jobStatusMessage":  "jobSubmitted",
+		"datasetList": []datasetStruct{
+			{Pid: pid, Files: []string{}},
+		},
+	}
 }
 
-func submitJob(client *http.Client, APIServer string, user map[string]string, jobMap map[string]interface{}) {
-	var bmm []byte
-	bmm, _ = json.Marshal(jobMap)
+func submitJob(client *http.Client, APIServer string, user map[string]string, jobMap map[string]interface{}) error {
+	jsonData, err := json.Marshal(jobMap)
+	if err != nil {
+		return fmt.Errorf("json marshal failed: %w", err)
+	}
 
-	// now send  archive job request
 	myurl := APIServer + "/Jobs"
-	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(bmm))
-	req.Header.Set("Authorization", "Bearer "+ user["accessToken"])
+	req, err := http.NewRequest("POST", myurl, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-	body, _ := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Println("response Body:", string(body))
-		log.Fatal(err)
+		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode < 400 {
-		log.Println("Job response Status: okay")
-		log.Println("A confirmation email will be sent to", user["mail"])
-	} else {
-		log.Println("Job response Status: there are problems:", resp.StatusCode)
-		log.Fatalln("Job response Body:", string(body))
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("job submission failed (%d): %s", resp.StatusCode, string(body))
 	}
+
+	log.Println("Job response Status: okay")
+	log.Println("A confirmation email will be sent to", user["mail"])
+	return nil
 }
