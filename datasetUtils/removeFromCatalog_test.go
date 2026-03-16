@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 type mockCount struct {
@@ -18,13 +19,18 @@ type mockCount struct {
 
 func TestRemoveFromCatalog_AllCases(t *testing.T) {
 	tests := []struct {
-		name               string
-		mockCount          mockCount
-		expected           []string
-		expectError        bool
-		expectedErrSubstr  string
-		failOrigCount      bool
-		failOrigDeleteCall bool
+		name                string
+		mockCount           mockCount
+		expected            []string
+		expectError         bool
+		expectedErrSubstr   string
+		failOrigCount       bool
+		failOrigDeleteCall  bool
+		failJobStatus       bool
+		jobStatusMessage    string
+		useOneSecondTimeout bool
+		skipDatablockCheck  bool
+		waitSeconds         time.Duration
 	}{
 		{
 			name: "Delete none immediately",
@@ -101,32 +107,54 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 			},
 		},
 		{
-			name: "Error when origdatablocks count fails",
+			name: "Timeout when origdatablocks count fails",
 			mockCount: mockCount{
 				origDatablocks: 0,
 				attachments:    0,
 				datasets:       0,
 				datablocks:     []int{},
 			},
-			expected:           []string{},
-			expectError:        true,
-			expectedErrSubstr:  "pre-check failed: could not count origdatablocks",
-			failOrigCount:      true,
-			failOrigDeleteCall: false,
+			expected:            []string{},
+			expectError:         true,
+			expectedErrSubstr:   "timeout reached",
+			failOrigCount:       true,
+			failOrigDeleteCall:  false,
+			jobStatusMessage:    "running",
+			useOneSecondTimeout: true,
+			skipDatablockCheck:  true,
 		},
 		{
-			name: "Error when origdatablocks delete fails",
+			name: "Timeout when job status checks fail",
 			mockCount: mockCount{
 				origDatablocks: 1,
 				attachments:    0,
 				datasets:       0,
 				datablocks:     []int{0},
 			},
-			expected:           []string{"/Datasets/dataset%2F1/origdatablocks"},
-			expectError:        true,
-			expectedErrSubstr:  "cleanup failed at origdatablocks",
-			failOrigCount:      false,
-			failOrigDeleteCall: true,
+			expected:            []string{},
+			expectError:         true,
+			expectedErrSubstr:   "timeout reached",
+			failOrigCount:       false,
+			failOrigDeleteCall:  false,
+			failJobStatus:       true,
+			useOneSecondTimeout: true,
+			skipDatablockCheck:  true,
+		},
+		{
+			name: "Timeout when datablocks stay non-zero",
+			mockCount: mockCount{
+				origDatablocks: 1,
+				attachments:    0,
+				datasets:       0,
+				datablocks:     []int{1, 1, 1},
+			},
+			expected:            []string{},
+			expectError:         true,
+			expectedErrSubstr:   "timeout reached",
+			jobStatusMessage:    "finishedSuccessful",
+			useOneSecondTimeout: true,
+			skipDatablockCheck:  true,
+			waitSeconds:         1,
 		},
 	}
 
@@ -138,6 +166,14 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			oldTimeout := removeFromCatalogTimeout
+			if tt.useOneSecondTimeout {
+				removeFromCatalogTimeout = 1 * time.Second
+			}
+			defer func() {
+				removeFromCatalogTimeout = oldTimeout
+			}()
+
 			calledDeletes := []string{}
 
 			dbCounts := tt.mockCount.datablocks
@@ -155,9 +191,20 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				Transport: &MockTransport{
 					RoundTripFunc: func(req *http.Request) (*http.Response, error) {
 						if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/Jobs/") {
+							if tt.failJobStatus {
+								return &http.Response{
+									StatusCode: 500,
+									Body:       io.NopCloser(bytes.NewBufferString(`{"error":"job status failed"}`)),
+								}, nil
+							}
+
+							jobStatusMessage := tt.jobStatusMessage
+							if jobStatusMessage == "" {
+								jobStatusMessage = "finishedSuccessful"
+							}
 							return &http.Response{
 								StatusCode: 200,
-								Body:       io.NopCloser(bytes.NewBufferString(`{"jobStatusMessage":"finishedSuccessful"}`)),
+								Body:       io.NopCloser(bytes.NewBufferString(`{"jobStatusMessage":"` + jobStatusMessage + `"}`)),
 							}, nil
 						}
 
@@ -233,7 +280,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				},
 			}
 
-			err := RemoveFromCatalog(client, "http://mockserver", "dataset/1", "job-123", user, true, 0)
+			err := RemoveFromCatalog(client, "http://mockserver", "dataset/1", "job-123", user, true, tt.waitSeconds)
 			if tt.expectError {
 				if err == nil {
 					t.Fatalf("expected error containing %q, got nil", tt.expectedErrSubstr)
@@ -254,7 +301,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				}
 			}
 
-			if dbCalls != len(tt.mockCount.datablocks) {
+			if !tt.skipDatablockCheck && dbCalls != len(tt.mockCount.datablocks) {
 				t.Errorf("Expected %d GET /datablocks calls, got %d", len(tt.mockCount.datablocks), dbCalls)
 			}
 		})

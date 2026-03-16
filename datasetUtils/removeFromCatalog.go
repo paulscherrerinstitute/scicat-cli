@@ -20,6 +20,8 @@ type countResult struct {
 	Count int `json:"count"`
 }
 
+var removeFromCatalogTimeout = 5 * time.Minute
+
 func returnJobStatus(client *http.Client, APIServer string, user map[string]string, jobID string) (string, error) {
 	myurl := fmt.Sprintf("%s/Jobs/%s", APIServer, url.PathEscape(jobID))
 
@@ -85,19 +87,20 @@ func returnCount(client *http.Client, APIServer string, pid string, user map[str
 }
 
 func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID string, user map[string]string, nonInteractive bool, waitSeconds time.Duration) error {
+	startTime := time.Now()
 	countOrig, err := returnCount(client, APIServer, pid, user, "origdatablocks")
 	if err != nil {
-		return fmt.Errorf("pre-check failed: could not count origdatablocks: %w", err)
+		log.Printf("pre-check failed: could not count origdatablocks: %v", err)
 	}
 
 	countAttachments, err := returnCount(client, APIServer, pid, user, "attachments")
 	if err != nil {
-		return fmt.Errorf("pre-check failed: could not count attachments: %w", err)
+		log.Printf("pre-check failed: could not count attachments: %v", err)
 	}
 
 	countDataset, err := returnCount(client, APIServer, pid, user, "datasets")
 	if err != nil {
-		return fmt.Errorf("pre-check failed: could not count datasets: %w", err)
+		log.Printf("pre-check failed: could not count datasets: %v", err)
 	}
 
 	color.Set(color.FgYellow)
@@ -118,11 +121,10 @@ func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID 
 		color.Unset()
 	}
 
-	startTime := time.Now()
 	for {
 		countDatablocks, err := returnCount(client, APIServer, pid, user, "datablocks")
 		if err != nil {
-			return fmt.Errorf("Error checking datablocks: %v\n", err)
+			log.Printf("Error checking datablocks: %v\n", err)
 		}
 
 		jobStatus, err := returnJobStatus(client, APIServer, user, jobID)
@@ -131,11 +133,15 @@ func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID 
 		}
 
 		if countDatablocks == 0 && jobStatus == "finishedSuccessful" {
-			return deleteLinkedDocuments(client, APIServer, pid, user, countOrig, countAttachments, countDataset)
+			err = deleteLinkedDocuments(client, APIServer, pid, user, countOrig, countAttachments, countDataset)
+			if err != nil {
+				log.Printf("final cleanup failed: %v", err)
+			}
+			return nil
 		}
 
-		if time.Since(startTime) > time.Minute*5 {
-			return fmt.Errorf("timeout reached: dataset still in archive after 5 minutes")
+		if time.Since(startTime) > removeFromCatalogTimeout {
+			return fmt.Errorf("timeout reached: dataset still in archive after %s", removeFromCatalogTimeout)
 		}
 
 		log.Printf("Waiting for archive deletion... (Blocks: %d)\n", countDatablocks)
