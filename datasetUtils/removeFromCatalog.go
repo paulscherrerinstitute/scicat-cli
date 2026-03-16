@@ -2,22 +2,24 @@ package datasetUtils
 
 import (
 	"encoding/json"
-	"github.com/fatih/color"
-	"io/ioutil"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 type countResult struct {
 	Count int `json:"count"`
 }
 
-func returnCount(client *http.Client, APIServer string, pid string, user map[string]string, collection string) (count int) {
+func returnCount(client *http.Client, APIServer string, pid string, user map[string]string, collection string) (int, error) {
 	myurl := APIServer + "/Datasets"
 	if collection != "datasets" {
-		myurl += "/" + url.QueryEscape(pid) + "/" + collection
+		myurl += "/" + url.PathEscape(pid) + "/" + collection
 	}
 	myurl += "/count"
 	if collection == "datasets" {
@@ -25,94 +27,125 @@ func returnCount(client *http.Client, APIServer string, pid string, user map[str
 		myurl += "?filter=" + url.QueryEscape(filter)
 	}
 	req, err := http.NewRequest("GET", myurl, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create count request: %w", err)
+	}
 	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return 0, fmt.Errorf("network error on count: %w", err)
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
 
-	// log.Printf("response Object:\n%v\n", string(body))
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return 0, fmt.Errorf("count failed with status %d: %s", resp.StatusCode, string(body))
+	}
 
 	var respObj countResult
-	err = json.Unmarshal(body, &respObj)
-	if err != nil {
-		log.Fatal(err)
+	if err := json.NewDecoder(resp.Body).Decode(&respObj); err != nil {
+		return 0, fmt.Errorf("failed to decode count response: %w", err)
 	}
-	return respObj.Count
+	return respObj.Count, nil
 }
 
-func RemoveFromCatalog(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, waitSeconds time.Duration) {
-	// first check that there are no datablocks anymore
-	// check for existing OrigDatablocks, attachments first
-
-	countOrig := returnCount(client, APIServer, pid, user, "origdatablocks")
-	countAttachments := returnCount(client, APIServer, pid, user, "attachments")
-	countDataset := returnCount(client, APIServer, pid, user, "datasets")
-
-	if nonInteractive {
-		color.Set(color.FgYellow)
-		log.Printf("The dataset with pid %s will now be deleted.\n", pid)
-		log.Printf("This includes the cleanup of all connected file listing blocks (%v) and attachments (%v)\n", countOrig, countAttachments)
-		log.Println("You chose non-interactive mode - I will go on automatically")
-		color.Unset()
-	} else {
-		color.Set(color.FgYellow)
-		log.Printf("The dataset with pid %s will now be deleted.\n", pid)
-		log.Printf("This includes the cleanup of all connected file listing blocks (%v) and attachments (%v)\n", countOrig, countAttachments)
-		log.Println("Are you sure ? This action can not be undone ! Type 'y' to continue:")
-		color.Unset()
-		scanner.Scan()
-		cont := scanner.Text()
-		if cont != "y" {
-			log.Fatalln("Clean up operation cancelled")
-		}
+func RemoveFromCatalog(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, waitSeconds time.Duration) error {
+	countOrig, err := returnCount(client, APIServer, pid, user, "origdatablocks")
+	if err != nil {
+		return fmt.Errorf("pre-check failed: could not count origdatablocks: %w", err)
 	}
 
-	// while until countDatablocks == 0
+	countAttachments, err := returnCount(client, APIServer, pid, user, "attachments")
+	if err != nil {
+		return fmt.Errorf("pre-check failed: could not count attachments: %w", err)
+	}
+
+	countDataset, err := returnCount(client, APIServer, pid, user, "datasets")
+	if err != nil {
+		return fmt.Errorf("pre-check failed: could not count datasets: %w", err)
+	}
+
+	color.Set(color.FgYellow)
+	log.Printf("The dataset with pid %s will now be deleted.\n", pid)
+	log.Printf("Blocks: %d, Attachments: %d\n", countOrig, countAttachments)
+
+	if !nonInteractive {
+		log.Println("Are you sure? This action cannot be undone! Type 'y' to continue:")
+		color.Unset()
+		var input string
+		fmt.Scanln(&input)
+		if input != "y" {
+			log.Println("Cleanup operation cancelled.")
+			return nil
+		}
+	} else {
+		log.Println("Non-interactive mode: proceeding automatically.")
+		color.Unset()
+	}
+
 	for {
-		countDatablocks := returnCount(client, APIServer, pid, user, "datablocks")
+		countDatablocks, err := returnCount(client, APIServer, pid, user, "datablocks")
+		if err != nil {
+			return fmt.Errorf("Error checking datablocks: %v\n", err)
+		}
+
 		if countDatablocks == 0 {
 			deleteLinkedDocuments(client, APIServer, pid, user, countOrig, countAttachments, countDataset)
-			return
-		} else {
-			log.Println("Waiting for dataset being deleted from archiv.")
-			time.Sleep(time.Second * waitSeconds)
+			return nil
 		}
+
+		log.Printf("Waiting for archive deletion... (Blocks: %d)\n", countDatablocks)
+		time.Sleep(time.Second * waitSeconds)
 	}
 }
 
-func deleteDocumentsFrom(collection string, client *http.Client, APIServer string, pid string, user map[string]string) {
-	pidEncoded := url.QueryEscape(pid)
+func deleteDocumentsFrom(collection string, client *http.Client, APIServer string, pid string, user map[string]string) error {
+	pidEncoded := url.PathEscape(pid)
 	myurl := APIServer + "/Datasets/" + pidEncoded
 	if collection != "datasets" {
 		myurl += "/" + collection
-		log.Println("Deleting linked " + collection)
+		log.Printf("Deleting linked %s...\n", collection)
 	} else {
-		log.Println("Deleting the dataset entry inside catalog")
+		log.Println("Deleting the primary dataset entry...")
 	}
-	log.Println(myurl)
 	req, err := http.NewRequest("DELETE", myurl, nil)
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Authorization", "Bearer "+user["accessToken"])
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("delete failed (%d): %s", resp.StatusCode, string(body))
+	}
+
+	return nil
 }
 
 func deleteLinkedDocuments(client *http.Client, APIServer string, pid string, user map[string]string, countOrig int, countAttachments int, countDataset int) {
 	if countOrig > 0 {
-		deleteDocumentsFrom("origdatablocks", client, APIServer, pid, user)
+		if err := deleteDocumentsFrom("origdatablocks", client, APIServer, pid, user); err != nil {
+			log.Printf("Warning: Failed to delete origdatablocks: %v\n", err)
+		}
 	}
 	if countAttachments > 0 {
-		deleteDocumentsFrom("attachments", client, APIServer, pid, user)
+		if err := deleteDocumentsFrom("attachments", client, APIServer, pid, user); err != nil {
+			log.Printf("Warning: Failed to delete attachments: %v\n", err)
+		}
 	}
 	if countDataset > 0 {
-		deleteDocumentsFrom("datasets", client, APIServer, pid, user)
+		if err := deleteDocumentsFrom("datasets", client, APIServer, pid, user); err != nil {
+			color.Set(color.FgRed)
+			log.Printf("Error: Failed to delete primary dataset: %v\n", err)
+			color.Unset()
+		}
 	} else {
 		color.Set(color.FgRed)
 		log.Printf("The dataset %s is already removed\n", pid)
