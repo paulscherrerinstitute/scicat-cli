@@ -12,10 +12,6 @@ import (
 	"github.com/fatih/color"
 )
 
-type job struct {
-	JobStatusMessage string `json:"jobStatusMessage"`
-}
-
 type countResult struct {
 	Count int `json:"count"`
 }
@@ -43,7 +39,7 @@ func returnJobStatus(client *http.Client, APIServer string, user map[string]stri
 		return "", fmt.Errorf("job status request failed (%d): %s", resp.StatusCode, string(body))
 	}
 
-	var j job
+	var j JobSubmissionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&j); err != nil {
 		return "", fmt.Errorf("failed to decode job response: %w", err)
 	}

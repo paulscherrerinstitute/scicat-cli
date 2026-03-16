@@ -27,8 +27,9 @@ type jobParamsStruct struct {
 	Username string `json:"username"`
 }
 
-type jobSubmissionResponse struct {
+type JobSubmissionResponse struct {
 	ID string `json:"id"`
+	JobStatusMessage string `json:"jobStatusMessage"`
 }
 
 func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool) (string, error) {
@@ -137,7 +138,7 @@ func submitJob(client *http.Client, APIServer string, user map[string]string, jo
 		return "", fmt.Errorf("job submission failed (%d): %s", resp.StatusCode, string(body))
 	}
 
-	var respObj jobSubmissionResponse
+	var respObj JobSubmissionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&respObj); err != nil {
 		return "", fmt.Errorf("failed to decode job submission response: %w", err)
 	}
