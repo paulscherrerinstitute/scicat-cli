@@ -7,7 +7,7 @@ import (
 
 	"github.com/SwissOpenEM/globus"
 	"golang.org/x/oauth2"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 type GlobusConfig struct {
