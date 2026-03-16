@@ -88,7 +88,7 @@ func RemoveFromCatalog(client *http.Client, APIServer string, pid string, user m
 	for {
 		countDatablocks, err := returnCount(client, APIServer, pid, user, "datablocks")
 		if err != nil {
-			log.Printf("Error checking datablocks: %v\n", err)
+			fmt.Errorf("Error checking datablocks: %v\n", err)
 		}
 
 		if countDatablocks == 0 {
