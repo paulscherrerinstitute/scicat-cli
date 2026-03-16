@@ -142,6 +142,10 @@ func submitJob(client *http.Client, APIServer string, user map[string]string, jo
 		return "", fmt.Errorf("failed to decode job submission response: %w", err)
 	}
 
+	if respObj.ID == "" {
+		return "", fmt.Errorf("job submission response missing job ID")
+	}
+
 	log.Println("Job response Status: okay")
 	log.Println("A confirmation email will be sent to", user["mail"])
 	return respObj.ID, nil

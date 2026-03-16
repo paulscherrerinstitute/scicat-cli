@@ -132,6 +132,10 @@ func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID 
 			log.Printf("Error checking job status: %v\n", err)
 		}
 
+		if jobStatus == "finishedUnsuccessful" {
+			return fmt.Errorf("archive deletion job finished with unsuccessful status")
+		}
+
 		if countDatablocks == 0 && jobStatus == "finishedSuccessful" {
 			err = deleteLinkedDocuments(client, APIServer, pid, user, countOrig, countAttachments, countDataset)
 			if err != nil {
