@@ -112,10 +112,13 @@ For further help see "` + MANUAL + `"`,
 
 		jobId, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag)
 		if jobId == "" {
-			log.Fatalf("Failed to get job ID for dataset %s. Aborting.", pid)
+			if err != nil {
+				log.Fatalf("Failed to initiate dataset removal for %s: %v. Aborting.", pid, err)
+			}
+			return
 		}
 		if err != nil {
-			patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobId, "finishedUnsuccessful")
+			patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobId, string(datasetUtils.JobFailed))
 			if patchError != nil {
 				log.Fatalf("Failed to patch job status: %v", patchError)
 			}
@@ -125,7 +128,7 @@ For further help see "` + MANUAL + `"`,
 		if removeFromCatalogFlag {
 			err = datasetUtils.RemoveFromCatalog(client, APIServer, pid, jobId, user, nonInteractiveFlag)
 			if err != nil {
-				patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobId, "finishedUnsuccessful")
+				patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobId, string(datasetUtils.JobFailed))
 				if patchError != nil {
 					log.Fatalf("Failed to patch job status: %v", patchError)
 				}
