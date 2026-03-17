@@ -91,7 +91,6 @@ func returnCount(client *http.Client, APIServer string, pid string, user map[str
 }
 
 func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID string, user map[string]string, nonInteractive bool) error {
-	startTime := time.Now()
 	countOrig, err := returnCount(client, APIServer, pid, user, "origdatablocks")
 	if err != nil {
 		return fmt.Errorf("pre-check failed: could not count origdatablocks: %w", err)
@@ -125,6 +124,7 @@ func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID 
 		color.Unset()
 	}
 
+	startTime := time.Now()
 	for {
 		countDatablocks, err := returnCount(client, APIServer, pid, user, "datablocks")
 		if err != nil {
