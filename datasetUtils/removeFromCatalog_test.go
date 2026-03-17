@@ -19,18 +19,15 @@ type mockCount struct {
 
 func TestRemoveFromCatalog_AllCases(t *testing.T) {
 	tests := []struct {
-		name                string
-		mockCount           mockCount
-		expected            []string
-		expectError         bool
-		expectedErrSubstr   string
-		failOrigCount       bool
-		failOrigDeleteCall  bool
-		failJobStatus       bool
-		jobStatusMessage    string
-		useOneSecondTimeout bool
-		skipDatablockCheck  bool
-		waitSeconds         time.Duration
+		name               string
+		mockCount          mockCount
+		expected           []string
+		expectError        bool
+		expectedErrSubstr  string
+		failOrigCount      bool
+		failOrigDeleteCall bool
+		timeout            time.Duration
+		jobStatusMessage   string
 	}{
 		{
 			name: "Delete none immediately",
@@ -107,21 +104,32 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 			},
 		},
 		{
-			name: "Timeout when origdatablocks count fails",
+			name: "Error when origdatablocks count fails",
 			mockCount: mockCount{
 				origDatablocks: 0,
 				attachments:    0,
 				datasets:       0,
 				datablocks:     []int{},
 			},
-			expected:            []string{},
-			expectError:         true,
-			expectedErrSubstr:   "timeout reached",
-			failOrigCount:       true,
-			failOrigDeleteCall:  false,
-			jobStatusMessage:    "running",
-			useOneSecondTimeout: true,
-			skipDatablockCheck:  true,
+			expected:           []string{},
+			expectError:        true,
+			expectedErrSubstr:  "pre-check failed: could not count origdatablocks",
+			failOrigCount:      true,
+			failOrigDeleteCall: false,
+		},
+		{
+			name: "Error when origdatablocks delete fails",
+			mockCount: mockCount{
+				origDatablocks: 1,
+				attachments:    0,
+				datasets:       0,
+				datablocks:     []int{0},
+			},
+			expected:           []string{"/Datasets/dataset%2F1/origdatablocks"},
+			expectError:        true,
+			expectedErrSubstr:  "cleanup failed at origdatablocks",
+			failOrigCount:      false,
+			failOrigDeleteCall: true,
 		},
 		{
 			name: "Timeout when job status checks fail",
@@ -131,14 +139,13 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				datasets:       0,
 				datablocks:     []int{0},
 			},
-			expected:            []string{},
-			expectError:         true,
-			expectedErrSubstr:   "timeout reached",
-			failOrigCount:       false,
-			failOrigDeleteCall:  false,
-			failJobStatus:       true,
-			useOneSecondTimeout: true,
-			skipDatablockCheck:  true,
+			expected:           []string{},
+			expectError:        true,
+			expectedErrSubstr:  "timeout reached",
+			failOrigCount:      false,
+			failOrigDeleteCall: false,
+			timeout:            time.Second / 100,
+			jobStatusMessage:   "running",
 		},
 		{
 			name: "Timeout when datablocks stay non-zero",
@@ -148,13 +155,10 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				datasets:       0,
 				datablocks:     []int{1, 1, 1},
 			},
-			expected:            []string{},
-			expectError:         true,
-			expectedErrSubstr:   "timeout reached",
-			jobStatusMessage:    "finishedSuccessful",
-			useOneSecondTimeout: true,
-			skipDatablockCheck:  true,
-			waitSeconds:         1,
+			expected:          []string{},
+			expectError:       true,
+			expectedErrSubstr: "timeout reached",
+			timeout:           time.Second / 100,
 		},
 	}
 
@@ -166,14 +170,18 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			effectiveStatus := tt.jobStatusMessage
+			if effectiveStatus == "" {
+				effectiveStatus = "finishedSuccessful"
+			}
 			oldTimeout := removeFromCatalogTimeout
-			if tt.useOneSecondTimeout {
-				removeFromCatalogTimeout = 1 * time.Second
+			waitTime = tt.timeout
+			if tt.timeout != 0 {
+				removeFromCatalogTimeout = tt.timeout
 			}
 			defer func() {
 				removeFromCatalogTimeout = oldTimeout
 			}()
-
 			calledDeletes := []string{}
 
 			dbCounts := tt.mockCount.datablocks
@@ -191,20 +199,9 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				Transport: &MockTransport{
 					RoundTripFunc: func(req *http.Request) (*http.Response, error) {
 						if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/Jobs/") {
-							if tt.failJobStatus {
-								return &http.Response{
-									StatusCode: 500,
-									Body:       io.NopCloser(bytes.NewBufferString(`{"error":"job status failed"}`)),
-								}, nil
-							}
-
-							jobStatusMessage := tt.jobStatusMessage
-							if jobStatusMessage == "" {
-								jobStatusMessage = "finishedSuccessful"
-							}
 							return &http.Response{
 								StatusCode: 200,
-								Body:       io.NopCloser(bytes.NewBufferString(`{"jobStatusMessage":"` + jobStatusMessage + `"}`)),
+								Body:       io.NopCloser(bytes.NewBufferString(`{"jobStatusMessage":"` + effectiveStatus + `"}`)),
 							}, nil
 						}
 
@@ -280,7 +277,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				},
 			}
 
-			err := RemoveFromCatalog(client, "http://mockserver", "dataset/1", "job-123", user, true, tt.waitSeconds)
+			err := RemoveFromCatalog(client, "http://mockserver", "dataset/1", "job-123", user, true)
 			if tt.expectError {
 				if err == nil {
 					t.Fatalf("expected error containing %q, got nil", tt.expectedErrSubstr)
@@ -301,7 +298,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				}
 			}
 
-			if !tt.skipDatablockCheck && dbCalls != len(tt.mockCount.datablocks) {
+			if tt.jobStatusMessage == string(JobSuccess) && dbCalls != len(tt.mockCount.datablocks) {
 				t.Errorf("Expected %d GET /datablocks calls, got %d", len(tt.mockCount.datablocks), dbCalls)
 			}
 		})

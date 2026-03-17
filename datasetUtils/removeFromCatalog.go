@@ -16,7 +16,15 @@ type countResult struct {
 	Count int `json:"count"`
 }
 
+type JobStatus string
+
+const (
+	JobSuccess JobStatus = "finishedSuccessful"
+	JobFailed  JobStatus = "finishedUnsuccessful"
+)
+
 var removeFromCatalogTimeout = 5 * time.Minute
+var waitTime = 10 * time.Second
 
 func returnJobStatus(client *http.Client, APIServer string, user map[string]string, jobID string) (string, error) {
 	myurl := fmt.Sprintf("%s/Jobs/%s", APIServer, url.PathEscape(jobID))
@@ -82,21 +90,21 @@ func returnCount(client *http.Client, APIServer string, pid string, user map[str
 	return respObj.Count, nil
 }
 
-func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID string, user map[string]string, nonInteractive bool, waitSeconds time.Duration) error {
+func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID string, user map[string]string, nonInteractive bool) error {
 	startTime := time.Now()
 	countOrig, err := returnCount(client, APIServer, pid, user, "origdatablocks")
 	if err != nil {
-		log.Printf("pre-check failed: could not count origdatablocks: %v", err)
+		return fmt.Errorf("pre-check failed: could not count origdatablocks: %w", err)
 	}
 
 	countAttachments, err := returnCount(client, APIServer, pid, user, "attachments")
 	if err != nil {
-		log.Printf("pre-check failed: could not count attachments: %v", err)
+		return fmt.Errorf("pre-check failed: could not count attachments: %w", err)
 	}
 
 	countDataset, err := returnCount(client, APIServer, pid, user, "datasets")
 	if err != nil {
-		log.Printf("pre-check failed: could not count datasets: %v", err)
+		return fmt.Errorf("pre-check failed: could not count datasets: %w", err)
 	}
 
 	color.Set(color.FgYellow)
@@ -128,14 +136,14 @@ func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID 
 			log.Printf("Error checking job status: %v\n", err)
 		}
 
-		if jobStatus == "finishedUnsuccessful" {
+		if jobStatus == string(JobFailed) {
 			return fmt.Errorf("archive deletion job finished with unsuccessful status")
 		}
 
-		if countDatablocks == 0 && jobStatus == "finishedSuccessful" {
+		if countDatablocks == 0 && jobStatus == string(JobSuccess) {
 			err = deleteLinkedDocuments(client, APIServer, pid, user, countOrig, countAttachments, countDataset)
 			if err != nil {
-				log.Printf("final cleanup failed: %v", err)
+				return fmt.Errorf("final cleanup failed: %w", err)
 			}
 			return nil
 		}
@@ -145,7 +153,7 @@ func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID 
 		}
 
 		log.Printf("Waiting for archive deletion... (Blocks: %d)\n", countDatablocks)
-		time.Sleep(time.Second * waitSeconds)
+		time.Sleep(waitTime)
 	}
 }
 

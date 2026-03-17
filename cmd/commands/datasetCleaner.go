@@ -111,6 +111,9 @@ For further help see "` + MANUAL + `"`,
 		}
 
 		jobId, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag)
+		if jobId == "" {
+			log.Fatalf("Failed to get job ID for dataset %s. Aborting.", pid)
+		}
 		if err != nil {
 			patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobId, "finishedUnsuccessful")
 			if patchError != nil {
@@ -120,7 +123,7 @@ For further help see "` + MANUAL + `"`,
 		}
 
 		if removeFromCatalogFlag {
-			err = datasetUtils.RemoveFromCatalog(client, APIServer, pid, jobId, user, nonInteractiveFlag, 10)
+			err = datasetUtils.RemoveFromCatalog(client, APIServer, pid, jobId, user, nonInteractiveFlag)
 			if err != nil {
 				patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobId, "finishedUnsuccessful")
 				if patchError != nil {
