@@ -110,10 +110,30 @@ For further help see "` + MANUAL + `"`,
 			log.Fatalf("You must be archiveManager to be allowed to delete datasets\n")
 		}
 
-		datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag)
+		jobId, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag)
+		if jobId == "" {
+			if err != nil {
+				log.Fatalf("Failed to initiate dataset removal for %s: %v. Aborting.", pid, err)
+			}
+			return
+		}
+		if err != nil {
+			patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobId, string(datasetUtils.JobFailed))
+			if patchError != nil {
+				log.Fatalf("Failed to patch job status: %v", patchError)
+			}
+			log.Fatal(err)
+		}
 
 		if removeFromCatalogFlag {
-			datasetUtils.RemoveFromCatalog(client, APIServer, pid, user, nonInteractiveFlag, 10)
+			err = datasetUtils.RemoveFromCatalog(client, APIServer, pid, jobId, user, nonInteractiveFlag)
+			if err != nil {
+				patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobId, string(datasetUtils.JobFailed))
+				if patchError != nil {
+					log.Fatalf("Failed to patch job status: %v", patchError)
+				}
+				log.Fatal(err)
+			}
 		} else {
 			log.Println("To also delete the dataset from the catalog add the flag --removeFromCatalog")
 		}

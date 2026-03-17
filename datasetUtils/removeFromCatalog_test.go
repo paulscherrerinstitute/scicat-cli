@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 type mockCount struct {
@@ -18,9 +19,15 @@ type mockCount struct {
 
 func TestRemoveFromCatalog_AllCases(t *testing.T) {
 	tests := []struct {
-		name      string
-		mockCount mockCount
-		expected  []string
+		name               string
+		mockCount          mockCount
+		expected           []string
+		expectError        bool
+		expectedErrSubstr  string
+		failOrigCount      bool
+		failOrigDeleteCall bool
+		timeout            time.Duration
+		jobStatusMessage   string
 	}{
 		{
 			name: "Delete none immediately",
@@ -96,6 +103,63 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				"/Datasets/dataset%2F1",
 			},
 		},
+		{
+			name: "Error when origdatablocks count fails",
+			mockCount: mockCount{
+				origDatablocks: 0,
+				attachments:    0,
+				datasets:       0,
+				datablocks:     []int{},
+			},
+			expected:           []string{},
+			expectError:        true,
+			expectedErrSubstr:  "pre-check failed: could not count origdatablocks",
+			failOrigCount:      true,
+			failOrigDeleteCall: false,
+		},
+		{
+			name: "Error when origdatablocks delete fails",
+			mockCount: mockCount{
+				origDatablocks: 1,
+				attachments:    0,
+				datasets:       0,
+				datablocks:     []int{0},
+			},
+			expected:           []string{"/Datasets/dataset%2F1/origdatablocks"},
+			expectError:        true,
+			expectedErrSubstr:  "cleanup failed at origdatablocks",
+			failOrigCount:      false,
+			failOrigDeleteCall: true,
+		},
+		{
+			name: "Timeout when job status checks fail",
+			mockCount: mockCount{
+				origDatablocks: 1,
+				attachments:    0,
+				datasets:       0,
+				datablocks:     []int{0},
+			},
+			expected:           []string{},
+			expectError:        true,
+			expectedErrSubstr:  "timeout reached",
+			failOrigCount:      false,
+			failOrigDeleteCall: false,
+			timeout:            time.Second / 100,
+			jobStatusMessage:   "running",
+		},
+		{
+			name: "Timeout when datablocks stay non-zero",
+			mockCount: mockCount{
+				origDatablocks: 1,
+				attachments:    0,
+				datasets:       0,
+				datablocks:     []int{1, 1, 1},
+			},
+			expected:          []string{},
+			expectError:       true,
+			expectedErrSubstr: "timeout reached",
+			timeout:           time.Second / 100,
+		},
 	}
 
 	user := map[string]string{
@@ -106,6 +170,18 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			effectiveStatus := tt.jobStatusMessage
+			if effectiveStatus == "" {
+				effectiveStatus = "finishedSuccessful"
+			}
+			oldTimeout := removeFromCatalogTimeout
+			waitTime = tt.timeout
+			if tt.timeout != 0 {
+				removeFromCatalogTimeout = tt.timeout
+			}
+			defer func() {
+				removeFromCatalogTimeout = oldTimeout
+			}()
 			calledDeletes := []string{}
 
 			dbCounts := tt.mockCount.datablocks
@@ -122,7 +198,21 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 			client := &http.Client{
 				Transport: &MockTransport{
 					RoundTripFunc: func(req *http.Request) (*http.Response, error) {
+						if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/Jobs/") {
+							return &http.Response{
+								StatusCode: 200,
+								Body:       io.NopCloser(bytes.NewBufferString(`{"jobStatusMessage":"` + effectiveStatus + `"}`)),
+							}, nil
+						}
+
 						if req.Method == http.MethodGet && strings.HasSuffix(req.URL.Path, "/count") {
+							if tt.failOrigCount && strings.Contains(req.URL.Path, "origdatablocks") {
+								return &http.Response{
+									StatusCode: 500,
+									Body:       io.NopCloser(bytes.NewBufferString(`{"error":"boom"}`)),
+								}, nil
+							}
+
 							var count int
 							switch {
 							case strings.Contains(req.URL.Path, "origdatablocks"):
@@ -167,6 +257,12 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 
 						if req.Method == http.MethodDelete {
 							calledDeletes = append(calledDeletes, req.URL.RawPath)
+							if tt.failOrigDeleteCall && strings.Contains(req.URL.Path, "origdatablocks") {
+								return &http.Response{
+									StatusCode: 500,
+									Body:       io.NopCloser(bytes.NewBufferString(`{"error":"delete failed"}`)),
+								}, nil
+							}
 							return &http.Response{
 								StatusCode: 200,
 								Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
@@ -181,7 +277,17 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				},
 			}
 
-			RemoveFromCatalog(client, "http://mockserver", "dataset/1", user, true, 0)
+			err := RemoveFromCatalog(client, "http://mockserver", "dataset/1", "job-123", user, true)
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.expectedErrSubstr)
+				}
+				if !strings.Contains(err.Error(), tt.expectedErrSubstr) {
+					t.Fatalf("expected error containing %q, got %v", tt.expectedErrSubstr, err)
+				}
+			} else if err != nil {
+				t.Fatalf("RemoveFromCatalog returned unexpected error: %v", err)
+			}
 
 			if len(calledDeletes) != len(tt.expected) {
 				t.Errorf("Expected %d DELETE calls, got %d: %v", len(tt.expected), len(calledDeletes), calledDeletes)
@@ -192,7 +298,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				}
 			}
 
-			if dbCalls != len(tt.mockCount.datablocks) {
+			if tt.jobStatusMessage == string(JobSuccess) && dbCalls != len(tt.mockCount.datablocks) {
 				t.Errorf("Expected %d GET /datablocks calls, got %d", len(tt.mockCount.datablocks), dbCalls)
 			}
 		})

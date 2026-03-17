@@ -26,11 +26,15 @@ func TestRemoveFromArchive(t *testing.T) {
 		name            string
 		mockResponse    string
 		expectedDataset []map[string]interface{}
+		expectedJobID   string
+		expectPost      bool
 	}{
 		{
 			name:            "Return empty datablocks list",
 			mockResponse:    `[]`,
 			expectedDataset: []map[string]interface{}{},
+			expectedJobID:   "",
+			expectPost:      false,
 		},
 		{
 			name:         "Return datablocks list of size 2",
@@ -38,6 +42,8 @@ func TestRemoveFromArchive(t *testing.T) {
 			expectedDataset: []map[string]interface{}{
 				{"pid": "dataset1", "files": []interface{}{}},
 			},
+			expectedJobID: "123",
+			expectPost:    true,
 		},
 	}
 	user := map[string]string{
@@ -66,6 +72,11 @@ func TestRemoveFromArchive(t *testing.T) {
 								Body:       io.NopCloser(bytes.NewBufferString(tt.mockResponse)),
 							}, nil
 						}
+
+						if !tt.expectPost {
+							t.Fatalf("unexpected POST request when no datablocks are returned")
+						}
+
 						body, err := io.ReadAll(req.Body)
 						if err != nil {
 							t.Fatalf("Failed to read request body: %v", err)
@@ -92,7 +103,14 @@ func TestRemoveFromArchive(t *testing.T) {
 				},
 			}
 
-			RemoveFromArchive(client, "http://mockserver", "dataset1", user, true)
+			jobID, err := RemoveFromArchive(client, "http://mockserver", "dataset1", user, true)
+			if err != nil {
+				t.Fatalf("RemoveFromArchive returned unexpected error: %v", err)
+			}
+
+			if jobID != tt.expectedJobID {
+				t.Fatalf("Unexpected jobID. Expected: %q, Got: %q", tt.expectedJobID, jobID)
+			}
 		})
 	}
 }
