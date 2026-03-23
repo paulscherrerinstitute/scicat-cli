@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/SwissOpenEM/globus v0.1.2
-	github.com/fatih/color v1.18.0
+	github.com/fatih/color v1.19.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/mcuadros/go-version v0.0.0-20190830083331-035f6764e8d2
 	github.com/spf13/cobra v1.10.2
@@ -21,7 +21,7 @@ require (
 	github.com/creack/pty v1.1.23 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90
