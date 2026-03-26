@@ -28,6 +28,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 		failOrigDeleteCall bool
 		timeout            time.Duration
 		jobStatusMessage   string
+		emptyJobId         bool
 	}{
 		{
 			name: "Delete none immediately",
@@ -160,6 +161,35 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 			expectedErrSubstr: "timeout reached",
 			timeout:           time.Second / 100,
 		},
+		{
+			name: "Return error when job finishes with unsuccessful status",
+			mockCount: mockCount{
+				origDatablocks: 1,
+				attachments:    0,
+				datasets:       0,
+				datablocks:     []int{0},
+			},
+			expected:          []string{},
+			expectError:       true,
+			expectedErrSubstr: "archive deletion job finished with unsuccessful status",
+			jobStatusMessage:  string(JobFailed),
+		},
+		{
+			name: "Delete all immediately when no job ID is returned",
+			mockCount: mockCount{
+				origDatablocks: 1,
+				attachments:    1,
+				datasets:       1,
+				datablocks:     []int{0},
+			},
+			expected: []string{
+				"/Datasets/dataset%2F1/origdatablocks",
+				"/Datasets/dataset%2F1/attachments",
+				"/Datasets/dataset%2F1",
+			},
+			jobStatusMessage: "running", // should be ignored since no job ID is returned and it's only to test that the function does not wait and proceeds to delete
+			emptyJobId:       true,
+		},
 	}
 
 	user := map[string]string{
@@ -172,7 +202,7 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			effectiveStatus := tt.jobStatusMessage
 			if effectiveStatus == "" {
-				effectiveStatus = "finishedSuccessful"
+				effectiveStatus = string(JobSuccess)
 			}
 			oldTimeout := removeFromCatalogTimeout
 			waitTime = tt.timeout
@@ -277,7 +307,11 @@ func TestRemoveFromCatalog_AllCases(t *testing.T) {
 				},
 			}
 
-			err := RemoveFromCatalog(client, "http://mockserver", "dataset/1", "job-123", user, true)
+			effectiveJobID := "job123"
+			if tt.emptyJobId {
+				effectiveJobID = ""
+			}
+			err := RemoveFromCatalog(client, "http://mockserver", "dataset/1", effectiveJobID, user, true)
 			if tt.expectError {
 				if err == nil {
 					t.Fatalf("expected error containing %q, got nil", tt.expectedErrSubstr)
