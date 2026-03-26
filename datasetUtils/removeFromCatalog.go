@@ -125,22 +125,27 @@ func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID 
 	}
 
 	startTime := time.Now()
+	var jobStatus string
 	for {
-		countDatablocks, err := returnCount(client, APIServer, pid, user, "datablocks")
-		if err != nil {
-			log.Printf("Error checking datablocks: %v\n", err)
+		countDatablocks, countErr := returnCount(client, APIServer, pid, user, "datablocks")
+		if countErr != nil {
+			log.Printf("Error checking datablocks: %v\n", countErr)
 		}
 
-		jobStatus, err := returnJobStatus(client, APIServer, user, jobID)
-		if err != nil {
-			log.Printf("Error checking job status: %v\n", err)
+		if jobID != "" && jobStatus != string(JobSuccess) {
+			jobStatus, err = returnJobStatus(client, APIServer, user, jobID)
+			if err != nil {
+				log.Printf("Error checking job status: %v\n", err)
+			}
+			if jobStatus == string(JobFailed) {
+				return fmt.Errorf("archive deletion job finished with unsuccessful status")
+			}
 		}
 
-		if jobStatus == string(JobFailed) {
-			return fmt.Errorf("archive deletion job finished with unsuccessful status")
-		}
-
-		if countDatablocks == 0 && jobStatus == string(JobSuccess) {
+		// technically when jobID is empty we should not even check for countDatablocks,
+		// but this is to prevent false positive nil returns from RemoveFromArchive which can 
+		// cause the function to clean up the catalog without actually waiting for datablocks to be removed from the archive
+		if countDatablocks == 0 && countErr == nil && (jobID == "" || jobStatus == string(JobSuccess)) {
 			err = deleteLinkedDocuments(client, APIServer, pid, user, countOrig, countAttachments, countDataset)
 			if err != nil {
 				return fmt.Errorf("final cleanup failed: %w", err)

@@ -110,27 +110,25 @@ For further help see "` + MANUAL + `"`,
 			log.Fatalf("You must be archiveManager to be allowed to delete datasets\n")
 		}
 
-		jobId, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag)
-		if jobId == "" {
-			if err != nil {
-				log.Fatalf("Failed to initiate dataset removal for %s: %v. Aborting.", pid, err)
-			}
-			return
-		}
+		jobID, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag)
 		if err != nil {
-			patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobId, string(datasetUtils.JobFailed))
-			if patchError != nil {
-				log.Fatalf("Failed to patch job status: %v", patchError)
+			if jobID != "" {
+				patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobID, string(datasetUtils.JobFailed))
+				if patchError != nil {
+					log.Fatalf("Failed to patch job status: %v", patchError)
+				}
 			}
 			log.Fatal(err)
 		}
 
 		if removeFromCatalogFlag {
-			err = datasetUtils.RemoveFromCatalog(client, APIServer, pid, jobId, user, nonInteractiveFlag)
+			err = datasetUtils.RemoveFromCatalog(client, APIServer, pid, jobID, user, nonInteractiveFlag)
 			if err != nil {
-				patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobId, string(datasetUtils.JobFailed))
-				if patchError != nil {
-					log.Fatalf("Failed to patch job status: %v", patchError)
+				if jobID != "" {
+					patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobID, string(datasetUtils.JobFailed))
+					if patchError != nil {
+						log.Fatalf("Failed to patch job status: %v", patchError)
+					}
 				}
 				log.Fatal(err)
 			}
