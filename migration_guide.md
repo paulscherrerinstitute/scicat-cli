@@ -12,14 +12,16 @@ the new version.
 
 | Old command                | New command     |
 | -------------------------- | --------------- |
-| datasetIngestor            | scicat ingest   |
-| datasetRetriever           | scicat retrieve |
-| datasetArchiver            | scicat archive  |
-| datasetCleaner             | scicat clean    |
-| datasetGetProposal         | scicat proposal |
+| datasetIngestor            | scicat-cli ingest   |
+| datasetRetriever           | scicat-cli retrieve |
+| datasetArchiver            | scicat-cli archive  |
+| datasetCleaner             | scicat-cli clean    |
+| datasetGetProposal         | scicat-cli proposal |
 | datasetPublishData         | _deprecated_    |
 | datasetPublishDataRetrieve | _deprecated_    |
-| waitForJobFinished         | scicat wait     |
+| waitForJobFinished         | scicat-cli wait     |
+
+Old commands are also valid aliases for subcommands (eg `scicat-cli datasetIngestor`).
 
 ## Command line options
 
@@ -45,16 +47,7 @@ Both the old command using the `flags` parser and new command using the `cobra` 
 
 ```diff
 - datasetIngestor metadata.json
-+ scicat ingest metadata.json
-```
-
-#### Full ingestion command
-
-Note that `--autoarchive` is now default.
-
-```diff
-- datasetIngestor -token $SCICAT_TOKEN -ingest -autoarchive metadata.json
-+ scicat ingest --token $SCICAT_TOKEN --ingest metadata.json
++ scicat-cli ingest metadata.json
 ```
 
 #### Ingestion with file listing
@@ -63,7 +56,7 @@ Note that `--autoarchive` is now default.
 
 ```diff
 - datasetIngestor metadata.json filelisting.txt
-+ scicat ingest --filelist filelisting.txt metadata.json
++ scicat-cli ingest --filelist filelisting.txt metadata.json
 ```
 
 #### Multi-dataset ingestion using folder listing
@@ -74,7 +67,7 @@ implemented with a short shell loop.
 
 ```diff
 - datasetIngestor metadata.json folderlisting.txt
-+ while read folder; do scicat ingest --no-interactive -DsourceFolder="$folder" metadata.json; done <folderlisting.txt
++ while read folder; do scicat-cli ingest --no-interactive -DsourceFolder="$folder" metadata.json; done <folderlisting.txt
 ```
 
 This takes advantage of the `-D` flag to override the sourceFolder for each dataset.
@@ -88,7 +81,7 @@ This lists datasets which have been successfully retrieved from tape (eg by sele
 
 ```diff
 - datasetRetriever -token $SCICAT_TOKEN destination/
-+ scicat retrieve --token $SCICAT_TOKEN
++ scicat-cli retrieve --token $SCICAT_TOKEN
 ```
 
 #### Retrieve a single dataset
@@ -98,19 +91,19 @@ the destination.
 
 ```diff
 - datasetRetriever -token $SCICAT_TOKEN -retrieve -dataset PID destination/
-+ scicat retrieve --token $SCICAT_TOKEN -C destination/ --no-strip-path PID
++ scicat-cli retrieve --token $SCICAT_TOKEN -C destination/ --no-strip-path PID
 ```
 
 #### Retrieve all available datasets
 
 ```diff
 - datasetRetriever -token $SCICAT_TOKEN -retrieve destination/
-+ scicat retrieve --token $SCICAT_TOKEN -C destination/ --no-strip-path --all
++ scicat-cli retrieve --token $SCICAT_TOKEN -C destination/ --no-strip-path --all
 ```
 
 #### Retrieve datasets with a given ownerGroup
 
 ```diff
 - datasetRetriever -retrieve -ownergroup unx-group destination/
-+ scicat retrieve -C destination/ --no-strip-path --filter ownerGroup==unx-group
++ scicat-cli retrieve -C destination/ --no-strip-path --filter ownerGroup==unx-group
 ```

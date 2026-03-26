@@ -21,8 +21,9 @@ import (
 )
 
 var datasetIngestorCmd = &cobra.Command{
-	Use:   "datasetIngestor",
-	Short: "Define and add a dataset to the SciCat datacatalog",
+	Aliases: []string{"i", "ingest"},
+	Use:     "datasetIngestor",
+	Short:   "Define and add a dataset to the SciCat datacatalog",
 	Long: `Purpose: define and add a dataset to the SciCat datacatalog
 
 This command must be run on the machine having access to the data
