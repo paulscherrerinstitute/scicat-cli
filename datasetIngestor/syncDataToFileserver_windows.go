@@ -4,65 +4,110 @@ package datasetIngestor
 import (
 	"fmt"
 	"io"
-	"path"
-	"regexp"
+	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
-// copies data from a local machine to a fileserver, uses scp underneath
-func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string, commandOutput io.Writer) (err error) {
+// buildDestPaths computes the UNC share root and destination folder.
+func buildDestPaths(datasetId, RSYNCServer, sourceFolder string) (shareRoot, destFolder string) {
+	parts := strings.Split(datasetId, "/")
+	shortDatasetId := "unknown"
+	if len(parts) > 1 {
+		shortDatasetId = parts[1]
+	}
+
+	// Strip port number (e.g. "server:22") — UNC paths don't use ports
+	server := strings.Split(RSYNCServer, ":")[0]
+
+	// Remove leading drive letter (e.g. "C:") if present
+	ss := strings.Split(sourceFolder, ":")
+	destPath := filepath.ToSlash(ss[len(ss)-1])
+
+	shareRoot = `\\` + server + `\archive`
+	destFolder = filepath.Join(shareRoot, shortDatasetId, destPath)
+
+	// Ensure separators match Windows style for the final command
+	return filepath.Clean(shareRoot), filepath.Clean(destFolder)
+}
+
+// buildNetUseArgs constructs the argument list for "net use".
+func buildNetUseArgs(share, username, password string) []string {
+	args := []string{"use", share}
+	if password != "" {
+		args = append(args, password)
+	}
+	args = append(args, "/user:"+username)
+	return args
+}
+
+// SyncLocalDataToFileserver handles data transfer using native Windows tools.
+func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string, commandOutput io.Writer) error {
 	username := user["username"]
 	password := user["password"]
-	shortDatasetId := strings.Split(datasetId, "/")[1]
-	// remove leading "C:"" if existing etc
-	ss := strings.Split(sourceFolder, ":")
-	// construct destination folder from sourceFolder, sourceFolder allowed to have Windows backslash in folder name
-	destFull := ss[len(ss)-1]
-	separator := "/"
-	if strings.Index(destFull, "/") < 0 {
-		separator = "\\"
+	shareRoot, destFolder := buildDestPaths(datasetId, RSYNCServer, sourceFolder)
+
+	// 1. Establish authenticated SMB session
+	if err := netUseConnect(commandOutput, shareRoot, username, password); err != nil {
+		return fmt.Errorf("failed to connect to share %s: %v", shareRoot, err)
 	}
-	destparts := strings.Split(destFull, separator)
+	defer netUseDisconnect(commandOutput, shareRoot)
 
-	destFolder := "archive/" + shortDatasetId + strings.Join(destparts[0:len(destparts)-1], "/")
-	destFolder2 := "archive/" + shortDatasetId + strings.Join(destparts[0:len(destparts)], "/")
-
-	// add port number if missing
-	FullRSYNCServer := RSYNCServer
-	if !strings.Contains(RSYNCServer, ":") {
-		FullRSYNCServer = RSYNCServer + ":22"
-	}
-
-	c, err := NewDumbClient(username, password, FullRSYNCServer)
-
-	if err != nil {
-		return err
-	}
-
-	c.Quiet = false
-	c.PreseveTimes = true
-	re := regexp.MustCompile(`^\/([A-Z])\/`)
-
-	// now copy recursively: either just one sourceFolder or all entries inside absFileListing
-	// Note: destfolder must exist before, needs dedicated scp server support
-
+	// 2. Perform file transfer
 	if absFileListing != "" {
 		lines, err := readLines(absFileListing)
 		if err != nil {
-			return fmt.Errorf("could not read filelist, readlines: %v", err)
+			return fmt.Errorf("could not read filelist: %v", err)
 		}
 		for _, line := range lines {
-			windowsSource := re.ReplaceAllString(path.Join(sourceFolder, line), "$1:/")
-			fmt.Fprintf(commandOutput, "Copying data via scp from %s to %s\n", windowsSource, destFolder)
-			err = c.Send(destFolder2, windowsSource)
-			if err != nil {
-				return err
+			srcDir := filepath.Join(sourceFolder, filepath.Dir(line))
+			destDir := filepath.Join(destFolder, filepath.Dir(line))
+			fileName := filepath.Base(line)
+
+			fmt.Fprintf(commandOutput, "Copying: %s\n", line)
+			if err := runRobocopy(commandOutput, srcDir, destDir, fileName); err != nil {
+				return fmt.Errorf("robocopy failed on %s: %v", line, err)
 			}
 		}
 	} else {
-		windowsSource := re.ReplaceAllString(sourceFolder, "$1:/")
-		fmt.Fprintf(commandOutput, "Copying data via scp from %s to %s\n", windowsSource, destFolder)
-		err = c.Send(destFolder, windowsSource)
+		fmt.Fprintf(commandOutput, "Copying directory: %s\n", sourceFolder)
+		if err := runRobocopy(commandOutput, sourceFolder, destFolder, "/E"); err != nil {
+			return fmt.Errorf("robocopy failed: %v", err)
+		}
 	}
-	return err
+	return nil
+}
+
+func runRobocopy(output io.Writer, src, dest string, extraArgs ...string) error {
+	args := append([]string{src, dest}, extraArgs...)
+	args = append(args, "/COPY:DAT", "/DCOPY:T", "/R:3", "/W:5", "/NP")
+
+	cmd := exec.Command("robocopy", args...)
+	cmd.Stdout = output
+	cmd.Stderr = output
+
+	err := cmd.Run()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() < 8 {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func netUseConnect(output io.Writer, share, username, password string) error {
+	args := buildNetUseArgs(share, username, password)
+	cmd := exec.Command("net", args...)
+	cmd.Stdout = output
+	cmd.Stderr = output
+	fmt.Fprintf(output, "Connecting to %s as %s...\n", share, username)
+	return cmd.Run()
+}
+
+func netUseDisconnect(output io.Writer, share string) {
+	err := exec.Command("net", "use", share, "/delete", "/yes").Run()
+	if err != nil {
+		fmt.Fprintf(output, "Cleanup warning: %v\n", err)
+	}
 }
