@@ -2,6 +2,7 @@
 package datasetIngestor
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -43,12 +44,17 @@ func buildNetUseArgs(share, username, password string) []string {
 
 // SyncLocalDataToFileserver handles data transfer using native Windows tools.
 func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string, commandOutput io.Writer) error {
+	return syncWithContext(context.Background(), datasetId, user, RSYNCServer, sourceFolder, absFileListing, commandOutput)
+}
+
+// syncWithContext is the internal logic updated for Context.
+func syncWithContext(ctx context.Context, datasetId string, user map[string]string, RSYNCServer string, sourceFolder string, absFileListing string, commandOutput io.Writer) error {
 	username := user["username"]
 	password := user["password"]
 	shareRoot, destFolder := buildDestPaths(datasetId, RSYNCServer, sourceFolder)
 
 	// 1. Establish authenticated SMB session
-	if err := netUseConnect(commandOutput, shareRoot, username, password); err != nil {
+	if err := netUseConnect(ctx, commandOutput, shareRoot, username, password); err != nil {
 		return fmt.Errorf("failed to connect to share %s: %v", shareRoot, err)
 	}
 	defer netUseDisconnect(commandOutput, shareRoot)
@@ -60,31 +66,34 @@ func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCSe
 			return fmt.Errorf("could not read filelist: %v", err)
 		}
 		for _, line := range lines {
+			// 2.1 Check context before each file
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			srcDir := filepath.Join(sourceFolder, filepath.Dir(line))
 			destDir := filepath.Join(destFolder, filepath.Dir(line))
 			fileName := filepath.Base(line)
 
 			fmt.Fprintf(commandOutput, "Copying: %s\n", line)
-			if err := runRobocopy(commandOutput, srcDir, destDir, fileName); err != nil {
+			if err := runRobocopy(ctx, commandOutput, srcDir, destDir, fileName); err != nil {
 				return fmt.Errorf("robocopy failed on %s: %v", line, err)
 			}
 		}
 	} else {
 		fmt.Fprintf(commandOutput, "Copying directory: %s\n", sourceFolder)
-		if err := runRobocopy(commandOutput, sourceFolder, destFolder, "/E"); err != nil {
+		if err := runRobocopy(ctx, commandOutput, sourceFolder, destFolder, "/E"); err != nil {
 			return fmt.Errorf("robocopy failed: %v", err)
 		}
 	}
 	return nil
 }
 
-func runRobocopy(output io.Writer, src, dest string, extraArgs ...string) error {
+func runRobocopy(ctx context.Context, output io.Writer, src, dest string, extraArgs ...string) error {
 	args := append([]string{src, dest}, extraArgs...)
 	args = append(args, "/COPY:DAT", "/DCOPY:T", "/R:3", "/W:5", "/NP")
 
-	cmd := exec.Command("robocopy", args...)
-	cmd.Stdout = output
-	cmd.Stderr = output
+	cmd := exec.CommandContext(ctx, "robocopy", args...)
+	cmd.Stdout, cmd.Stderr = output, output
 
 	err := cmd.Run()
 	if err != nil {
@@ -96,11 +105,10 @@ func runRobocopy(output io.Writer, src, dest string, extraArgs ...string) error 
 	return nil
 }
 
-func netUseConnect(output io.Writer, share, username, password string) error {
+func netUseConnect(ctx context.Context, output io.Writer, share, username, password string) error {
 	args := buildNetUseArgs(share, username, password)
-	cmd := exec.Command("net", args...)
-	cmd.Stdout = output
-	cmd.Stderr = output
+	cmd := exec.CommandContext(ctx, "net", args...)
+	cmd.Stdout, cmd.Stderr = output, output
 	fmt.Fprintf(output, "Connecting to %s as %s...\n", share, username)
 	return cmd.Run()
 }
