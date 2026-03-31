@@ -2,6 +2,7 @@ package datasetIngestor
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -135,7 +136,7 @@ func TestRunRobocopyFullDir(t *testing.T) {
 	}
 
 	var output bytes.Buffer
-	err := runRobocopy(&output, srcDir, destDir, "/E")
+	err := runRobocopy(context.Background(), &output, srcDir, destDir, "/E")
 	if err != nil {
 		t.Fatalf("runRobocopy() error: %v\nOutput:\n%s", err, output.String())
 	}
@@ -167,7 +168,7 @@ func TestRunRobocopySingleFile(t *testing.T) {
 	}
 
 	var output bytes.Buffer
-	err := runRobocopy(&output, srcDir, destDir, "target.txt")
+	err := runRobocopy(context.Background(), &output, srcDir, destDir, "target.txt")
 	if err != nil {
 		t.Fatalf("runRobocopy() error: %v\nOutput:\n%s", err, output.String())
 	}
@@ -184,5 +185,53 @@ func TestRunRobocopySingleFile(t *testing.T) {
 	// other.txt should NOT exist
 	if _, err := os.Stat(filepath.Join(destDir, "other.txt")); !os.IsNotExist(err) {
 		t.Error("other.txt should not have been copied")
+	}
+}
+
+func TestRunRobocopyContextCancelled(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(srcDir, "file.txt"), []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	var output bytes.Buffer
+	err := runRobocopy(ctx, &output, srcDir, destDir, "file.txt")
+	if err == nil {
+		t.Fatal("expected error from cancelled context, got nil")
+	}
+}
+
+func TestSyncWithContextFileListing(t *testing.T) {
+	// This test verifies the file-listing path of syncWithContext
+	// by creating a temp filelist and source tree, using localhost
+	// (which will fail at net use — we only check it returns an error).
+	srcDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(srcDir, "sub"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "sub", "a.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	listFile := filepath.Join(t.TempDir(), "filelist.txt")
+	if err := os.WriteFile(listFile, []byte("sub/a.txt\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	user := map[string]string{"username": "testuser", "password": "testpass"}
+	var output bytes.Buffer
+
+	// net use to a fake server will fail — we verify it surfaces the error
+	err := syncWithContext(context.Background(), "prefix/ds123", user, "nonexistent-server-12345", srcDir, listFile, &output)
+	if err == nil {
+		t.Fatal("expected error connecting to non-existent server, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to connect") {
+		t.Errorf("expected 'failed to connect' error, got: %v", err)
 	}
 }
