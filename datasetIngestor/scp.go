@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bodgit/sshkrb5"
 	"github.com/kballard/go-shellquote"
 	"golang.org/x/crypto/ssh"
 )
@@ -236,13 +237,31 @@ func (c *Client) walkAndSend(w io.Writer, src string) error {
 
 // Creates a new SCP client.  It enables preserve time stamps
 func NewDumbClient(username, password, server string) (*Client, error) {
+	// Extract host for GSSAPI (e.g., server "name:22" -> "name")
+	host, _, err := net.SplitHostPort(server)
+	if err != nil {
+		host = server
+	}
+
+	var authMethods []ssh.AuthMethod
+
+	// Try to initialize Kerberos/GSSAPI using the OS ticket cache
+	gssClient, gssErr := sshkrb5.NewClient()
+	if gssErr == nil && gssClient != nil {
+		authMethods = append(authMethods, ssh.GSSAPIWithMICAuthMethod(gssClient, host))
+	}
+
+	// Always include Password as a fallback
+	if password != "" {
+		authMethods = append(authMethods, ssh.Password(password))
+	}
+
+	// Dial the server
 	client, err := ssh.Dial("tcp", server, &ssh.ClientConfig{
-		User: username,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(password),
-		},
+		User:            username,
+		Auth:            authMethods,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		// HostKeyCallback: trustedHostKeyCallback("ssh-rsa-cert-v01@openssh.com AAAAHHNzaC1yc2EtY2VydC12MDFAb3BlbnNzaC5jb20AAAAgpvj6p0hDZj5gBn6tURDaMiJYKOl/XYvX2Dk9LWo7C6QAAAADAQABAAABAQCxRJJcF9Z4CnUq2KZ/ODFi9NCYgKgpN60FRQI7XUIcvshVhs8cSaWZUyciWVKIY4JyjVztjnGjTUcTj+oHN6IzmCb85ZNtyDnn9q7bMyhKIXkFMUVKULz8yFL34odYqXPHRxJzC6XWIn28CYpFjXueHJUrpfgnu4L0lqNb3JAKOIuU1unM0skuxd0n6h423bc5NPLrDySi2PVKAENO0+pyOO3ktxhvQpvDgOf5A4HztkE4I8dHkEPVcbOr2T2EVrbGiVgFghyDq5bgFFobC4E8fae9KOdvkeHAJSfgH/VE4ydzougq3fiMD5TK0p0uQvPngj85LONCb3LFmUqEalRNAAAAAAAAAAAAAAACAAAAE2FyZW1hdGVzdDJpbi5wc2kuY2gAAAAXAAAAE2FyZW1hdGVzdDJpbi5wc2kuY2gAAAAAAAAAAP//////////AAAAAAAAAAAAAAAAAAABFwAAAAdzc2gtcnNhAAAAAwEAAQAAAQEAzNx0DarU7ZlbZY3KOM13yjGXP+i7nfvFTB617qAf93tPk1QSoUvztqQGdR1NKN4relU3X/qOuofBZhiglA4sHAz7kPwqpqNfJ1sIC2HnSsR2DO6GYqfvbbNCA7KNi3m27LKRqxOFejaop3WfjAJCnt1L5yVBUZ5PufnkmLAnuCIYnVNNnlRPiJ1z5AqXqbjuBlYs4ld9eUBwQag3l370LQPxD8NUyyy1b4DaJDCk3M+zmy2zuolyitexQKrft6M38zleoRkSOINuNPb1va2I4WRVCiYhtFRpqil+73mblGiJ2lSwKjx1AE/st4fxNKAjbWPIo12inrhEY+QSRPhGmwAAAQ8AAAAHc3NoLXJzYQAAAQANcNiIvoMy5JRjEcsIRcALUNt82AZQ3PrBrJ72NvSKpbzfPbHCscgj1R+n7dfzFfoavGDzlu2JWtZAIn0MahNDnSzjSyW3/gCvFTXYh4uaDvEX9S1tXkPrm2oLbqUINf8zrlhTkWlBfS/DlkyLh2nRcPQo6cvQ+KMB4vy5afcdd9aHUPX1jBJK5JiYiTYxD733MWBxEnAKdCgGRB9oQHM6DXNAQlvHzSLy9LnHP9IB8bXRt47I+ilL3UgYz3qRZsRkXZyf9vZhWPhcdoAV0IoyalpVxfIsxWlve3QqlNb6Y0bsjxk8XZ+Ne1J08N/HxHyjj93dEOB4Pb7fRprslp3H"),
+		Timeout:         15 * time.Second,
 	})
 
 	if err != nil {
