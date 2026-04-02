@@ -1,9 +1,12 @@
 package datasetIngestor
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
+
+	"golang.org/x/crypto/ssh"
 )
 
 // newDumbClient is a variable that points to NewDumbClient, allowing it to be replaced in tests.
@@ -12,6 +15,16 @@ var newDumbClient = NewDumbClient
 // checkRemoteDirectory is a variable that points to Client.CheckRemoteDirectory, allowing it to be replaced in tests.
 var checkRemoteDirectory = func(c *Client, sourceFolder string, sshOutput io.Writer) error {
 	return c.CheckRemoteDirectory(sourceFolder, sshOutput)
+}
+
+// isRemoteDirectoryNotFound classifies SSH command errors where remote "test -d"
+// evaluated to false (exit status 1).
+var isRemoteDirectoryNotFound = func(err error) bool {
+	var exitErr *ssh.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitStatus() == 1
+	}
+	return false
 }
 
 // CheckDataCentrallyAvailableSsh checks if a specific directory (sourceFolder) is available on a remote server (ARCHIVEServer)
@@ -34,8 +47,14 @@ func CheckDataCentrallyAvailableSsh(username string, ARCHIVEServer string, sourc
 			defer client.SshClient.Close()
 		}
 
-		sshErr = checkRemoteDirectory(client, sourceFolder, sshOutput)
-		return sshErr, nil
+		err = checkRemoteDirectory(client, sourceFolder, sshOutput)
+		if err == nil {
+			return nil, nil
+		}
+		if isRemoteDirectoryNotFound(err) {
+			return err, nil
+		}
+		return nil, err
 	default:
 		return nil, fmt.Errorf("unsupported operating system: %s", os)
 	}
