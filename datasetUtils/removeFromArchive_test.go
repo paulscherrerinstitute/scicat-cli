@@ -6,44 +6,65 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 )
 
-type JobParams struct {
-	Username string `json:"username"`
-}
-
 type Payload struct {
-	EmailJobInitiator string                   `json:"emailJobInitiator"`
-	JobParams         JobParams                `json:"jobParams"`
-	JobStatusMessage  string                   `json:"jobStatusMessage"`
-	DatasetList       []map[string]interface{} `json:"datasetList"`
-	Type              string                   `json:"type"`
+	EmailJobInitiator string          `json:"emailJobInitiator"`
+	JobParams         JobParamsStruct `json:"jobParams"`
+	JobStatusMessage  string          `json:"jobStatusMessage"`
+	DatasetList       []datasetStruct `json:"datasetList"`
+	Type              string          `json:"type"`
 }
 
 func TestRemoveFromArchive(t *testing.T) {
 	tests := []struct {
 		name            string
 		mockResponse    string
-		expectedDataset []map[string]interface{}
+		jobParams       JobParamsStruct
+		expectedDataset []datasetStruct
 		expectedJobID   string
 		expectPost      bool
+		expectError     string
 	}{
 		{
 			name:            "Return empty datablocks list",
 			mockResponse:    `[]`,
-			expectedDataset: []map[string]interface{}{},
+			expectedDataset: []datasetStruct{},
 			expectedJobID:   "",
 			expectPost:      false,
 		},
 		{
 			name:         "Return datablocks list of size 2",
 			mockResponse: `[{"id": "datablock1", "size": 50}, {"id": "datablock2", "size": 100}]`,
-			expectedDataset: []map[string]interface{}{
-				{"pid": "dataset1", "files": []interface{}{}},
+			expectedDataset: []datasetStruct{
+				{Pid: "dataset1", Files: []string{}},
 			},
 			expectedJobID: "123",
 			expectPost:    true,
+		},
+		{
+			name:         "Include deletion metadata in submitted job params",
+			mockResponse: `[{"id": "datablock1", "size": 50}]`,
+			jobParams: JobParamsStruct{
+				DeletionCode:   CodeExpired,
+				DeletionReason: "retention elapsed",
+			},
+			expectedDataset: []datasetStruct{
+				{Pid: "dataset1", Files: []string{}},
+			},
+			expectedJobID: "123",
+			expectPost:    true,
+		},
+		{
+			name:         "Reject invalid deletion code",
+			mockResponse: `[{"id": "datablock1", "size": 50}]`,
+			jobParams: JobParamsStruct{
+				DeletionCode: DeletionCode("NOT_VALID"),
+			},
+			expectError: "invalid deletion code",
+			expectPost:  false,
 		},
 	}
 	user := map[string]string{
@@ -56,13 +77,16 @@ func TestRemoveFromArchive(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			expectedPayload := Payload{
 				EmailJobInitiator: "test@example.com",
-				JobParams:         JobParams{Username: "testuser"},
-				JobStatusMessage:  "jobSubmitted",
-				DatasetList:       tt.expectedDataset,
-				Type:              "reset",
+				JobParams: JobParamsStruct{
+					Username:       "testuser",
+					DeletionCode:   tt.jobParams.DeletionCode,
+					DeletionReason: tt.jobParams.DeletionReason,
+				},
+				JobStatusMessage: "jobSubmitted",
+				DatasetList:      tt.expectedDataset,
+				Type:             "reset",
 			}
 
-			// Create a mock HTTP client
 			client := &http.Client{
 				Transport: &MockTransport{
 					RoundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -74,13 +98,10 @@ func TestRemoveFromArchive(t *testing.T) {
 						}
 
 						if !tt.expectPost {
-							t.Fatalf("unexpected POST request when no datablocks are returned")
+							t.Fatalf("unexpected POST request")
 						}
 
-						body, err := io.ReadAll(req.Body)
-						if err != nil {
-							t.Fatalf("Failed to read request body: %v", err)
-						}
+						body, _ := io.ReadAll(req.Body)
 						defer req.Body.Close()
 
 						var actual map[string]interface{}
@@ -103,7 +124,15 @@ func TestRemoveFromArchive(t *testing.T) {
 				},
 			}
 
-			jobID, err := RemoveFromArchive(client, "http://mockserver", "dataset1", user, true, JobParamsStruct{})
+			jobID, err := RemoveFromArchive(client, "http://mockserver", "dataset1", user, true, tt.jobParams)
+
+			if tt.expectError != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.expectError) {
+					t.Fatalf("expected error containing %q, got: %v", tt.expectError, err)
+				}
+				return
+			}
+
 			if err != nil {
 				t.Fatalf("RemoveFromArchive returned unexpected error: %v", err)
 			}

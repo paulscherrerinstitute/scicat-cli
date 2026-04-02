@@ -38,28 +38,31 @@ For further help see "` + cliutils.MANUAL + `"`,
 		const CMD = "datasetRemover"
 
 		// pass parameters
-		nonInteractiveFlag, _ := cmd.Flags().GetBool("nonInteractive")
-		testenvFlag, _ := cmd.Flags().GetBool("testenv")
-		devenvFlag, _ := cmd.Flags().GetBool("devenv")
-		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
-		userpass, _ := cmd.Flags().GetString("user")
-		token, _ := cmd.Flags().GetString("token")
-		oidc, _ := cmd.Flags().GetBool("oidc")
-		showVersion, _ := cmd.Flags().GetBool("version")
-		deletionCode, _ := cmd.Flags().GetString("deletionCode")
-		deletionReason, _ := cmd.Flags().GetString("deletionReason")
+		ingestorConfig := cliutils.IngestorConfig{
+			Userpass:       cliutils.GetCobraStringFlag(cmd, "user"),
+			Token:          cliutils.GetCobraStringFlag(cmd, "token"),
+			ScicatUrl:      cliutils.GetCobraStringFlag(cmd, "scicat-url"),
+			Testenv:        cliutils.GetCobraBoolFlag(cmd, "testenv"),
+			Devenv:         cliutils.GetCobraBoolFlag(cmd, "devenv"),
+			Oidc:           cliutils.GetCobraBoolFlag(cmd, "oidc"),
+			NonInteractive: cliutils.GetCobraBoolFlag(cmd, "nonInteractive"),
+			DeletionCode:   cliutils.GetCobraStringFlag(cmd, "deletionCode"),
+			DeletionReason: cliutils.GetCobraStringFlag(cmd, "deletionReason"),
+		}
+
+		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
-				"user":           userpass,
-				"token":          token,
-				"testenv":        testenvFlag,
-				"devenv":         devenvFlag,
-				"scicat-url":     scicatUrl,
-				"nonInteractive": nonInteractiveFlag,
+				"user":           ingestorConfig.Userpass,
+				"token":          ingestorConfig.Token,
+				"testenv":        ingestorConfig.Testenv,
+				"devenv":         ingestorConfig.Devenv,
+				"scicat-url":     ingestorConfig.ScicatUrl,
+				"nonInteractive": ingestorConfig.NonInteractive,
 				"version":        showVersion,
-				"deletionCode":   deletionCode,
-				"deletionReason": deletionReason,
+				"deletionCode":   ingestorConfig.DeletionCode,
+				"deletionReason": ingestorConfig.DeletionReason,
 			})
 			return
 		}
@@ -70,40 +73,14 @@ For further help see "` + cliutils.MANUAL + `"`,
 			return
 		}
 
-		// check for program version only if running interactively
-
-		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
-		datasetUtils.CheckForServiceAvailability(client, testenvFlag, true)
-
-		// configure environment
-		APIServer := cliutils.ConfigureEnvironment(cliutils.InputEnvironmentConfig{
-			TestenvFlag: testenvFlag,
-			DevenvFlag:  devenvFlag,
-			ScicatUrl:   scicatUrl,
-		})
-
 		if len(args) != 1 {
 			log.Println("invalid number of args")
 			return
 		}
-		pid := args[0]
+		ingestorConfig.PID = args[0]
 
-		user, _, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
+		err := cliutils.RunDeletion(client, ingestorConfig, VERSION, CMD)
 		if err != nil {
-			log.Fatal(err)
-		}
-
-		jobID, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag, datasetUtils.JobParamsStruct{
-			DeletionCode:   datasetUtils.DeletionCode(deletionCode),
-			DeletionReason: deletionReason,
-		})
-		if err != nil {
-			if jobID != "" {
-				patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobID, string(datasetUtils.JobFailed))
-				if patchError != nil {
-					log.Fatalf("Failed to patch job status: %v", patchError)
-				}
-			}
 			log.Fatal(err)
 		}
 	},
@@ -112,7 +89,6 @@ For further help see "` + cliutils.MANUAL + `"`,
 func init() {
 	rootCmd.AddCommand(datasetRemoverCmd)
 
-	datasetRemoverCmd.Flags().Bool("removeFromCatalog", false, "Defines if the dataset should also be deleted from data catalog")
 	datasetRemoverCmd.Flags().Bool("nonInteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
 	datasetRemoverCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead of production environment")
 	datasetRemoverCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
