@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +28,7 @@ and only then it will be deleted in the data catalog.
 
 Note: these actions can not be un-done! Be careful!
 
-For further help see "` + MANUAL + `"`,
+For further help see "` + cliutils.MANUAL + `"`,
 	Args: exactArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// vars & consts
@@ -37,7 +38,7 @@ For further help see "` + MANUAL + `"`,
 
 		const CMD = "datasetCleaner"
 
-		var APIServer string = PROD_API_SERVER
+		var APIServer string = cliutils.PROD_API_SERVER
 		var env string = "production"
 
 		// pass parameters
@@ -79,11 +80,11 @@ For further help see "` + MANUAL + `"`,
 		//}
 
 		if devenvFlag {
-			APIServer = DEV_API_SERVER
+			APIServer = cliutils.DEV_API_SERVER
 			env = "dev"
 		}
 		if testenvFlag {
-			APIServer = TEST_API_SERVER
+			APIServer = cliutils.TEST_API_SERVER
 			env = "test"
 		}
 		if scicatUrl != "" {

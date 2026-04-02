@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +25,7 @@ of this ownerGroup not yet archived will be archived.
 Or you choose a (list of) datasetIds, in which case all archivable datasets
 of this list not yet archived will be archived. 
 
-For further help see "` + MANUAL + `"`,
+For further help see "` + cliutils.MANUAL + `"`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// consts & vars
 		var client = &http.Client{
@@ -34,7 +35,7 @@ For further help see "` + MANUAL + `"`,
 		const CMD = "datasetArchiver"
 		var scanner = bufio.NewScanner(os.Stdin)
 
-		var APIServer string = PROD_API_SERVER
+		var APIServer string = cliutils.PROD_API_SERVER
 		var env string = "production"
 
 		// pass parameters
@@ -77,15 +78,15 @@ For further help see "` + MANUAL + `"`,
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 
 		if localenvFlag {
-			APIServer = LOCAL_API_SERVER
+			APIServer = cliutils.LOCAL_API_SERVER
 			env = "local"
 		}
 		if devenvFlag {
-			APIServer = DEV_API_SERVER
+			APIServer = cliutils.DEV_API_SERVER
 			env = "dev"
 		}
 		if testenvFlag {
-			APIServer = TEST_API_SERVER
+			APIServer = cliutils.TEST_API_SERVER
 			env = "test"
 		}
 		if scicatUrl != "" {

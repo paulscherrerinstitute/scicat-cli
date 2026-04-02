@@ -30,7 +30,7 @@ which comprises the dataset. It takes one or two input
 files and creates the necessary messages which trigger
 the creation of the corresponding datacatalog entries
 
-For further help see "` + MANUAL + `"
+For further help see "` + cliutils.MANUAL + `"
 
 Special hints for the decentral use case, where data is copied first to intermediate storage:
 For Linux you need to have a valid Kerberos tickets, which you can get via the kinit command.
@@ -50,8 +50,8 @@ For Windows you need instead to specify -user username:password on the command l
 
 		var scanner = bufio.NewScanner(os.Stdin)
 
-		var APIServer string = PROD_API_SERVER
-		var RSYNCServer string = PROD_RSYNC_ARCHIVE_SERVER
+		var APIServer string = cliutils.PROD_API_SERVER
+		var RSYNCServer string = cliutils.PROD_RSYNC_ARCHIVE_SERVER
 		var env string = "production"
 
 		// pass parameters
@@ -181,23 +181,23 @@ For Windows you need instead to specify -user username:password on the command l
 
 		// environment overrides
 		if tunnelenvFlag {
-			APIServer = TUNNEL_API_SERVER
-			RSYNCServer = TUNNEL_RSYNC_ARCHIVE_SERVER
+			APIServer = cliutils.TUNNEL_API_SERVER
+			RSYNCServer = cliutils.TUNNEL_RSYNC_ARCHIVE_SERVER
 			env = "dev"
 		}
 		if localenvFlag {
-			APIServer = LOCAL_API_SERVER
-			RSYNCServer = LOCAL_RSYNC_ARCHIVE_SERVER
+			APIServer = cliutils.LOCAL_API_SERVER
+			RSYNCServer = cliutils.LOCAL_RSYNC_ARCHIVE_SERVER
 			env = "local"
 		}
 		if devenvFlag {
-			APIServer = DEV_API_SERVER
-			RSYNCServer = DEV_RSYNC_ARCHIVE_SERVER
+			APIServer = cliutils.DEV_API_SERVER
+			RSYNCServer = cliutils.DEV_RSYNC_ARCHIVE_SERVER
 			env = "dev"
 		}
 		if testenvFlag {
-			APIServer = TEST_API_SERVER
-			RSYNCServer = TEST_RSYNC_ARCHIVE_SERVER
+			APIServer = cliutils.TEST_API_SERVER
+			RSYNCServer = cliutils.TEST_RSYNC_ARCHIVE_SERVER
 			env = "test"
 		}
 		if scicatUrl != "" {

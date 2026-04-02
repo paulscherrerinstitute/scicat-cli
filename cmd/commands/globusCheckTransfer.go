@@ -26,7 +26,7 @@ var globusCheckTransfer = &cobra.Command{
 You must have a Globus account with access to the desired transfers. Optionally,
 you can save 
 
-For further help see "` + MANUAL + `"`,
+For further help see "` + cliutils.MANUAL + `"`,
 	Args: minArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// consts & vars
@@ -34,7 +34,7 @@ For further help see "` + MANUAL + `"`,
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
 			Timeout:   10 * time.Second}
 
-		var APIServer string = PROD_API_SERVER
+		var APIServer string = cliutils.PROD_API_SERVER
 
 		// pass parameters
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
@@ -105,16 +105,16 @@ For further help see "` + MANUAL + `"`,
 
 		// environment overrides
 		if tunnelenvFlag {
-			APIServer = TUNNEL_API_SERVER
+			APIServer = cliutils.TUNNEL_API_SERVER
 		}
 		if localenvFlag {
-			APIServer = LOCAL_API_SERVER
+			APIServer = cliutils.LOCAL_API_SERVER
 		}
 		if devenvFlag {
-			APIServer = DEV_API_SERVER
+			APIServer = cliutils.DEV_API_SERVER
 		}
 		if testenvFlag {
-			APIServer = TEST_API_SERVER
+			APIServer = cliutils.TEST_API_SERVER
 		}
 		if scicatUrl != "" {
 			APIServer = scicatUrl

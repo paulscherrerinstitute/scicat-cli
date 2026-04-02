@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +28,7 @@ var waitForJobFinishedCmd = &cobra.Command{
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
 			Timeout:   10 * time.Second}
 
-		var APIServer string = PROD_API_SERVER
+		var APIServer string = cliutils.PROD_API_SERVER
 		var env string = "production"
 
 		// structs
@@ -91,15 +92,15 @@ var waitForJobFinishedCmd = &cobra.Command{
 		}
 
 		if localenvFlag {
-			APIServer = LOCAL_API_SERVER
+			APIServer = cliutils.LOCAL_API_SERVER
 			env = "local"
 		}
 		if devenvFlag {
-			APIServer = DEV_API_SERVER
+			APIServer = cliutils.DEV_API_SERVER
 			env = "dev"
 		}
 		if testenvFlag {
-			APIServer = TEST_API_SERVER
+			APIServer = cliutils.TEST_API_SERVER
 			env = "test"
 		}
 		if scicatUrl != "" {

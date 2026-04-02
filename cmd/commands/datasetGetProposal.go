@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +19,7 @@ var datasetGetProposalCmd = &cobra.Command{
 	Short: "Returns the proposal information for a given ownerGroup",
 	Long: `Tool to retrieve proposal information for a given ownerGroup.
 	
-For further help see "` + MANUAL + `"`,
+For further help see "` + cliutils.MANUAL + `"`,
 	Args: exactArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// vars and constants
@@ -28,7 +29,7 @@ For further help see "` + MANUAL + `"`,
 
 		const APP = "datasetGetProposal"
 
-		var APIServer string = PROD_API_SERVER
+		var APIServer string = cliutils.PROD_API_SERVER
 		var env string = "production"
 
 		// pass parameters
@@ -65,15 +66,15 @@ For further help see "` + MANUAL + `"`,
 		datasetUtils.CheckForNewVersion(client, APP, VERSION)
 
 		if localenvFlag {
-			APIServer = LOCAL_API_SERVER
+			APIServer = cliutils.LOCAL_API_SERVER
 			env = "local"
 		}
 		if devenvFlag {
-			APIServer = DEV_API_SERVER
+			APIServer = cliutils.DEV_API_SERVER
 			env = "dev"
 		}
 		if testenvFlag {
-			APIServer = TEST_API_SERVER
+			APIServer = cliutils.TEST_API_SERVER
 			env = "test"
 		}
 		if scicatUrl != "" {
