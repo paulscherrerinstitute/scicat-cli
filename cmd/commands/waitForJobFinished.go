@@ -17,10 +17,11 @@ import (
 )
 
 var waitForJobFinishedCmd = &cobra.Command{
-	Use:   "waitForJobFinished (options)",
-	Short: "Waits for job to be finished",
-	Long:  `This script polls the status of a given job and returns when Job is finished`,
-	Args:  cobra.NoArgs,
+	Aliases: []string{"w", "wait"},
+	Use:     "waitForJobFinished (options)",
+	Short:   "Waits for job to be finished",
+	Long:    `This script polls the status of a given job and returns when Job is finished`,
+	Args:    cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// consts & vars
 		var client = &http.Client{

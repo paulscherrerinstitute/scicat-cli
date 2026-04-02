@@ -15,14 +15,15 @@ import (
 )
 
 var datasetArchiverCmd = &cobra.Command{
-	Use:   "datasetArchiver [options] (ownerGroup | space separated list of datasetIds)",
-	Short: "Archives all datasets in state datasetCreated from a given ownerGroup",
+	Aliases: []string{"a", "archive"},
+	Use:     "datasetArchiver [options] (ownerGroup | space separated list of datasetIds)",
+	Short:   "Archives all datasets in state datasetCreated from a given ownerGroup",
 	Long: `Tool to archive datasets to the data catalog.
 
 You must choose either an ownerGroup, in which case all archivable datasets
 of this ownerGroup not yet archived will be archived.
 Or you choose a (list of) datasetIds, in which case all archivable datasets
-of this list not yet archived will be archived. 
+of this list not yet archived will be archived.
 
 For further help see "` + MANUAL + `"`,
 	Run: func(cmd *cobra.Command, args []string) {

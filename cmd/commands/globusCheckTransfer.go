@@ -19,12 +19,13 @@ import (
 )
 
 var globusCheckTransfer = &cobra.Command{
-	Use:   "globusCheckTransfer [options] (transfer_task_id transfer_task_id ...)",
-	Short: "Checks whether a list of Globus transfers has finished",
+	Aliases: []string{"gct"},
+	Use:     "globusCheckTransfer [options] (transfer_task_id transfer_task_id ...)",
+	Short:   "Checks whether a list of Globus transfers has finished",
 	Long: `Tool for checking whether a list of Globus transfers has finished
 
 You must have a Globus account with access to the desired transfers. Optionally,
-you can save 
+you can save
 
 For further help see "` + MANUAL + `"`,
 	Args: minArgsWithVersionException(1),

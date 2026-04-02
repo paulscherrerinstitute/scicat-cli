@@ -16,8 +16,9 @@ import (
 )
 
 var datasetRetrieverCmd = &cobra.Command{
-	Use:   "datasetRetriever (options) local-destination-path",
-	Short: "Retrieve datasets from intermediate cache, taking into account original sourceFolder names",
+	Aliases: []string{"r", "retrieve"},
+	Use:     "datasetRetriever (options) local-destination-path",
+	Short:   "Retrieve datasets from intermediate cache, taking into account original sourceFolder names",
 	Long: `Tool to retrieve datasets from the intermediate cache server of the tape archive to the
 destination path on your local system.
 
