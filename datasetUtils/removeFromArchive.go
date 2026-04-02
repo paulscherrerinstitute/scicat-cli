@@ -13,6 +13,25 @@ import (
 	"github.com/fatih/color"
 )
 
+type DeletionCode string
+
+const (
+	CodeSuperseded DeletionCode = "SUPERSEDED"
+	CodeExpired    DeletionCode = "EXPIRED"
+	CodeRemoved    DeletionCode = "REMOVED"
+	CodeUnknown    DeletionCode = ""
+)
+
+var AllDeletionCodes = []DeletionCode{CodeSuperseded, CodeExpired, CodeRemoved}
+
+func (c DeletionCode) IsValid() bool {
+	switch c {
+	case CodeSuperseded, CodeExpired, CodeRemoved:
+		return true
+	}
+	return false
+}
+
 type datablockInfo struct {
 	ID   string `json:"id"`
 	Size int    `json:"size"`
@@ -23,16 +42,18 @@ type datasetStruct struct {
 	Files []string `json:"files"`
 }
 
-type jobParamsStruct struct {
-	Username string `json:"username"`
+type JobParamsStruct struct {
+	Username       string       `json:"username"`
+	DeletionCode   DeletionCode `json:"deletionCode,omitempty"`
+	DeletionReason string       `json:"deletionReason,omitempty"`
 }
 
 type JobSubmissionResponse struct {
-	ID string `json:"id"`
+	ID               string `json:"id"`
 	JobStatusMessage string `json:"jobStatusMessage"`
 }
 
-func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool) (string, error) {
+func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, additionalJobParameters JobParamsStruct) (string, error) {
 	respObj, err := getDatablocks(client, APIServer, pid, user)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch datablocks: %w", err)
@@ -63,7 +84,10 @@ func RemoveFromArchive(client *http.Client, APIServer string, pid string, user m
 	} else {
 		log.Println("Non-interactive mode: proceeding automatically.")
 	}
-	jobMap := buildResetJobMap(pid, user)
+	jobMap, err := buildResetJobMap(pid, user, additionalJobParameters)
+	if err != nil {
+		return "", fmt.Errorf("failed to build reset job map: %w", err)
+	}
 	jobID, err := submitJob(client, APIServer, user, jobMap)
 	if err != nil {
 		return "", fmt.Errorf("archive reset job submission failed: %w", err)
@@ -101,17 +125,21 @@ func getDatablocks(client *http.Client, APIServer string, pid string, user map[s
 	return respObj, nil
 }
 
-func buildResetJobMap(pid string, user map[string]string) map[string]interface{} {
+func buildResetJobMap(pid string, user map[string]string, params JobParamsStruct) (map[string]interface{}, error) {
+	if params.DeletionCode != CodeUnknown && !params.DeletionCode.IsValid() {
+		return nil, fmt.Errorf("invalid deletion code: %s", params.DeletionCode)
+	}
+	params.Username = user["username"]
 	return map[string]interface{}{
 		"emailJobInitiator": user["mail"],
 		"type":              "reset",
 		"creationTime":      time.Now().Format(time.RFC3339),
-		"jobParams":         jobParamsStruct{Username: user["username"]},
+		"jobParams":         params,
 		"jobStatusMessage":  "jobSubmitted",
 		"datasetList": []datasetStruct{
 			{Pid: pid, Files: []string{}},
 		},
-	}
+	}, nil
 }
 
 func submitJob(client *http.Client, APIServer string, user map[string]string, jobMap map[string]interface{}) (string, error) {
