@@ -34,11 +34,11 @@ func Execute() {
 func init() {
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	rootCmd.PersistentFlags().StringP("user", "u", "", "Defines optional username:password string")
-	rootCmd.PersistentFlags().String("token", "", "Defines optional API token instead of username:password")
 	rootCmd.PersistentFlags().StringP("config", "c", "", "A path to a config file for connecting to SciCat and transfer services")
 	rootCmd.PersistentFlags().StringP("scicat-url", "s", "", "The scicat url to use. Note: it'll overwrite any built-in environments.")
-	rootCmd.PersistentFlags().Bool("oidc", false, "Use OIDC for login instead of internal user")
+	rootCmd.PersistentFlags().StringP("user", "u", "", "Authenticate using a functional account as a username:password string.")
+	rootCmd.PersistentFlags().String("token", "", "Authenticate using a scicat API token")
+	rootCmd.PersistentFlags().Bool("oidc", false, "Authenticate in a local browser")
 	rootCmd.PersistentFlags().BoolP("version", "v", false, "Show version")
 
 	rootCmd.MarkFlagsMutuallyExclusive("token", "oidc")
