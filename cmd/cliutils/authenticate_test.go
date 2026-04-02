@@ -1,4 +1,4 @@
-package cmd
+package cliutils
 
 import (
 	"fmt"
@@ -27,9 +27,12 @@ func (m *MockAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APISer
 
 func TestAuthenticate(t *testing.T) {
 	var auth Authenticator = &MockAuthenticator{}
-	noExit := func(v ...any) {
+	noExit := func(v ...any) {}
 
-	}
+	oldProvider := oidcTokenProvider
+	SetOIDCTokenProvider(func(_ string) string { return "mock-token" })
+	defer SetOIDCTokenProvider(oldProvider)
+
 	// Mock HTTP server
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		rw.Write([]byte(`{"username": "testuser", "accessGroups": ["group1", "group2"]}`))
@@ -86,10 +89,10 @@ func TestAuthenticate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			httpClient := server.Client()
-			user, group, err := authenticate(auth, httpClient, server.URL, tt.userpass, tt.token, false, noExit)
+			user, group, err := Authenticate(auth, httpClient, server.URL, tt.userpass, tt.token, false, noExit)
 			if err != nil {
 				if err.Error() != "no username or password was provided" {
-					t.Errorf("authenticate returned an error: %s", err.Error())
+					t.Errorf("Authenticate returned an error: %s", err.Error())
 				}
 			}
 

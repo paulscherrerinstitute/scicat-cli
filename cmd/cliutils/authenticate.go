@@ -1,4 +1,4 @@
-package cmd
+package cliutils
 
 import (
 	"fmt"
@@ -7,17 +7,17 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
-	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"golang.org/x/term"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
-// An interface with the methods so that we can mock them in tests
+// Authenticator is an abstraction used to support testing and custom auth backends.
 type Authenticator interface {
 	AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string, error)
 	GetUserInfoFromToken(httpClient *http.Client, APIServer string, token string) (map[string]string, []string, error)
 }
 
+// RealAuthenticator delegates to real datasetUtils auth endpoints.
 type RealAuthenticator struct{}
 
 func (r RealAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer string, username string, password string) (map[string]string, []string, error) {
@@ -27,7 +27,7 @@ func (r RealAuthenticator) AuthenticateUser(httpClient *http.Client, APIServer s
 		if err != nil {
 			return map[string]string{}, []string{}, err
 		}
-		datasetUtils.RunKinit(username, password) // PSI specific KerberOS user creation
+		datasetUtils.RunKinit(username, password) // PSI specific Kerberos user creation
 	}
 	return user, groups, err
 }
@@ -36,19 +36,25 @@ func (r RealAuthenticator) GetUserInfoFromToken(httpClient *http.Client, APIServ
 	return datasetUtils.GetUserInfoFromToken(httpClient, APIServer, token)
 }
 
-// Authenticate handles user authentication by prompting the user for their credentials,
-// validating these credentials against the authentication server,
-// and returning an authentication token if the credentials are valid.
-// This token can then be used for authenticated requests to the server.
-// If the credentials are not valid, the function returns an error.
-func authenticate(authenticator Authenticator, httpClient *http.Client, apiServer string, userpass string, token string, oidc bool, overrideFatalExit ...func(v ...any)) (map[string]string, []string, error) {
+var oidcTokenProvider func(string) string
+
+// SetOIDCTokenProvider configures the function used to fetch OIDC tokens.
+func SetOIDCTokenProvider(provider func(string) string) {
+	oidcTokenProvider = provider
+}
+
+// Authenticate handles user authentication by prompting for credentials as needed.
+func Authenticate(authenticator Authenticator, httpClient *http.Client, apiServer string, userpass string, token string, oidc bool, overrideFatalExit ...func(v ...any)) (map[string]string, []string, error) {
 	fatalExit := log.Fatal // by default, call log fatal
 	if len(overrideFatalExit) == 1 {
 		fatalExit = overrideFatalExit[0]
 	}
 
 	if oidc {
-		token = cliutils.GetScicatToken(apiServer + "/auth/oidc?client=CLI")
+		if oidcTokenProvider == nil {
+			return map[string]string{}, []string{}, fmt.Errorf("oidc token provider is not configured")
+		}
+		token = oidcTokenProvider(apiServer + "/auth/oidc?client=CLI")
 		user, accessGroups, err := authenticator.GetUserInfoFromToken(httpClient, apiServer, token)
 		if err != nil {
 			return map[string]string{}, []string{}, err

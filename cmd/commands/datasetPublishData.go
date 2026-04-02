@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -205,7 +206,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 
 			// set value in publishedData ==============================
 
-			user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
+			user, _, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 			if err != nil {
 				log.Fatal(err)
 			}
