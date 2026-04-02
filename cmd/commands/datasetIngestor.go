@@ -214,7 +214,7 @@ For Windows you need instead to specify -user username:password on the command l
 		log.Printf("You are about to add a dataset to the === %s === data catalog environment...", env)
 		color.Unset()
 
-		user, accessGroups, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
+		user, accessGroups, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -93,7 +94,7 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 			return
 		}
 
-		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
+		user, _, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {
 			log.Fatal(err)
 		}
