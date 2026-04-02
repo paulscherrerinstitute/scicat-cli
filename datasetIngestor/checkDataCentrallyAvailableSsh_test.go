@@ -2,49 +2,9 @@ package datasetIngestor
 
 import (
 	"errors"
-	"fmt"
-	"os"
-	"os/exec"
-	"reflect"
-	"strconv"
+	"io"
 	"testing"
 )
-
-// Mock for exec.Command
-type execCommandMock struct {
-	expectedArgs []string
-	returnError  error
-}
-
-func (m *execCommandMock) Command(name string, arg ...string) *exec.Cmd {
-	if !reflect.DeepEqual(arg, m.expectedArgs) {
-		panic(fmt.Sprintf("unexpected arguments: got %v, want %v", arg, m.expectedArgs))
-	}
-
-	cs := []string{"-test.run=TestHelperProcess", "--", name}
-	cs = append(cs, arg...)
-	cmd := exec.Command(os.Args[0], cs...)
-	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
-
-	if m.returnError != nil {
-		cmd.Env = append(cmd.Env, "EXIT_STATUS=1")
-	} else {
-		cmd.Env = append(cmd.Env, "EXIT_STATUS=0")
-	}
-
-	return cmd
-}
-
-// TestHelperProcess isn't a real test. It's used as a helper process
-func TestHelperProcess(t *testing.T) {
-	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
-		return
-	}
-	fmt.Fprintf(os.Stdout, "output")
-	fmt.Fprintf(os.Stderr, "error")
-	exitStatus, _ := strconv.Atoi(os.Getenv("EXIT_STATUS"))
-	os.Exit(exitStatus)
-}
 
 func TestCheckDataCentrallyAvailable(t *testing.T) {
 	tests := []struct {
@@ -73,21 +33,25 @@ func TestCheckDataCentrallyAvailable(t *testing.T) {
 		// Add more test cases here.
 	}
 
-	for _, tt := range tests {
-		expectedArgs := []string{"-q", "-l", tt.username, tt.archiveServer, "test", "-d", tt.sourceFolder}
+	oldNewDumbClient := newDumbClient
+	oldCheckRemoteDirectory := checkRemoteDirectory
+	defer func() {
+		newDumbClient = oldNewDumbClient
+		checkRemoteDirectory = oldCheckRemoteDirectory
+	}()
 
+	for _, tt := range tests {
 		var returnError error
 		if tt.wantErr {
 			returnError = errors.New(tt.errMsg)
 		}
 
-		// Replace exec.Command with a mock
-		oldExecCommand := execCommand
-		execCommand = (&execCommandMock{
-			expectedArgs: expectedArgs,
-			returnError:  returnError,
-		}).Command
-		defer func() { execCommand = oldExecCommand }()
+		newDumbClient = func(username, password, server string) (*Client, error) {
+			return &Client{}, nil
+		}
+		checkRemoteDirectory = func(c *Client, sourceFolder string, sshOutput io.Writer) error {
+			return returnError
+		}
 
 		t.Run(tt.name, func(t *testing.T) {
 			sshErr, otherErr := CheckDataCentrallyAvailableSsh(tt.username, tt.archiveServer, tt.sourceFolder, nil)
