@@ -9,7 +9,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
@@ -34,9 +33,6 @@ For further help see "` + cliutils.MANUAL + `"`,
 
 		const CMD = "datasetArchiver"
 		var scanner = bufio.NewScanner(os.Stdin)
-
-		var APIServer string = cliutils.PROD_API_SERVER
-		var env string = "production"
 
 		// pass parameters
 		userpass, _ := cmd.Flags().GetString("user")
@@ -77,22 +73,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 		// check for program version only if running interactively
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 
-		if localenvFlag {
-			APIServer = cliutils.LOCAL_API_SERVER
-			env = "local"
-		}
-		if devenvFlag {
-			APIServer = cliutils.DEV_API_SERVER
-			env = "dev"
-		}
-		if testenvFlag {
-			APIServer = cliutils.TEST_API_SERVER
-			env = "test"
-		}
-		if scicatUrl != "" {
-			APIServer = scicatUrl
-			env = "custom"
-		}
+		// configure environment
+		envConfig := cliutils.ConfigureEnvironment(false, localenvFlag, devenvFlag, testenvFlag, scicatUrl)
+		APIServer := envConfig.APIServer
 
 		var executionTime *time.Time = nil
 		if executionTimeStr != "" {
@@ -102,10 +85,6 @@ For further help see "` + cliutils.MANUAL + `"`,
 			}
 			executionTime = &parsedTime
 		}
-
-		color.Set(color.FgGreen)
-		log.Printf("You are about to archive dataset(s) to the === %s === data catalog environment...", env)
-		color.Unset()
 
 		ownerGroup := ownergroupFlag
 

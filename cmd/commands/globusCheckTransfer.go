@@ -103,22 +103,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 			globusConfigPath = filepath.Join(filepath.Dir(execPath), "globus.yaml")
 		}
 
-		// environment overrides
-		if tunnelenvFlag {
-			APIServer = cliutils.TUNNEL_API_SERVER
-		}
-		if localenvFlag {
-			APIServer = cliutils.LOCAL_API_SERVER
-		}
-		if devenvFlag {
-			APIServer = cliutils.DEV_API_SERVER
-		}
-		if testenvFlag {
-			APIServer = cliutils.TEST_API_SERVER
-		}
-		if scicatUrl != "" {
-			APIServer = scicatUrl
-		}
+		// configure environment
+		envConfig := cliutils.ConfigureEnvironment(tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag, scicatUrl)
+		APIServer = envConfig.APIServer
 
 		// start message
 		startMessage := "Checking transfer complpetion"

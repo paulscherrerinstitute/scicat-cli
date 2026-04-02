@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
@@ -28,9 +27,6 @@ For further help see "` + cliutils.MANUAL + `"`,
 			Timeout:   10 * time.Second}
 
 		const APP = "datasetGetProposal"
-
-		var APIServer string = cliutils.PROD_API_SERVER
-		var env string = "production"
 
 		// pass parameters
 		userpass, _ := cmd.Flags().GetString("user")
@@ -65,26 +61,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 		// check for program version only if running interactively
 		datasetUtils.CheckForNewVersion(client, APP, VERSION)
 
-		if localenvFlag {
-			APIServer = cliutils.LOCAL_API_SERVER
-			env = "local"
-		}
-		if devenvFlag {
-			APIServer = cliutils.DEV_API_SERVER
-			env = "dev"
-		}
-		if testenvFlag {
-			APIServer = cliutils.TEST_API_SERVER
-			env = "test"
-		}
-		if scicatUrl != "" {
-			APIServer = scicatUrl
-			env = "custom"
-		}
-
-		color.Set(color.FgGreen)
-		log.Printf("You are about to retrieve the proposal information from the === %s === data catalog environment...", env)
-		color.Unset()
+		// configure environment
+		envConfig := cliutils.ConfigureEnvironment(false, localenvFlag, devenvFlag, testenvFlag, scicatUrl)
+		APIServer := envConfig.APIServer
 
 		//TODO cleanup text formatting:
 		if len(args) != 1 {

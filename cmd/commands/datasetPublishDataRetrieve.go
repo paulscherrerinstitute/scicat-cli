@@ -20,9 +20,6 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 	Long:  `Create a job to retrieve all datasets of a given PublishedData item.`,
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		var APIServer string = cliutils.PROD_API_SERVER
-		var env string = "production"
-
 		var client = &http.Client{
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
 			Timeout:   10 * time.Second}
@@ -58,22 +55,9 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 			return
 		}
 
-		if devenvFlag {
-			APIServer = cliutils.DEV_API_SERVER
-			env = "dev"
-		}
-		if testenvFlag {
-			APIServer = cliutils.TEST_API_SERVER
-			env = "test"
-		}
-		if scicatUrl != "" {
-			APIServer = scicatUrl
-			env = "custom"
-		}
-
-		color.Set(color.FgGreen)
-		log.Printf("You are about to trigger a retrieve job for publish dataset(s) from the === %s === retrieve server...", env)
-		color.Unset()
+		// configure environment
+		envConfig := cliutils.ConfigureEnvironment(false, false, devenvFlag, testenvFlag, scicatUrl)
+		APIServer := envConfig.APIServer
 
 		if !retrieveFlag {
 			color.Set(color.FgRed)

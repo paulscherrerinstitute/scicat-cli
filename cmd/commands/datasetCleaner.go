@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
@@ -37,9 +36,6 @@ For further help see "` + cliutils.MANUAL + `"`,
 			Timeout:   10 * time.Second}
 
 		const CMD = "datasetCleaner"
-
-		var APIServer string = cliutils.PROD_API_SERVER
-		var env string = "production"
 
 		// pass parameters
 		removeFromCatalogFlag, _ := cmd.Flags().GetBool("removeFromCatalog")
@@ -77,24 +73,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 		datasetUtils.CheckForServiceAvailability(client, testenvFlag, true)
 
-		//}
-
-		if devenvFlag {
-			APIServer = cliutils.DEV_API_SERVER
-			env = "dev"
-		}
-		if testenvFlag {
-			APIServer = cliutils.TEST_API_SERVER
-			env = "test"
-		}
-		if scicatUrl != "" {
-			APIServer = scicatUrl
-			env = "custom"
-		}
-
-		color.Set(color.FgRed)
-		log.Printf("You are about to remove a dataset from the === %s === data catalog environment...", env)
-		color.Unset()
+		// configure environment
+		envConfig := cliutils.ConfigureEnvironment(false, false, devenvFlag, testenvFlag, scicatUrl)
+		APIServer := envConfig.APIServer
 
 		if len(args) != 1 {
 			log.Println("invalid number of args")

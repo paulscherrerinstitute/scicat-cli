@@ -50,10 +50,6 @@ For Windows you need instead to specify -user username:password on the command l
 
 		var scanner = bufio.NewScanner(os.Stdin)
 
-		var APIServer string = cliutils.PROD_API_SERVER
-		var RSYNCServer string = cliutils.PROD_RSYNC_ARCHIVE_SERVER
-		var env string = "production"
-
 		// pass parameters
 		ingestFlag, _ := cmd.Flags().GetBool("ingest")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
@@ -179,40 +175,10 @@ For Windows you need instead to specify -user username:password on the command l
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 		datasetUtils.CheckForServiceAvailability(client, testenvFlag, autoarchiveFlag)
 
-		// environment overrides
-		if tunnelenvFlag {
-			APIServer = cliutils.TUNNEL_API_SERVER
-			RSYNCServer = cliutils.TUNNEL_RSYNC_ARCHIVE_SERVER
-			env = "dev"
-		}
-		if localenvFlag {
-			APIServer = cliutils.LOCAL_API_SERVER
-			RSYNCServer = cliutils.LOCAL_RSYNC_ARCHIVE_SERVER
-			env = "local"
-		}
-		if devenvFlag {
-			APIServer = cliutils.DEV_API_SERVER
-			RSYNCServer = cliutils.DEV_RSYNC_ARCHIVE_SERVER
-			env = "dev"
-		}
-		if testenvFlag {
-			APIServer = cliutils.TEST_API_SERVER
-			RSYNCServer = cliutils.TEST_RSYNC_ARCHIVE_SERVER
-			env = "test"
-		}
-		if scicatUrl != "" {
-			APIServer = scicatUrl
-			if rsyncUrl != "" {
-				RSYNCServer = rsyncUrl
-				env = "custom"
-			} else {
-				env = "custom-" + env
-			}
-		}
-
-		color.Set(color.FgGreen)
-		log.Printf("You are about to add a dataset to the === %s === data catalog environment...", env)
-		color.Unset()
+		// configure environment
+		archiveConfig := cliutils.ConfigureArchiveEnvironment(tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag, scicatUrl, rsyncUrl)
+		APIServer := archiveConfig.APIServer
+		RSYNCServer := archiveConfig.RSYNCServer
 
 		user, accessGroups, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {
