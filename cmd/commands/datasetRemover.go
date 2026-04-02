@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var datasetCleanerCmd = &cobra.Command{
-	Use:   "datasetCleaner [options] datasetPid",
+var datasetRemoverCmd = &cobra.Command{
+	Use:   "datasetRemover [options] datasetPid",
 	Short: "Remove dataset from archive and optionally from data catalog",
 	Long: `Tool to remove datasets from the data catalog.
 	
@@ -35,10 +35,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
 			Timeout:   10 * time.Second}
 
-		const CMD = "datasetCleaner"
+		const CMD = "datasetRemover"
 
 		// pass parameters
-		removeFromCatalogFlag, _ := cmd.Flags().GetBool("removeFromCatalog")
 		nonInteractiveFlag, _ := cmd.Flags().GetBool("nonInteractive")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
@@ -47,17 +46,20 @@ For further help see "` + cliutils.MANUAL + `"`,
 		token, _ := cmd.Flags().GetString("token")
 		oidc, _ := cmd.Flags().GetBool("oidc")
 		showVersion, _ := cmd.Flags().GetBool("version")
+		deletionCode, _ := cmd.Flags().GetString("deletionCode")
+		deletionReason, _ := cmd.Flags().GetString("deletionReason")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
-				"user":              userpass,
-				"token":             token,
-				"testenv":           testenvFlag,
-				"devenv":            devenvFlag,
-				"scicat-url":        scicatUrl,
-				"nonInteractive":    nonInteractiveFlag,
-				"removeFromCatalog": removeFromCatalogFlag,
-				"version":           showVersion,
+				"user":           userpass,
+				"token":          token,
+				"testenv":        testenvFlag,
+				"devenv":         devenvFlag,
+				"scicat-url":     scicatUrl,
+				"nonInteractive": nonInteractiveFlag,
+				"version":        showVersion,
+				"deletionCode":   deletionCode,
+				"deletionReason": deletionReason,
 			})
 			return
 		}
@@ -91,11 +93,10 @@ For further help see "` + cliutils.MANUAL + `"`,
 			log.Fatal(err)
 		}
 
-		if user["username"] != "archiveManager" {
-			log.Fatalf("You must be archiveManager to be allowed to delete datasets\n")
-		}
-
-		jobID, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag, datasetUtils.JobParamsStruct{})
+		jobID, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag, datasetUtils.JobParamsStruct{
+			DeletionCode:   datasetUtils.DeletionCode(deletionCode),
+			DeletionReason: deletionReason,
+		})
 		if err != nil {
 			if jobID != "" {
 				patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobID, string(datasetUtils.JobFailed))
@@ -105,31 +106,18 @@ For further help see "` + cliutils.MANUAL + `"`,
 			}
 			log.Fatal(err)
 		}
-
-		if removeFromCatalogFlag {
-			err = datasetUtils.RemoveFromCatalog(client, APIServer, pid, jobID, user, nonInteractiveFlag)
-			if err != nil {
-				if jobID != "" {
-					patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobID, string(datasetUtils.JobFailed))
-					if patchError != nil {
-						log.Fatalf("Failed to patch job status: %v", patchError)
-					}
-				}
-				log.Fatal(err)
-			}
-		} else {
-			log.Println("To also delete the dataset from the catalog add the flag --removeFromCatalog")
-		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(datasetCleanerCmd)
+	rootCmd.AddCommand(datasetRemoverCmd)
 
-	datasetCleanerCmd.Flags().Bool("removeFromCatalog", false, "Defines if the dataset should also be deleted from data catalog")
-	datasetCleanerCmd.Flags().Bool("nonInteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
-	datasetCleanerCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead of production environment")
-	datasetCleanerCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
-
-	datasetCleanerCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
+	datasetRemoverCmd.Flags().Bool("removeFromCatalog", false, "Defines if the dataset should also be deleted from data catalog")
+	datasetRemoverCmd.Flags().Bool("nonInteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
+	datasetRemoverCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead of production environment")
+	datasetRemoverCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
+	datasetRemoverCmd.Flags().String("deletionCode", "", "Code for the deletion reason")
+	datasetRemoverCmd.Flags().String("deletionReason", "", "Reason for the deletion")
+	datasetRemoverCmd.MarkFlagRequired("deletionCode")
+	datasetRemoverCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }

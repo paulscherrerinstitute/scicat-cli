@@ -103,7 +103,7 @@ func TestRemoveFromArchive(t *testing.T) {
 				},
 			}
 
-			jobID, err := RemoveFromArchive(client, "http://mockserver", "dataset1", user, true)
+			jobID, err := RemoveFromArchive(client, "http://mockserver", "dataset1", user, true, JobParamsStruct{})
 			if err != nil {
 				t.Fatalf("RemoveFromArchive returned unexpected error: %v", err)
 			}
