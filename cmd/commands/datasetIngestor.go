@@ -181,7 +181,7 @@ For Windows you need instead to specify -user username:password on the command l
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 		datasetUtils.CheckForServiceAvailability(client, envConfig.TestenvFlag, autoarchiveFlag)
 
-		user, accessGroups, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
+		user, accessGroups, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {
 			log.Fatal(err)
 		}
