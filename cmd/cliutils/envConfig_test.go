@@ -102,9 +102,15 @@ func TestConfigureEnvironment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ConfigureEnvironment(tt.tunnel, tt.local, tt.dev, tt.test, tt.scicatUrl)
-			if got.APIServer != tt.want.APIServer || got.Env != tt.want.Env {
-				t.Errorf("ConfigureEnvironment() = %+v, want %+v", got, tt.want)
+			got := ConfigureEnvironment(InputEnvironmentConfig{
+				TunnelenvFlag: tt.tunnel,
+				LocalenvFlag:  tt.local,
+				DevenvFlag:    tt.dev,
+				TestenvFlag:   tt.test,
+				ScicatUrl:     tt.scicatUrl,
+			})
+			if got != tt.want.APIServer {
+				t.Errorf("ConfigureEnvironment() = %s, want %s", got, tt.want.APIServer)
 			}
 		})
 	}
@@ -237,9 +243,16 @@ func TestConfigureArchiveEnvironment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ConfigureArchiveEnvironment(tt.tunnel, tt.local, tt.dev, tt.test, tt.scicatUrl, tt.rsyncUrl)
-			if got.APIServer != tt.want.APIServer || got.RSYNCServer != tt.want.RSYNCServer || got.Env != tt.want.Env {
-				t.Errorf("ConfigureArchiveEnvironment() = %+v, want %+v", got, tt.want)
+			gotAPIServer, gotRSYNCServer := ConfigureArchiveEnvironment(InputEnvironmentConfig{
+				TunnelenvFlag: tt.tunnel,
+				LocalenvFlag:  tt.local,
+				DevenvFlag:    tt.dev,
+				TestenvFlag:   tt.test,
+				ScicatUrl:     tt.scicatUrl,
+				RsyncUrl:      tt.rsyncUrl,
+			})
+			if gotAPIServer != tt.want.APIServer || gotRSYNCServer != tt.want.RSYNCServer {
+				t.Errorf("ConfigureArchiveEnvironment() = (%s, %s), want (%s, %s)", gotAPIServer, gotRSYNCServer, tt.want.APIServer, tt.want.RSYNCServer)
 			}
 		})
 	}

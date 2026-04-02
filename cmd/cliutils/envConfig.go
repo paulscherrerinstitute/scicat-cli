@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 )
 
 type EnvironmentConfig struct {
@@ -23,29 +24,38 @@ type RetrieveConfig struct {
 	Env         string
 }
 
-func returnCommonEnvironmentFlags(tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag bool, scicatUrl string) EnvironmentConfig {
+type InputEnvironmentConfig struct {
+	TestenvFlag   bool
+	DevenvFlag    bool
+	TunnelenvFlag bool
+	LocalenvFlag  bool
+	ScicatUrl     string
+	RsyncUrl      string
+}
+
+func returnCommonEnvironmentFlags(cfg InputEnvironmentConfig) EnvironmentConfig {
 	config := EnvironmentConfig{
 		APIServer: PROD_API_SERVER,
 		Env:       "production",
 	}
-	if tunnelenvFlag {
+	if cfg.TunnelenvFlag {
 		config.APIServer = TUNNEL_API_SERVER
 		config.Env = "dev"
 	}
-	if localenvFlag {
+	if cfg.LocalenvFlag {
 		config.APIServer = LOCAL_API_SERVER
 		config.Env = "local"
 	}
-	if devenvFlag {
+	if cfg.DevenvFlag {
 		config.APIServer = DEV_API_SERVER
 		config.Env = "dev"
 	}
-	if testenvFlag {
+	if cfg.TestenvFlag {
 		config.APIServer = TEST_API_SERVER
 		config.Env = "test"
 	}
-	if scicatUrl != "" {
-		config.APIServer = scicatUrl
+	if cfg.ScicatUrl != "" {
+		config.APIServer = cfg.ScicatUrl
 		config.Env = "custom"
 	}
 	color.Set(color.FgGreen)
@@ -55,41 +65,56 @@ func returnCommonEnvironmentFlags(tunnelenvFlag, localenvFlag, devenvFlag, teste
 	return config
 }
 
-func applyArchiveRSYNCFlags(config *ArchiveConfig, tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag bool, scicatUrl string, rsyncUrl string) {
-	if tunnelenvFlag {
+func applyArchiveRSYNCFlags(config *ArchiveConfig, cfg InputEnvironmentConfig) {
+	if cfg.TunnelenvFlag {
 		config.RSYNCServer = TUNNEL_RSYNC_ARCHIVE_SERVER
 	}
-	if localenvFlag {
+	if cfg.LocalenvFlag {
 		config.RSYNCServer = LOCAL_RSYNC_ARCHIVE_SERVER
 	}
-	if devenvFlag {
+	if cfg.DevenvFlag {
 		config.RSYNCServer = DEV_RSYNC_ARCHIVE_SERVER
 	}
-	if testenvFlag {
+	if cfg.TestenvFlag {
 		config.RSYNCServer = TEST_RSYNC_ARCHIVE_SERVER
 	}
-	if scicatUrl != "" && rsyncUrl != "" {
-		config.RSYNCServer = rsyncUrl
+	if cfg.ScicatUrl != "" && cfg.RsyncUrl != "" {
+		config.RSYNCServer = cfg.RsyncUrl
 	}
 }
 
 // ConfigureEnvironment sets the APIServer and env based on provided flags.
 // Production is the default, can be overridden by tunnel, local, dev, test, or scicatUrl.
-func ConfigureEnvironment(tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag bool, scicatUrl string) EnvironmentConfig {
-	return returnCommonEnvironmentFlags(tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag, scicatUrl)
+func ConfigureEnvironment(cfg InputEnvironmentConfig) string {
+	return returnCommonEnvironmentFlags(cfg).APIServer
 }
 
 // ConfigureArchiveEnvironment sets the APIServer, RSYNCServer and env for archive operations.
 // Production is the default, can be overridden by tunnel, local, dev, test, or scicatUrl.
 // If scicatUrl is provided with rsyncUrl, both are set to custom; otherwise uses custom-{env}.
-func ConfigureArchiveEnvironment(tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag bool, scicatUrl, rsyncUrl string) ArchiveConfig {
-	commonConfig := returnCommonEnvironmentFlags(tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag, "")
+func ConfigureArchiveEnvironment(cfg InputEnvironmentConfig) (apiserver string, rsyncserver string) {
+	commonConfig := returnCommonEnvironmentFlags(cfg)
 	config := ArchiveConfig{
 		APIServer:   commonConfig.APIServer,
 		RSYNCServer: PROD_RSYNC_ARCHIVE_SERVER,
 		Env:         commonConfig.Env,
 	}
-	applyArchiveRSYNCFlags(&config, tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag, scicatUrl, rsyncUrl)
+	applyArchiveRSYNCFlags(&config, cfg)
 
-	return config
+	return config.APIServer, config.RSYNCServer
+}
+
+func GetCobraBoolFlag(cmd *cobra.Command, name string) bool {
+	val, _ := cmd.Flags().GetBool(name)
+	return val
+}
+
+func GetCobraStringFlag(cmd *cobra.Command, name string) string {
+	val, _ := cmd.Flags().GetString(name)
+	return val
+}
+
+func GetCobraIntFlag(cmd *cobra.Command, name string) int {
+	val, _ := cmd.Flags().GetInt(name)
+	return val
 }

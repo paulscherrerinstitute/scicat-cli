@@ -74,8 +74,11 @@ For further help see "` + cliutils.MANUAL + `"`,
 		datasetUtils.CheckForServiceAvailability(client, testenvFlag, true)
 
 		// configure environment
-		envConfig := cliutils.ConfigureEnvironment(false, false, devenvFlag, testenvFlag, scicatUrl)
-		APIServer := envConfig.APIServer
+		APIServer := cliutils.ConfigureEnvironment(cliutils.InputEnvironmentConfig{
+			TestenvFlag: testenvFlag,
+			DevenvFlag:  devenvFlag,
+			ScicatUrl:   scicatUrl,
+		})
 
 		if len(args) != 1 {
 			log.Println("invalid number of args")

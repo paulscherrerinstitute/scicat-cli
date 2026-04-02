@@ -51,28 +51,34 @@ For Windows you need instead to specify -user username:password on the command l
 		var scanner = bufio.NewScanner(os.Stdin)
 
 		// pass parameters
-		ingestFlag, _ := cmd.Flags().GetBool("ingest")
-		testenvFlag, _ := cmd.Flags().GetBool("testenv")
-		devenvFlag, _ := cmd.Flags().GetBool("devenv")
-		localenvFlag, _ := cmd.Flags().GetBool("localenv")
-		tunnelenvFlag, _ := cmd.Flags().GetBool("tunnelenv")
-		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
-		rsyncUrl, _ := cmd.Flags().GetString("rsync-url")
-		noninteractiveFlag, _ := cmd.Flags().GetBool("noninteractive")
-		userpass, _ := cmd.Flags().GetString("user")
-		token, _ := cmd.Flags().GetString("token")
-		oidc, _ := cmd.Flags().GetBool("oidc")
-		copyFlag, _ := cmd.Flags().GetBool("copy")
-		nocopyFlag, _ := cmd.Flags().GetBool("nocopy")
-		transferTypeFlag, _ := cmd.Flags().GetString("transfer-type")
-		tapecopies, _ := cmd.Flags().GetInt("tapecopies")
-		autoarchiveFlag, _ := cmd.Flags().GetBool("autoarchive")
-		linkfiles, _ := cmd.Flags().GetString("linkfiles")
-		allowExistingSourceFolder, _ := cmd.Flags().GetBool("allowexistingsource")
-		addAttachment, _ := cmd.Flags().GetString("addattachment")
-		addCaption, _ := cmd.Flags().GetString("addcaption")
-		showVersion, _ := cmd.Flags().GetBool("version")
-		globusCfgFlag, _ := cmd.Flags().GetString("globus-cfg")
+		envConfig := cliutils.InputEnvironmentConfig{
+			TestenvFlag:   cliutils.GetCobraBoolFlag(cmd, "testenv"),
+			DevenvFlag:    cliutils.GetCobraBoolFlag(cmd, "devenv"),
+			TunnelenvFlag: cliutils.GetCobraBoolFlag(cmd, "tunnelenv"),
+			LocalenvFlag:  cliutils.GetCobraBoolFlag(cmd, "localenv"),
+			ScicatUrl:     cliutils.GetCobraStringFlag(cmd, "scicat-url"),
+			RsyncUrl:      cliutils.GetCobraStringFlag(cmd, "rsync-url"),
+		}
+
+		// configure environment
+		APIServer, RSYNCServer := cliutils.ConfigureArchiveEnvironment(envConfig)
+
+		ingestFlag := cliutils.GetCobraBoolFlag(cmd, "ingest")
+		noninteractiveFlag := cliutils.GetCobraBoolFlag(cmd, "noninteractive")
+		userpass := cliutils.GetCobraStringFlag(cmd, "user")
+		token := cliutils.GetCobraStringFlag(cmd, "token")
+		oidc := cliutils.GetCobraBoolFlag(cmd, "oidc")
+		copyFlag := cliutils.GetCobraBoolFlag(cmd, "copy")
+		nocopyFlag := cliutils.GetCobraBoolFlag(cmd, "nocopy")
+		transferTypeFlag := cliutils.GetCobraStringFlag(cmd, "transfer-type")
+		tapecopies := cliutils.GetCobraIntFlag(cmd, "tapecopies")
+		autoarchiveFlag := cliutils.GetCobraBoolFlag(cmd, "autoarchive")
+		linkfiles := cliutils.GetCobraStringFlag(cmd, "linkfiles")
+		allowExistingSourceFolder := cliutils.GetCobraBoolFlag(cmd, "allowexistingsource")
+		addAttachment := cliutils.GetCobraStringFlag(cmd, "addattachment")
+		addCaption := cliutils.GetCobraStringFlag(cmd, "addcaption")
+		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
+		globusCfgFlag := cliutils.GetCobraStringFlag(cmd, "globus-cfg")
 
 		// TODO: read in CFG!
 
@@ -117,12 +123,12 @@ For Windows you need instead to specify -user username:password on the command l
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
 				"ingest":              ingestFlag,
-				"testenv":             testenvFlag,
-				"devenv":              devenvFlag,
-				"localenv":            localenvFlag,
-				"tunnelenv":           tunnelenvFlag,
-				"scicat-url":          scicatUrl,
-				"rsync-url":           rsyncUrl,
+				"testenv":             envConfig.TestenvFlag,
+				"devenv":              envConfig.DevenvFlag,
+				"localenv":            envConfig.LocalenvFlag,
+				"tunnelenv":           envConfig.TunnelenvFlag,
+				"scicat-url":          envConfig.ScicatUrl,
+				"rsync-url":           envConfig.RsyncUrl,
 				"noninteractive":      noninteractiveFlag,
 				"user":                userpass,
 				"token":               token,
@@ -173,12 +179,7 @@ For Windows you need instead to specify -user username:password on the command l
 
 		// === check for program version ===
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
-		datasetUtils.CheckForServiceAvailability(client, testenvFlag, autoarchiveFlag)
-
-		// configure environment
-		archiveConfig := cliutils.ConfigureArchiveEnvironment(tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag, scicatUrl, rsyncUrl)
-		APIServer := archiveConfig.APIServer
-		RSYNCServer := archiveConfig.RSYNCServer
+		datasetUtils.CheckForServiceAvailability(client, envConfig.TestenvFlag, autoarchiveFlag)
 
 		user, accessGroups, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {
