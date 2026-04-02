@@ -55,7 +55,7 @@ func returnCommonEnvironmentFlags(tunnelenvFlag, localenvFlag, devenvFlag, teste
 	return config
 }
 
-func applyArchiveRSYNCFlags(config *ArchiveConfig, tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag bool) {
+func applyArchiveRSYNCFlags(config *ArchiveConfig, tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag bool, scicatUrl string, rsyncUrl string) {
 	if tunnelenvFlag {
 		config.RSYNCServer = TUNNEL_RSYNC_ARCHIVE_SERVER
 	}
@@ -68,33 +68,9 @@ func applyArchiveRSYNCFlags(config *ArchiveConfig, tunnelenvFlag, localenvFlag, 
 	if testenvFlag {
 		config.RSYNCServer = TEST_RSYNC_ARCHIVE_SERVER
 	}
-}
-
-func applyRetrieveRSYNCFlags(config *RetrieveConfig, localenvFlag, devenvFlag, testenvFlag bool) {
-	if localenvFlag {
-		config.RSYNCServer = LOCAL_RSYNC_RETRIEVE_SERVER
+	if scicatUrl != "" && rsyncUrl != "" {
+		config.RSYNCServer = rsyncUrl
 	}
-	if devenvFlag {
-		config.RSYNCServer = DEV_RSYNC_RETRIEVE_SERVER
-	}
-	if testenvFlag {
-		config.RSYNCServer = TEST_RSYNC_RETRIEVE_SERVER
-	}
-}
-
-func applyCustomArchiveRetrieveOverrides(apiServer *string, env *string, rsyncServer *string, scicatUrl, rsyncUrl string) {
-	if scicatUrl == "" {
-		return
-	}
-
-	*apiServer = scicatUrl
-	if rsyncUrl != "" {
-		*rsyncServer = rsyncUrl
-		*env = "custom"
-		return
-	}
-
-	*env = "custom-" + *env
 }
 
 // ConfigureEnvironment sets the APIServer and env based on provided flags.
@@ -113,24 +89,7 @@ func ConfigureArchiveEnvironment(tunnelenvFlag, localenvFlag, devenvFlag, testen
 		RSYNCServer: PROD_RSYNC_ARCHIVE_SERVER,
 		Env:         commonConfig.Env,
 	}
-	applyArchiveRSYNCFlags(&config, tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag)
-	applyCustomArchiveRetrieveOverrides(&config.APIServer, &config.Env, &config.RSYNCServer, scicatUrl, rsyncUrl)
-
-	return config
-}
-
-// ConfigureRetrieveEnvironment sets the APIServer, RSYNCServer and env for retrieve operations.
-// Production is the default, can be overridden by tunnel, local, dev, test, or scicatUrl.
-// If scicatUrl is provided with rsyncUrl, both are set to custom; otherwise uses custom-{env}.
-func ConfigureRetrieveEnvironment(tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag bool, scicatUrl, rsyncUrl string) RetrieveConfig {
-	commonConfig := returnCommonEnvironmentFlags(tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag, "")
-	config := RetrieveConfig{
-		APIServer:   commonConfig.APIServer,
-		RSYNCServer: PROD_RSYNC_RETRIEVE_SERVER,
-		Env:         commonConfig.Env,
-	}
-	applyRetrieveRSYNCFlags(&config, localenvFlag, devenvFlag, testenvFlag)
-	applyCustomArchiveRetrieveOverrides(&config.APIServer, &config.Env, &config.RSYNCServer, scicatUrl, rsyncUrl)
+	applyArchiveRSYNCFlags(&config, tunnelenvFlag, localenvFlag, devenvFlag, testenvFlag, scicatUrl, rsyncUrl)
 
 	return config
 }
