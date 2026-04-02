@@ -281,3 +281,17 @@ func NewClient(c *ssh.Client, pt bool) *Client {
 		PreseveTimes: pt,
 	}
 }
+
+// CheckRemoteDirectory verifies whether sourceFolder exists on the remote host.
+func (c *Client) CheckRemoteDirectory(sourceFolder string, sshOutput io.Writer) error {
+	session, err := c.SshClient.NewSession()
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	session.Stdout = sshOutput
+	session.Stderr = sshOutput
+
+	return session.Run("test -d " + shellquote.Join(sourceFolder))
+}
