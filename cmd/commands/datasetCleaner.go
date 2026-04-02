@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +27,7 @@ and only then it will be deleted in the data catalog.
 
 Note: these actions can not be un-done! Be careful!
 
-For further help see "` + MANUAL + `"`,
+For further help see "` + cliutils.MANUAL + `"`,
 	Args: exactArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// vars & consts
@@ -36,9 +36,6 @@ For further help see "` + MANUAL + `"`,
 			Timeout:   10 * time.Second}
 
 		const CMD = "datasetCleaner"
-
-		var APIServer string = PROD_API_SERVER
-		var env string = "production"
 
 		// pass parameters
 		removeFromCatalogFlag, _ := cmd.Flags().GetBool("removeFromCatalog")
@@ -76,24 +73,12 @@ For further help see "` + MANUAL + `"`,
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 		datasetUtils.CheckForServiceAvailability(client, testenvFlag, true)
 
-		//}
-
-		if devenvFlag {
-			APIServer = DEV_API_SERVER
-			env = "dev"
-		}
-		if testenvFlag {
-			APIServer = TEST_API_SERVER
-			env = "test"
-		}
-		if scicatUrl != "" {
-			APIServer = scicatUrl
-			env = "custom"
-		}
-
-		color.Set(color.FgRed)
-		log.Printf("You are about to remove a dataset from the === %s === data catalog environment...", env)
-		color.Unset()
+		// configure environment
+		APIServer := cliutils.ConfigureEnvironment(cliutils.InputEnvironmentConfig{
+			TestenvFlag: testenvFlag,
+			DevenvFlag:  devenvFlag,
+			ScicatUrl:   scicatUrl,
+		})
 
 		if len(args) != 1 {
 			log.Println("invalid number of args")

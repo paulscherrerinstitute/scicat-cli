@@ -1,4 +1,4 @@
-package cmd
+package cliutils
 
 // See also datasetUtils/urlConstants.go
 

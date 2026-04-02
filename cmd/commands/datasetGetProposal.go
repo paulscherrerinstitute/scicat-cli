@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +18,7 @@ var datasetGetProposalCmd = &cobra.Command{
 	Short: "Returns the proposal information for a given ownerGroup",
 	Long: `Tool to retrieve proposal information for a given ownerGroup.
 	
-For further help see "` + MANUAL + `"`,
+For further help see "` + cliutils.MANUAL + `"`,
 	Args: exactArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// vars and constants
@@ -27,9 +27,6 @@ For further help see "` + MANUAL + `"`,
 			Timeout:   10 * time.Second}
 
 		const APP = "datasetGetProposal"
-
-		var APIServer string = PROD_API_SERVER
-		var env string = "production"
 
 		// pass parameters
 		userpass, _ := cmd.Flags().GetString("user")
@@ -64,26 +61,13 @@ For further help see "` + MANUAL + `"`,
 		// check for program version only if running interactively
 		datasetUtils.CheckForNewVersion(client, APP, VERSION)
 
-		if localenvFlag {
-			APIServer = LOCAL_API_SERVER
-			env = "local"
-		}
-		if devenvFlag {
-			APIServer = DEV_API_SERVER
-			env = "dev"
-		}
-		if testenvFlag {
-			APIServer = TEST_API_SERVER
-			env = "test"
-		}
-		if scicatUrl != "" {
-			APIServer = scicatUrl
-			env = "custom"
-		}
-
-		color.Set(color.FgGreen)
-		log.Printf("You are about to retrieve the proposal information from the === %s === data catalog environment...", env)
-		color.Unset()
+		// configure environment
+		APIServer := cliutils.ConfigureEnvironment(cliutils.InputEnvironmentConfig{
+			TestenvFlag:  testenvFlag,
+			DevenvFlag:   devenvFlag,
+			LocalenvFlag: localenvFlag,
+			ScicatUrl:    scicatUrl,
+		})
 
 		//TODO cleanup text formatting:
 		if len(args) != 1 {
