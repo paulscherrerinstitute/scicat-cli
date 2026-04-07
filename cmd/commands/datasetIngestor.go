@@ -61,7 +61,8 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 
 		// configure environment
-		APIServer, RSYNCServer := cliutils.ConfigureArchiveEnvironment(envConfig)
+		APIServer := envConfig.ResolveAPIServer()
+		RSYNCServer := envConfig.ResolveRSYNCServer()
 
 		ingestFlag := cliutils.GetCobraBoolFlag(cmd, "ingest")
 		noninteractiveFlag := cliutils.GetCobraBoolFlag(cmd, "noninteractive")

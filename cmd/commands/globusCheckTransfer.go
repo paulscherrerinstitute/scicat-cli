@@ -104,13 +104,14 @@ For further help see "` + cliutils.MANUAL + `"`,
 		}
 
 		// configure environment
-		APIServer = cliutils.ConfigureEnvironment(cliutils.InputEnvironmentConfig{
+		config := cliutils.InputEnvironmentConfig{
 			TestenvFlag:   testenvFlag,
 			DevenvFlag:    devenvFlag,
 			TunnelenvFlag: tunnelenvFlag,
 			LocalenvFlag:  localenvFlag,
 			ScicatUrl:     scicatUrl,
-		})
+		}
+		APIServer = config.ResolveAPIServer()
 
 		// start message
 		startMessage := "Checking transfer complpetion"

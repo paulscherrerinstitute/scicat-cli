@@ -1,28 +1,9 @@
 package cliutils
 
 import (
-	"log"
-
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
-
-type EnvironmentConfig struct {
-	APIServer string
-	Env       string
-}
-
-type ArchiveConfig struct {
-	APIServer   string
-	RSYNCServer string
-	Env         string
-}
-
-type RetrieveConfig struct {
-	APIServer   string
-	RSYNCServer string
-	Env         string
-}
 
 type InputEnvironmentConfig struct {
 	TestenvFlag   bool
@@ -33,77 +14,67 @@ type InputEnvironmentConfig struct {
 	RsyncUrl      string
 }
 
-func returnCommonEnvironmentFlags(cfg InputEnvironmentConfig) EnvironmentConfig {
+type EnvironmentConfig struct {
+	APIServer string
+	Env       string
+}
+
+func (c *InputEnvironmentConfig) getBaseConfig() EnvironmentConfig {
 	config := EnvironmentConfig{
 		APIServer: PROD_API_SERVER,
 		Env:       "production",
 	}
-	if cfg.TunnelenvFlag {
+	if c.TunnelenvFlag {
 		config.APIServer = TUNNEL_API_SERVER
 		config.Env = "dev"
 	}
-	if cfg.LocalenvFlag {
+	if c.LocalenvFlag {
 		config.APIServer = LOCAL_API_SERVER
 		config.Env = "local"
 	}
-	if cfg.DevenvFlag {
+	if c.DevenvFlag {
 		config.APIServer = DEV_API_SERVER
 		config.Env = "dev"
 	}
-	if cfg.TestenvFlag {
+	if c.TestenvFlag {
 		config.APIServer = TEST_API_SERVER
 		config.Env = "test"
 	}
-	if cfg.ScicatUrl != "" {
-		config.APIServer = cfg.ScicatUrl
+	if c.ScicatUrl != "" {
+		config.APIServer = c.ScicatUrl
 		config.Env = "custom"
 	}
-	color.Set(color.FgGreen)
-	log.Printf("You are about to add a dataset to the === %s === data catalog environment...", config.Env)
-	color.Unset()
 
 	return config
 }
-
-func applyArchiveRSYNCFlags(config *ArchiveConfig, cfg InputEnvironmentConfig) {
-	if cfg.TunnelenvFlag {
-		config.RSYNCServer = TUNNEL_RSYNC_ARCHIVE_SERVER
-	}
-	if cfg.LocalenvFlag {
-		config.RSYNCServer = LOCAL_RSYNC_ARCHIVE_SERVER
-	}
-	if cfg.DevenvFlag {
-		config.RSYNCServer = DEV_RSYNC_ARCHIVE_SERVER
-	}
-	if cfg.TestenvFlag {
-		config.RSYNCServer = TEST_RSYNC_ARCHIVE_SERVER
-	}
-	if cfg.ScicatUrl != "" && cfg.RsyncUrl != "" {
-		config.RSYNCServer = cfg.RsyncUrl
-	}
+func (c *InputEnvironmentConfig) ResolveAPIServer() string {
+	cfg := c.getBaseConfig()
+	color.Green("You are about to interact with the === %s === data catalog environment...", cfg.Env)
+	return cfg.APIServer
 }
 
-// ConfigureEnvironment sets the APIServer and env based on provided flags.
-// Production is the default, can be overridden by tunnel, local, dev, test, or scicatUrl.
-func ConfigureEnvironment(cfg InputEnvironmentConfig) string {
-	return returnCommonEnvironmentFlags(cfg).APIServer
-}
-
-// ConfigureArchiveEnvironment sets the APIServer, RSYNCServer and env for archive operations.
-// Production is the default, can be overridden by tunnel, local, dev, test, or scicatUrl.
-// If scicatUrl is provided with rsyncUrl, both are set to custom; otherwise uses custom-{env}.
-func ConfigureArchiveEnvironment(cfg InputEnvironmentConfig) (apiserver string, rsyncserver string) {
-	commonConfig := returnCommonEnvironmentFlags(cfg)
-	config := ArchiveConfig{
-		APIServer:   commonConfig.APIServer,
-		RSYNCServer: PROD_RSYNC_ARCHIVE_SERVER,
-		Env:         commonConfig.Env,
+func (c *InputEnvironmentConfig) ResolveRSYNCServer() string {
+	if c.RsyncUrl != "" && c.ScicatUrl != "" {
+		return c.RsyncUrl
 	}
-	applyArchiveRSYNCFlags(&config, cfg)
 
-	return config.APIServer, config.RSYNCServer
+	if c.TestenvFlag {
+		return TEST_RSYNC_ARCHIVE_SERVER
+	}
+	if c.DevenvFlag {
+		return DEV_RSYNC_ARCHIVE_SERVER
+	}
+	if c.LocalenvFlag {
+		return LOCAL_RSYNC_ARCHIVE_SERVER
+	}
+	if c.TunnelenvFlag {
+		return TUNNEL_RSYNC_ARCHIVE_SERVER
+	}
+
+	return PROD_RSYNC_ARCHIVE_SERVER
 }
 
+// --- Cobra Helper Methods ---
 func GetCobraBoolFlag(cmd *cobra.Command, name string) bool {
 	val, _ := cmd.Flags().GetBool(name)
 	return val

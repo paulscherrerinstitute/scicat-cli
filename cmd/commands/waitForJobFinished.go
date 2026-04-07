@@ -81,12 +81,13 @@ var waitForJobFinishedCmd = &cobra.Command{
 			return
 		}
 		// configure environment
-		APIServer := cliutils.ConfigureEnvironment(cliutils.InputEnvironmentConfig{
+		config := cliutils.InputEnvironmentConfig{
 			TestenvFlag:  testenvFlag,
 			DevenvFlag:   devenvFlag,
 			LocalenvFlag: localenvFlag,
 			ScicatUrl:    scicatUrl,
-		})
+		}
+		APIServer := config.ResolveAPIServer()
 
 		// command
 		if showVersion {

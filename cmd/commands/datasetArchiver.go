@@ -74,12 +74,13 @@ For further help see "` + cliutils.MANUAL + `"`,
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 
 		// configure environment
-		APIServer := cliutils.ConfigureEnvironment(cliutils.InputEnvironmentConfig{
+		config := cliutils.InputEnvironmentConfig{
 			TestenvFlag:  testenvFlag,
 			DevenvFlag:   devenvFlag,
 			LocalenvFlag: localenvFlag,
 			ScicatUrl:    scicatUrl,
-		})
+		}
+		APIServer := config.ResolveAPIServer()
 
 		var executionTime *time.Time = nil
 		if executionTimeStr != "" {

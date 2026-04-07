@@ -56,11 +56,12 @@ var datasetPublishDataRetrieveCmd = &cobra.Command{
 		}
 
 		// configure environment
-		APIServer := cliutils.ConfigureEnvironment(cliutils.InputEnvironmentConfig{
+		config := cliutils.InputEnvironmentConfig{
 			TestenvFlag: testenvFlag,
 			DevenvFlag:  devenvFlag,
 			ScicatUrl:   scicatUrl,
-		})
+		}
+		APIServer := config.ResolveAPIServer()
 
 		if !retrieveFlag {
 			color.Set(color.FgRed)
