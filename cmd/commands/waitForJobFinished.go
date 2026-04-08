@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -26,9 +26,6 @@ var waitForJobFinishedCmd = &cobra.Command{
 		var client = &http.Client{
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
 			Timeout:   10 * time.Second}
-
-		var APIServer string = PROD_API_SERVER
-		var env string = "production"
 
 		// structs
 		type Job struct {
@@ -83,33 +80,20 @@ var waitForJobFinishedCmd = &cobra.Command{
 			})
 			return
 		}
+		// configure environment
+		config := cliutils.InputEnvironmentConfig{
+			TestenvFlag:  testenvFlag,
+			DevenvFlag:   devenvFlag,
+			LocalenvFlag: localenvFlag,
+			ScicatUrl:    scicatUrl,
+		}
+		APIServer := config.ResolveAPIServer()
 
 		// command
 		if showVersion {
 			fmt.Printf("%s\n", VERSION)
 			return
 		}
-
-		if localenvFlag {
-			APIServer = LOCAL_API_SERVER
-			env = "local"
-		}
-		if devenvFlag {
-			APIServer = DEV_API_SERVER
-			env = "dev"
-		}
-		if testenvFlag {
-			APIServer = TEST_API_SERVER
-			env = "test"
-		}
-		if scicatUrl != "" {
-			APIServer = scicatUrl
-			env = "custom"
-		}
-
-		color.Set(color.FgGreen)
-		log.Printf("You are about to wait for a job to be finished from the === %s === API server...", env)
-		color.Unset()
 
 		if jobId == "" { /* && *datasetId == "" && *ownerGroup == "" */
 			fmt.Println("\n\nTool to wait for job to be finished")

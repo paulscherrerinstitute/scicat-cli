@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -45,7 +46,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// ===== variables =====
-		var APIServer string = PROD_API_SERVER
+		var APIServer string = cliutils.PROD_API_SERVER
 		var env string = "production"
 
 		var client = &http.Client{
@@ -69,7 +70,7 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 				command := "ssh " + datasetUtils.PUBLISHServer + " mkdir -p " + fullDest + ";" +
 					"ssh " + datasetUtils.PUBLISHServer + " chown -R egli " + fullDest + ";" +
 					"ssh " + datasetUtils.PUBLISHServer + " chmod -R 755 " + fullDest + ";" +
-					"/usr/bin/rsync -av -e ssh " + RETRIEVELocation + shortDatasetId + "/ " + datasetUtils.PUBLISHServer + ":" + fullDest
+					"/usr/bin/rsync -av -e ssh " + cliutils.RETRIEVELocation + shortDatasetId + "/ " + datasetUtils.PUBLISHServer + ":" + fullDest
 				batchCommands = append(batchCommands, command)
 			}
 			return batchCommands
@@ -276,11 +277,11 @@ To update the PublishedData entry with the downloadLink you have to run the scri
 		}
 
 		if devenvFlag {
-			APIServer = DEV_API_SERVER
+			APIServer = cliutils.DEV_API_SERVER
 			env = "dev"
 		}
 		if testenvFlag {
-			APIServer = TEST_API_SERVER
+			APIServer = cliutils.TEST_API_SERVER
 			env = "test"
 		}
 		if scicatUrl != "" {

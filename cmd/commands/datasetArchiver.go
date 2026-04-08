@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +24,7 @@ of this ownerGroup not yet archived will be archived.
 Or you choose a (list of) datasetIds, in which case all archivable datasets
 of this list not yet archived will be archived. 
 
-For further help see "` + MANUAL + `"`,
+For further help see "` + cliutils.MANUAL + `"`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// consts & vars
 		var client = &http.Client{
@@ -33,9 +33,6 @@ For further help see "` + MANUAL + `"`,
 
 		const CMD = "datasetArchiver"
 		var scanner = bufio.NewScanner(os.Stdin)
-
-		var APIServer string = PROD_API_SERVER
-		var env string = "production"
 
 		// pass parameters
 		userpass, _ := cmd.Flags().GetString("user")
@@ -76,22 +73,14 @@ For further help see "` + MANUAL + `"`,
 		// check for program version only if running interactively
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 
-		if localenvFlag {
-			APIServer = LOCAL_API_SERVER
-			env = "local"
+		// configure environment
+		config := cliutils.InputEnvironmentConfig{
+			TestenvFlag:  testenvFlag,
+			DevenvFlag:   devenvFlag,
+			LocalenvFlag: localenvFlag,
+			ScicatUrl:    scicatUrl,
 		}
-		if devenvFlag {
-			APIServer = DEV_API_SERVER
-			env = "dev"
-		}
-		if testenvFlag {
-			APIServer = TEST_API_SERVER
-			env = "test"
-		}
-		if scicatUrl != "" {
-			APIServer = scicatUrl
-			env = "custom"
-		}
+		APIServer := config.ResolveAPIServer()
 
 		var executionTime *time.Time = nil
 		if executionTimeStr != "" {
@@ -101,10 +90,6 @@ For further help see "` + MANUAL + `"`,
 			}
 			executionTime = &parsedTime
 		}
-
-		color.Set(color.FgGreen)
-		log.Printf("You are about to archive dataset(s) to the === %s === data catalog environment...", env)
-		color.Unset()
 
 		ownerGroup := ownergroupFlag
 

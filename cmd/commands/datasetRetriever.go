@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"github.com/spf13/cobra"
 )
@@ -30,15 +31,15 @@ In case there are several datasets with the same sourceFolder they will be simpl
 Per default all available datasets on the retrieve server will be fetched.\n")
 Use option --dataset or --ownerGroup to restrict the datasets which should be fetched.
 
-For further help see "` + MANUAL + `"`,
+For further help see "` + cliutils.MANUAL + `"`,
 	Args: exactArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// TODO Windows
 		const APP = "datasetRetriever"
 
-		var APIServer string = PROD_API_SERVER
-		var RSYNCServer string = PROD_RSYNC_RETRIEVE_SERVER
+		var APIServer string = cliutils.PROD_API_SERVER
+		var RSYNCServer string = cliutils.PROD_RSYNC_RETRIEVE_SERVER
 		var env string = "production"
 
 		var client = &http.Client{
@@ -134,17 +135,17 @@ For further help see "` + MANUAL + `"`,
 		datasetUtils.CheckForNewVersion(client, APP, VERSION)
 
 		if localenvFlag {
-			APIServer = LOCAL_API_SERVER
-			RSYNCServer = LOCAL_RSYNC_RETRIEVE_SERVER
+			APIServer = cliutils.LOCAL_API_SERVER
+			RSYNCServer = cliutils.LOCAL_RSYNC_RETRIEVE_SERVER
 		}
 		if devenvFlag {
-			APIServer = DEV_API_SERVER
-			RSYNCServer = DEV_RSYNC_RETRIEVE_SERVER
+			APIServer = cliutils.DEV_API_SERVER
+			RSYNCServer = cliutils.DEV_RSYNC_RETRIEVE_SERVER
 			env = "dev"
 		}
 		if testenvFlag {
-			APIServer = TEST_API_SERVER
-			RSYNCServer = TEST_RSYNC_RETRIEVE_SERVER
+			APIServer = cliutils.TEST_API_SERVER
+			RSYNCServer = cliutils.TEST_RSYNC_RETRIEVE_SERVER
 			env = "test"
 		}
 		if scicatUrl != "" {
