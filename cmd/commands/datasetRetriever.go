@@ -171,7 +171,7 @@ For further help see "` + cliutils.MANUAL + `"`,
 		}
 		destinationPath = args[0]
 
-		user, _, err := authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
+		user, _, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {
 			log.Fatal(err)
 		}

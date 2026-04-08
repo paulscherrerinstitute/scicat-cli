@@ -134,7 +134,7 @@ For further help see "` + cliutils.MANUAL + `"`,
 		var user map[string]string
 		if markArchivable {
 			var err error
-			user, _, err = authenticate(RealAuthenticator{}, client, APIServer, userpass, token, oidc)
+			user, _, err = cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 			if err != nil {
 				log.Fatal(err)
 			}
