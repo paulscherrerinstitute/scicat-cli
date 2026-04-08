@@ -5,70 +5,120 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/fatih/color"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
-// IngestorConfig holds all the setup parameters
-type IngestorConfig struct {
-	Userpass          string
-	Token             string
-	ScicatUrl         string
-	Testenv           bool
-	Devenv            bool
-	Oidc              bool
-	RequireArchiveMgr bool
-	NonInteractive    bool
-	RemoveFromCatalog bool
-	PID               string
-	DeletionCode      string
-	DeletionReason    string
+type BaseConfig struct {
+	EnvConfig      InputEnvironmentConfig
+	Userpass       string
+	Token          string
+	Oidc           bool
+	NonInteractive bool
+	HttpClient     *http.Client
+
+	apiServer string
+	user      map[string]string
 }
 
-func RunDeletion(client *http.Client, cfg IngestorConfig, version string, cmdName string) error {
-	// 1. Version and Availability Checks
-	datasetUtils.CheckForNewVersion(client, cmdName, version)
-	datasetUtils.CheckForServiceAvailability(client, cfg.Testenv, true)
+type CleanConfig struct {
+	BaseConfig
+	RemoveFromCatalog bool
+}
 
-	// 2. Resolve API Server
-	config := InputEnvironmentConfig{
-		TestenvFlag: cfg.Testenv,
-		DevenvFlag:  cfg.Devenv,
-		ScicatUrl:   cfg.ScicatUrl,
+type RemoveConfig struct {
+	BaseConfig
+	DeletionCode   string
+	DeletionReason string
+}
+
+// authenticate resolves the environment and logs the user in.
+func (c *BaseConfig) authenticate() error {
+	// Resolve API Server
+	envConfig := InputEnvironmentConfig{
+		TestenvFlag: c.EnvConfig.TestenvFlag,
+		DevenvFlag:  c.EnvConfig.DevenvFlag,
+		ScicatUrl:   c.EnvConfig.ScicatUrl,
 	}
+	c.apiServer = envConfig.ResolveAPIServer()
 
-	apiServer := config.ResolveAPIServer()
-
-	// 3. Authenticate
-	user, _, err := Authenticate(RealAuthenticator{}, client, apiServer, cfg.Userpass, cfg.Token, cfg.Oidc)
+	// Authenticate
+	user, _, err := Authenticate(RealAuthenticator{}, c.HttpClient, c.apiServer, c.Userpass, c.Token, c.Oidc)
 	if err != nil {
 		return err
 	}
+	c.user = user
+	return nil
+}
 
-	if cfg.RequireArchiveMgr && user["username"] != "archiveManager" {
+// runCommonDeletion handles version checks and the core archive removal call.
+func (c *BaseConfig) runCommonDeletion(pid string, version, cmdName string, params datasetUtils.JobParamsStruct) (string, error) {
+	// Version and Availability Checks
+	datasetUtils.CheckForNewVersion(c.HttpClient, cmdName, version)
+	datasetUtils.CheckForServiceAvailability(c.HttpClient, c.EnvConfig.TestenvFlag, true)
+
+	log.Printf("Starting Archive Removal for PID: %s", pid)
+
+	// Execute core archive removal
+	jobID, err := datasetUtils.RemoveFromArchive(c.HttpClient, c.apiServer, pid, c.user, c.NonInteractive, params)
+	if err != nil {
+		if jobID != "" {
+			datasetUtils.PatchJobStatus(c.HttpClient, c.apiServer, c.user, jobID, string(datasetUtils.JobFailed))
+		}
+		return "", err
+	}
+
+	return jobID, err
+}
+
+// --- 2. Exposed Methods ---
+
+// RunFullRemoval handles Auth -> User Check -> Archive Removal -> Catalog Removal.
+func (c *CleanConfig) RunFullRemoval(pid string, version, cmdName string) error {
+	// 1. Authenticate and verify user
+	err := c.authenticate()
+	if err != nil {
+		return err
+	}
+	// Immediate User Check
+	if c.user["username"] != "archiveManager" {
 		return fmt.Errorf("permission denied: must be archiveManager")
 	}
 
-	// 4. Execution Logic
-	log.Printf("Starting Archive Removal for PID: %s", cfg.PID)
-	jobID, err := datasetUtils.RemoveFromArchive(client, apiServer, cfg.PID, user, cfg.NonInteractive, datasetUtils.JobParamsStruct{
-		DeletionCode:   datasetUtils.DeletionCode(cfg.DeletionCode),
-		DeletionReason: cfg.DeletionReason,
-	})
+	// 2. Run the deletion engine
+	jobID, err := c.runCommonDeletion(pid, version, cmdName, datasetUtils.JobParamsStruct{})
 	if err != nil {
-		if jobID != "" {
-			datasetUtils.PatchJobStatus(client, apiServer, user, jobID, string(datasetUtils.JobFailed))
-		}
 		return err
 	}
 
-	// 5. Optional Catalog Removal
-	if cfg.RemoveFromCatalog {
-		err = datasetUtils.RemoveFromCatalog(client, apiServer, cfg.PID, jobID, user, cfg.NonInteractive)
+	if c.RemoveFromCatalog {
+		err = datasetUtils.RemoveFromCatalog(c.HttpClient, c.apiServer, pid, jobID, c.user, c.NonInteractive)
 		if err != nil {
-			datasetUtils.PatchJobStatus(client, apiServer, user, jobID, string(datasetUtils.JobFailed))
+			datasetUtils.PatchJobStatus(c.HttpClient, c.apiServer, c.user, jobID, string(datasetUtils.JobFailed))
 			return err
 		}
 	}
 
+	color.Cyan("Full removal process completed successfully.")
+	return nil
+}
+
+// RunArchiveOnlyRemoval triggers the flow without the catalog step.
+func (c *RemoveConfig) RunArchiveOnlyRemoval(pid string, version, cmdName string) error {
+	// 1. Authenticate and verify user
+	err := c.authenticate()
+	if err != nil {
+		return err
+	}
+
+	// 2. Run the deletion engine
+	jobID, err := c.runCommonDeletion(pid, version, cmdName, datasetUtils.JobParamsStruct{
+		DeletionCode:   datasetUtils.DeletionCode(c.DeletionCode),
+		DeletionReason: c.DeletionReason,
+	})
+	if err != nil {
+		return err
+	}
+	color.Cyan("Archive removal job submitted (JobID: %s).", jobID)
 	return nil
 }

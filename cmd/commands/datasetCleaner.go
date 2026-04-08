@@ -37,17 +37,23 @@ For further help see "` + cliutils.MANUAL + `"`,
 
 		const CMD = "datasetCleaner"
 
+		envConfig := cliutils.InputEnvironmentConfig{
+			TestenvFlag: cliutils.GetCobraBoolFlag(cmd, "testenv"),
+			DevenvFlag:  cliutils.GetCobraBoolFlag(cmd, "devenv"),
+			ScicatUrl:   cliutils.GetCobraStringFlag(cmd, "scicat-url"),
+		}
+
 		// pass parameters
-		ingestorConfig := cliutils.IngestorConfig{
-			Userpass:          cliutils.GetCobraStringFlag(cmd, "user"),
-			Token:             cliutils.GetCobraStringFlag(cmd, "token"),
-			ScicatUrl:         cliutils.GetCobraStringFlag(cmd, "scicat-url"),
-			Testenv:           cliutils.GetCobraBoolFlag(cmd, "testenv"),
-			Devenv:            cliutils.GetCobraBoolFlag(cmd, "devenv"),
-			Oidc:              cliutils.GetCobraBoolFlag(cmd, "oidc"),
-			NonInteractive:    cliutils.GetCobraBoolFlag(cmd, "nonInteractive"),
+		ingestorConfig := cliutils.CleanConfig{
+			BaseConfig: cliutils.BaseConfig{
+				Userpass:       cliutils.GetCobraStringFlag(cmd, "user"),
+				Token:          cliutils.GetCobraStringFlag(cmd, "token"),
+				EnvConfig:      envConfig,
+				Oidc:           cliutils.GetCobraBoolFlag(cmd, "oidc"),
+				NonInteractive: cliutils.GetCobraBoolFlag(cmd, "nonInteractive"),
+				HttpClient:     client,
+			},
 			RemoveFromCatalog: cliutils.GetCobraBoolFlag(cmd, "removeFromCatalog"),
-			RequireArchiveMgr: true,
 		}
 
 		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
@@ -56,9 +62,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 			datasetUtils.TestFlags(map[string]interface{}{
 				"user":              ingestorConfig.Userpass,
 				"token":             ingestorConfig.Token,
-				"testenv":           ingestorConfig.Testenv,
-				"devenv":            ingestorConfig.Devenv,
-				"scicat-url":        ingestorConfig.ScicatUrl,
+				"testenv":           envConfig.TestenvFlag,
+				"devenv":            envConfig.DevenvFlag,
+				"scicat-url":        envConfig.ScicatUrl,
 				"nonInteractive":    ingestorConfig.NonInteractive,
 				"removeFromCatalog": ingestorConfig.RemoveFromCatalog,
 				"version":           showVersion,
@@ -76,9 +82,8 @@ For further help see "` + cliutils.MANUAL + `"`,
 			log.Println("invalid number of args")
 			return
 		}
-		ingestorConfig.PID = args[0]
 
-		err := cliutils.RunDeletion(client, ingestorConfig, VERSION, CMD)
+		err := ingestorConfig.RunFullRemoval(args[0], VERSION, CMD)
 		if err != nil {
 			log.Fatal(err)
 		}

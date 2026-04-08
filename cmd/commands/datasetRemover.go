@@ -38,14 +38,19 @@ For further help see "` + cliutils.MANUAL + `"`,
 		const CMD = "datasetRemover"
 
 		// pass parameters
-		ingestorConfig := cliutils.IngestorConfig{
-			Userpass:       cliutils.GetCobraStringFlag(cmd, "user"),
-			Token:          cliutils.GetCobraStringFlag(cmd, "token"),
-			ScicatUrl:      cliutils.GetCobraStringFlag(cmd, "scicat-url"),
-			Testenv:        cliutils.GetCobraBoolFlag(cmd, "testenv"),
-			Devenv:         cliutils.GetCobraBoolFlag(cmd, "devenv"),
-			Oidc:           cliutils.GetCobraBoolFlag(cmd, "oidc"),
-			NonInteractive: cliutils.GetCobraBoolFlag(cmd, "nonInteractive"),
+		ingestorConfig := cliutils.RemoveConfig{
+			BaseConfig: cliutils.BaseConfig{
+				Userpass: cliutils.GetCobraStringFlag(cmd, "user"),
+				Token:    cliutils.GetCobraStringFlag(cmd, "token"),
+				EnvConfig: cliutils.InputEnvironmentConfig{
+					TestenvFlag: cliutils.GetCobraBoolFlag(cmd, "testenv"),
+					DevenvFlag:  cliutils.GetCobraBoolFlag(cmd, "devenv"),
+					ScicatUrl:   cliutils.GetCobraStringFlag(cmd, "scicat-url"),
+				},
+				Oidc:           cliutils.GetCobraBoolFlag(cmd, "oidc"),
+				NonInteractive: cliutils.GetCobraBoolFlag(cmd, "nonInteractive"),
+				HttpClient:     client,
+			},
 			DeletionCode:   cliutils.GetCobraStringFlag(cmd, "deletionCode"),
 			DeletionReason: cliutils.GetCobraStringFlag(cmd, "deletionReason"),
 		}
@@ -56,9 +61,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 			datasetUtils.TestFlags(map[string]interface{}{
 				"user":           ingestorConfig.Userpass,
 				"token":          ingestorConfig.Token,
-				"testenv":        ingestorConfig.Testenv,
-				"devenv":         ingestorConfig.Devenv,
-				"scicat-url":     ingestorConfig.ScicatUrl,
+				"testenv":        ingestorConfig.EnvConfig.TestenvFlag,
+				"devenv":         ingestorConfig.EnvConfig.DevenvFlag,
+				"scicat-url":     ingestorConfig.EnvConfig.ScicatUrl,
 				"nonInteractive": ingestorConfig.NonInteractive,
 				"version":        showVersion,
 				"deletionCode":   ingestorConfig.DeletionCode,
@@ -77,9 +82,8 @@ For further help see "` + cliutils.MANUAL + `"`,
 			log.Println("invalid number of args")
 			return
 		}
-		ingestorConfig.PID = args[0]
 
-		err := cliutils.RunDeletion(client, ingestorConfig, VERSION, CMD)
+		err := ingestorConfig.RunArchiveOnlyRemoval(args[0], VERSION, CMD)
 		if err != nil {
 			log.Fatal(err)
 		}
