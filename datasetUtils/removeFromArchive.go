@@ -18,15 +18,15 @@ type DeletionCode string
 const (
 	CodeSuperseded DeletionCode = "SUPERSEDED"
 	CodeExpired    DeletionCode = "EXPIRED"
-	CodeRemoved    DeletionCode = "REMOVED"
+	CodeDeleted    DeletionCode = "DELETED"
 	CodeUnknown    DeletionCode = ""
 )
 
-var AllDeletionCodes = []DeletionCode{CodeSuperseded, CodeExpired, CodeRemoved}
+var AllDeletionCodes = []DeletionCode{CodeSuperseded, CodeExpired, CodeDeleted}
 
 func (c DeletionCode) IsValid() bool {
 	switch c {
-	case CodeSuperseded, CodeExpired, CodeRemoved:
+	case CodeSuperseded, CodeExpired, CodeDeleted:
 		return true
 	}
 	return false
