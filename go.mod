@@ -42,6 +42,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/exp v0.0.0-20260527015227-08cc5374adb3
+	golang.org/x/exp v0.0.0-20260528193900-50dc527dd6c7
 	golang.org/x/sys v0.45.0 // indirect
 )
