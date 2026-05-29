@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/SwissOpenEM/globus v0.1.2
-	github.com/bodgit/sshkrb5 v1.2.0
+	github.com/bodgit/sshkrb5 v1.2.1
 	github.com/fatih/color v1.19.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/mcuadros/go-version v0.0.0-20190830083331-035f6764e8d2
@@ -19,9 +19,9 @@ require (
 )
 
 require (
-	github.com/alexbrainman/sspi v0.0.0-20210105120005-909beea2cc74 // indirect
-	github.com/bodgit/gssapi v0.0.1 // indirect
-	github.com/go-logr/logr v1.2.4 // indirect
+	github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e // indirect
+	github.com/bodgit/gssapi v0.0.3 // indirect
+	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
@@ -32,7 +32,9 @@ require (
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/openshift/gssapi v0.0.0-20161010215902-5fb4217df13b // indirect
+	github.com/spf13/afero v1.15.0 // indirect
 	golang.org/x/net v0.54.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 )
 
 require (
