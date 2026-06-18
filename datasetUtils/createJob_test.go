@@ -206,3 +206,168 @@ func TestCreateJob(t *testing.T) {
 		}
 	})
 }
+
+func TestGroupDatasetsByOwnerGroup(t *testing.T) {
+	t.Run("groups datasets correctly", func(t *testing.T) {
+		datasetList := []string{"ds1", "ds2", "ds3", "ds4"}
+		ownerGroupList := []string{"group1", "group2", "group1", "group2"}
+
+		groupedDatasets, err := GroupDatasetsByOwnerGroup(datasetList, ownerGroupList)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+
+		if len(groupedDatasets["group1"]) != 2 {
+			t.Errorf("Expected 2 datasets in group1, got %d", len(groupedDatasets["group1"]))
+		}
+		if !contains(groupedDatasets["group1"], "ds1") || !contains(groupedDatasets["group1"], "ds3") {
+			t.Errorf("group1 has incorrect datasets: %v", groupedDatasets["group1"])
+		}
+
+		if len(groupedDatasets["group2"]) != 2 {
+			t.Errorf("Expected 2 datasets in group2, got %d", len(groupedDatasets["group2"]))
+		}
+		if !contains(groupedDatasets["group2"], "ds2") || !contains(groupedDatasets["group2"], "ds4") {
+			t.Errorf("group2 has incorrect datasets: %v", groupedDatasets["group2"])
+		}
+	})
+
+	t.Run("mismatched list lengths returns error", func(t *testing.T) {
+		datasetList := []string{"ds1", "ds2"}
+		ownerGroupList := []string{"group1"}
+
+		_, err := GroupDatasetsByOwnerGroup(datasetList, ownerGroupList)
+		if err == nil {
+			t.Error("Expected error when dataset and owner group lists have different lengths")
+		}
+
+		expectedError := "datasetList and ownerGroupList are not the same length"
+		if err.Error() != expectedError {
+			t.Errorf("Got incorrect error - expected: \"%s\", gotten: \"%s\"", expectedError, err.Error())
+		}
+	})
+
+	t.Run("single group", func(t *testing.T) {
+		datasetList := []string{"ds1", "ds2", "ds3"}
+		ownerGroupList := []string{"group1", "group1", "group1"}
+
+		groupedDatasets, err := GroupDatasetsByOwnerGroup(datasetList, ownerGroupList)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+
+		if len(groupedDatasets) != 1 {
+			t.Errorf("Expected 1 group, got %d", len(groupedDatasets))
+		}
+
+		if len(groupedDatasets["group1"]) != 3 {
+			t.Errorf("Expected 3 datasets in group1, got %d", len(groupedDatasets["group1"]))
+		}
+	})
+}
+
+func TestCreateArchivalJobs(t *testing.T) {
+	t.Run("creates jobs for multiple groups", func(t *testing.T) {
+		callCount := 0
+		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			callCount++
+			var body map[string]interface{}
+			json.NewDecoder(req.Body).Decode(&body)
+
+			jobParams := body["jobParams"].(map[string]interface{})
+			ownerGroup := jobParams["ownerGroup"].(string)
+
+			if ownerGroup == "group1" {
+				rw.Write([]byte(`{"id": "job-group1"}`))
+			} else if ownerGroup == "group2" {
+				rw.Write([]byte(`{"id": "job-group2"}`))
+			}
+		}))
+		defer server.Close()
+
+		client := server.Client()
+		user := map[string]string{
+			"mail":        "test@example.com",
+			"username":    "testuser",
+			"accessToken": "testtoken",
+		}
+		groupedDatasets := map[string][]string{
+			"group1": {"ds1", "ds2"},
+			"group2": {"ds3", "ds4"},
+		}
+		tapecopies := new(int)
+		*tapecopies = 1
+
+		jobIds, errs := CreateArchivalJobs(client, server.URL, user, groupedDatasets, tapecopies)
+
+		if len(jobIds) != 2 {
+			t.Errorf("Expected 2 job IDs, got %d", len(jobIds))
+		}
+
+		for i, err := range errs {
+			if err != nil {
+				t.Errorf("Unexpected error at index %d: %v", i, err)
+			}
+		}
+
+		nonEmptyIds := 0
+		for _, id := range jobIds {
+			if id != "" {
+				nonEmptyIds++
+			}
+		}
+		if nonEmptyIds != 2 {
+			t.Errorf("Expected 2 non-empty job IDs, got %d: %v", nonEmptyIds, jobIds)
+		}
+
+		if callCount != 2 {
+			t.Errorf("Expected 2 server calls, got %d", callCount)
+		}
+	})
+
+	t.Run("handles errors in job creation", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte(`Internal Server Error`))
+		}))
+		defer server.Close()
+
+		client := server.Client()
+		user := map[string]string{
+			"mail":        "test@example.com",
+			"username":    "testuser",
+			"accessToken": "testtoken",
+		}
+		groupedDatasets := map[string][]string{
+			"group1": {"ds1"},
+		}
+		tapecopies := new(int)
+		*tapecopies = 1
+
+		_, errs := CreateArchivalJobs(client, server.URL, user, groupedDatasets, tapecopies)
+
+		if len(errs) == 0 {
+			t.Error("Expected at least one error")
+		}
+
+		hasError := false
+		for _, err := range errs {
+			if err != nil {
+				hasError = true
+				break
+			}
+		}
+		if !hasError {
+			t.Error("Expected at least one non-nil error")
+		}
+	})
+}
+
+func contains(slice []string, item string) bool {
+	for _, v := range slice {
+		if v == item {
+			return true
+		}
+	}
+	return false
+}
