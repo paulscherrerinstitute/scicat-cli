@@ -497,18 +497,13 @@ For Windows you need instead to specify -user username:password on the command l
 
 		// === create archive jobs ===
 		if autoarchiveFlag && ingestFlag {
-			log.Printf("Submitting Archive Job for the ingested datasets.\n")
-			// TODO: change param type from pointer to regular as it is unnecessary
-			//   for it to be passed as pointer
-			jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasetListOwnerGroup, archivableDatasetList, &tapecopies, nil)
-
+			archiveService := backend.NewArchiveService(transportEngine)
+			_, err := archiveService.SubmitArchivalJob(archivableDatasetListOwnerGroup, archivableDatasetList, tapecopies)
 			if err != nil {
 				color.Set(color.FgRed)
 				log.Printf("Could not create the archival job for the ingested datasets: %s\n", err.Error())
 				color.Unset()
 			}
-
-			log.Println("Submitted job:", jobId)
 		}
 
 		// print out results to STDOUT, one line per dataset

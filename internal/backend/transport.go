@@ -25,6 +25,7 @@ type TransportEngine struct {
 	APIServer   string
 	RsyncServer string
 	Scanner     *bufio.Scanner
+	User        map[string]string
 }
 
 type UserSession struct {
@@ -72,5 +73,13 @@ func (t *TransportEngine) ExecuteAuthenticationChallenge(opts AuthOptions) (*Use
 func (t *TransportEngine) InitializeSession(currentVersion string, opts AuthOptions) (*UserSession, error) {
 	t.EnforceVersionGuardrail(currentVersion)
 	t.VerifyServiceAvailability(opts.TestEnv, opts.AutoArchive)
-	return t.ExecuteAuthenticationChallenge(opts)
+	userSession, err := t.ExecuteAuthenticationChallenge(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Simply bind it directly here inside the method!
+	t.User = userSession.User
+
+	return userSession, nil
 }
