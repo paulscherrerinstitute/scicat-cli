@@ -92,12 +92,86 @@ func TestSendIngestCommand(t *testing.T) {
 	defer server.Close()
 
 	// Call SendIngestCommand function with the mock server's URL and check the returned dataset ID
-	datasetId, err := IngestDataset(client, server.URL, metaDataMap, datafiles, user)
+	datasetId, err := IngestDataset(client, server.URL, metaDataMap, datafiles, user, false)
 	if err != nil {
 		t.Errorf("received unexpected error: %v", err)
 	}
 	if datasetId != "test-dataset-id" {
 		t.Errorf("Expected dataset id 'test-dataset-id', but got '%s'", datasetId)
+	}
+}
+
+func TestIngestDatasetRemoteFilesSkipsOrigDatablocks(t *testing.T) {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	user := map[string]string{
+		"displayName": "test user",
+		"accessToken": "sometoken",
+	}
+
+	metaDataMap := map[string]interface{}{
+		"type": "raw",
+	}
+
+	datafiles := []Datafile{{Size: 100}, {Size: 200}}
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/datasets":
+			rw.WriteHeader(http.StatusOK)
+			_, _ = rw.Write([]byte(`{"pid": "remote-dataset-id"}`))
+		case "/origdatablocks":
+			t.Fatalf("origdatablocks endpoint must not be called when remoteFiles=true")
+		default:
+			t.Fatalf("unexpected path: %s", req.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	datasetId, err := IngestDataset(client, server.URL, metaDataMap, datafiles, user, true)
+	if err != nil {
+		t.Fatalf("received unexpected error: %v", err)
+	}
+
+	if datasetId != "remote-dataset-id" {
+		t.Fatalf("Expected dataset id 'remote-dataset-id', but got '%s'", datasetId)
+	}
+}
+
+func TestIngestDatasetLocalFilesReturnsErrorWhenOrigDatablockFails(t *testing.T) {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	user := map[string]string{
+		"displayName": "test user",
+		"accessToken": "sometoken",
+	}
+
+	metaDataMap := map[string]interface{}{
+		"type": "raw",
+	}
+
+	datafiles := []Datafile{{Size: 100}, {Size: 200}}
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/datasets":
+			rw.WriteHeader(http.StatusOK)
+			_, _ = rw.Write([]byte(`{"pid": "local-dataset-id"}`))
+		case "/origdatablocks":
+			rw.WriteHeader(http.StatusInternalServerError)
+		default:
+			t.Fatalf("unexpected path: %s", req.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	_, err := IngestDataset(client, server.URL, metaDataMap, datafiles, user, false)
+	if err == nil {
+		t.Fatalf("expected error when origdatablock creation fails")
+	}
+
+	if !strings.Contains(err.Error(), "unexpected response code") {
+		t.Fatalf("expected origdatablock response error, got: %v", err)
 	}
 }
 

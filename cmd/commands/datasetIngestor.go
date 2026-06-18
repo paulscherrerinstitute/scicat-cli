@@ -80,7 +80,18 @@ For Windows you need instead to specify -user username:password on the command l
 		addCaption := cliutils.GetCobraStringFlag(cmd, "addcaption")
 		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
 		globusCfgFlag := cliutils.GetCobraStringFlag(cmd, "globus-cfg")
+		remoteFileScan := cliutils.GetCobraBoolFlag(cmd, "remoteFileScan")
 
+		extraJobParams := datasetUtils.ExtraArchiveJobParams{}
+
+		if remoteFileScan {
+			if strings.EqualFold(transferTypeFlag, "globus") {
+				log.Fatalln("remoteFileScan cannot be combined with --transfer-type globus (no local transfer is performed)")
+			}
+			extraJobParams.RemoteFileScan = true
+			autoarchiveFlag = true
+			log.Println("Remote file scan enabled. The dataset will be marked as archivable after the remote scan has completed.")
+		}
 		// TODO: read in CFG!
 
 		// transfer type
@@ -300,83 +311,90 @@ For Windows you need instead to specify -user username:password on the command l
 			}
 			metaDataMap["sourceFolder"] = datasetSourceFolder
 			log.Printf("Scanning files in dataset %s", datasetSourceFolder)
+			fullFileArray := []datasetIngestor.Datafile{}
 
-			// reset skip var. if not set for all datasets
-			if !(skipSymlinks == "sA" || skipSymlinks == "kA" || skipSymlinks == "dA") {
-				skipSymlinks = ""
-			}
-
-			// === get filelist of dataset ===
-			log.Printf("Getting filelist for \"%s\"...\n", datasetSourceFolder)
-			fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
-				datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback)
-			if err != nil {
-				log.Fatalf("Can't gather the filelist of \"%s\"", datasetSourceFolder)
-			}
-			log.Println("File list collected.")
-			//log.Printf("full fileListing: %v\n Start and end time: %s %s\n ", fullFileArray, startTime, endTime)
-			log.Printf("The dataset contains %v files with a total size of %v bytes.\n", numFiles, totalSize)
-
-			// filecount checks
-			if totalSize == 0 {
-				emptyDatasets++
-				color.Set(color.FgRed)
-				log.Printf("\"%s\" dataset cannot be ingested - contains no files\n", datasetSourceFolder)
-				color.Unset()
-				continue
-			}
-			if numFiles > cliutils.TOTAL_MAXFILES {
-				tooLargeDatasets++
-				color.Set(color.FgRed)
-				log.Printf("\"%s\" dataset cannot be ingested - too many files: has %d, max. %d\n", datasetSourceFolder, numFiles, cliutils.TOTAL_MAXFILES)
-				color.Unset()
-				continue
-			}
-
-			// NOTE: only tapecopies=1 or 2 does something if set.
-			if tapecopies == 2 {
-				color.Set(color.FgYellow)
-				log.Printf("Note: this dataset, if archived, will be copied to two tape copies")
-				color.Unset()
-			}
-			// === update metadata ===
-			datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
-			pretty, _ := json.MarshalIndent(metaDataMap, "", "    ")
-
-			log.Printf("Updated metadata object:\n%s\n", pretty)
-
-			// === check central availability of data ===
-			// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
-			// and unless (no)copy flag defined via command line
-			if checkCentralAvailability {
-				log.Println("Checking if data is centrally available...")
-				sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(user["username"], RSYNCServer, datasetSourceFolder, os.Stdout)
-				if otherErr != nil {
-					log.Fatalln("Cannot check if data is centrally available:", otherErr)
+			if !remoteFileScan {
+				// reset skip var. if not set for all datasets
+				if !(skipSymlinks == "sA" || skipSymlinks == "kA" || skipSymlinks == "dA") {
+					skipSymlinks = ""
 				}
-				// if the ssh command's error is not nil, the dataset is *likely* to be not centrally available (maybe should check the error returned)
-				if sshErr != nil {
-					color.Set(color.FgYellow)
-					log.Printf("The source folder %v is not centrally available.\nThe data must first be copied.\n ", datasetSourceFolder)
+
+				// === get filelist of dataset ===
+				log.Printf("Getting filelist for \"%s\"...\n", datasetSourceFolder)
+				var startTime, endTime time.Time
+				owner := ""
+				var numFiles int64
+				var totalSize int64
+				fullFileArray, startTime, endTime, owner, numFiles, totalSize, err =
+					datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback)
+				if err != nil {
+					log.Fatalf("Can't gather the filelist of \"%s\"", datasetSourceFolder)
+				}
+				log.Println("File list collected.")
+				//log.Printf("full fileListing: %v\n Start and end time: %s %s\n ", fullFileArray, startTime, endTime)
+				log.Printf("The dataset contains %v files with a total size of %v bytes.\n", numFiles, totalSize)
+
+				// filecount checks
+				if totalSize == 0 {
+					emptyDatasets++
+					color.Set(color.FgRed)
+					log.Printf("\"%s\" dataset cannot be ingested - contains no files\n", datasetSourceFolder)
 					color.Unset()
-					copyFlag = true
-					// check if user account
-					if len(accessGroups) == 0 {
-						color.Set(color.FgRed)
-						log.Println("For copying, you must use a personal account. Beamline accounts are not supported.")
+					continue
+				}
+				if numFiles > cliutils.TOTAL_MAXFILES {
+					tooLargeDatasets++
+					color.Set(color.FgRed)
+					log.Printf("\"%s\" dataset cannot be ingested - too many files: has %d, max. %d\n", datasetSourceFolder, numFiles, cliutils.TOTAL_MAXFILES)
+					color.Unset()
+					continue
+				}
+
+				// NOTE: only tapecopies=1 or 2 does something if set.
+				if tapecopies == 2 {
+					color.Set(color.FgYellow)
+					log.Printf("Note: this dataset, if archived, will be copied to two tape copies")
+					color.Unset()
+				}
+				// === update metadata ===
+				datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
+				pretty, _ := json.MarshalIndent(metaDataMap, "", "    ")
+
+				log.Printf("Updated metadata object:\n%s\n", pretty)
+
+				// === check central availability of data ===
+				// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
+				// and unless (no)copy flag defined via command line
+				if checkCentralAvailability {
+					log.Println("Checking if data is centrally available...")
+					sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(user["username"], RSYNCServer, datasetSourceFolder, os.Stdout)
+					if otherErr != nil {
+						log.Fatalln("Cannot check if data is centrally available:", otherErr)
+					}
+					// if the ssh command's error is not nil, the dataset is *likely* to be not centrally available (maybe should check the error returned)
+					if sshErr != nil {
+						color.Set(color.FgYellow)
+						log.Printf("The source folder %v is not centrally available.\nThe data must first be copied.\n ", datasetSourceFolder)
 						color.Unset()
-						os.Exit(1)
-					}
-					if !noninteractiveFlag {
-						log.Printf("Do you want to continue (Y/n)? ")
-						scanner.Scan()
-						continueFlag := scanner.Text()
-						if continueFlag == "n" {
-							log.Fatalln("Further ingests interrupted because copying is needed, but no copy wanted.")
+						copyFlag = true
+						// check if user account
+						if len(accessGroups) == 0 {
+							color.Set(color.FgRed)
+							log.Println("For copying, you must use a personal account. Beamline accounts are not supported.")
+							color.Unset()
+							os.Exit(1)
 						}
+						if !noninteractiveFlag {
+							log.Printf("Do you want to continue (Y/n)? ")
+							scanner.Scan()
+							continueFlag := scanner.Text()
+							if continueFlag == "n" {
+								log.Fatalln("Further ingests interrupted because copying is needed, but no copy wanted.")
+							}
+						}
+					} else {
+						log.Println("Data is present centrally.")
 					}
-				} else {
-					log.Println("Data is present centrally.")
 				}
 			}
 
@@ -392,6 +410,11 @@ For Windows you need instead to specify -user username:password on the command l
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = false
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "filesNotYetAvailable"
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = false
+				} else if remoteFileScan {
+					archivable = true
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = false
 				} else {
 					archivable = true
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
@@ -399,7 +422,7 @@ For Windows you need instead to specify -user username:password on the command l
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = true
 				}
 				log.Println("Ingesting dataset...")
-				datasetId, err := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user)
+				datasetId, err := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user, remoteFileScan)
 				if err != nil {
 					log.Fatal("Couldn't ingest dataset:", err)
 				}
@@ -503,7 +526,7 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Printf("Submitting Archive Job for the ingested datasets.\n")
 			// TODO: change param type from pointer to regular as it is unnecessary
 			//   for it to be passed as pointer
-			jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasetListOwnerGroup, archivableDatasetList, &tapecopies, nil)
+			jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasetListOwnerGroup, archivableDatasetList, &tapecopies, nil, extraJobParams)
 
 			if err != nil {
 				color.Set(color.FgRed)
@@ -542,6 +565,7 @@ func init() {
 	datasetIngestorCmd.Flags().String("addattachment", "", "Filename of image to attach (single dataset case only)")
 	datasetIngestorCmd.Flags().String("addcaption", "", "Optional caption to be stored with attachment (single dataset case only)")
 	datasetIngestorCmd.Flags().String("globus-cfg", "", "Override globus transfer config file location [default: globus.yaml next to executable]")
+	datasetIngestorCmd.Flags().Bool("remoteFileScan", false, "If set, the file scan will be performed on the remote server instead of locally. This is useful for large datasets that are already present on the remote server.")
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")

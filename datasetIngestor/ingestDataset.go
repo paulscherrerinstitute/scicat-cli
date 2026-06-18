@@ -68,13 +68,14 @@ Returns:
 The ID of the created dataset.
 */
 func IngestDataset(client *http.Client, APIServer string, metaDataMap map[string]interface{},
-	fullFileArray []Datafile, user map[string]string) (datasetId string, err error) {
+	fullFileArray []Datafile, user map[string]string, remoteFiles bool) (datasetId string, err error) {
 	datasetId, err = createDataset(client, APIServer, metaDataMap, user)
 	if err != nil {
 		return datasetId, err
 	}
-	err = createOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
-
+	if !remoteFiles {
+		err = createOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
+	}
 	return datasetId, err
 }
 
