@@ -2,21 +2,19 @@ package cmd
 
 import (
 	"bufio"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/SwissOpenEM/globus"
 	"github.com/fatih/color"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/internal/backend"
 	"github.com/spf13/cobra"
 )
 
@@ -42,15 +40,10 @@ For Windows you need instead to specify -user username:password on the command l
 
 		var originalMap = make(map[string]string)
 
-		var client = &http.Client{
-			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
-			Timeout:   120 * time.Second}
-
 		const CMD = "datasetIngestor"
 
 		var scanner = bufio.NewScanner(os.Stdin)
 
-		// pass parameters
 		envConfig := cliutils.InputEnvironmentConfig{
 			TestenvFlag:   cliutils.GetCobraBoolFlag(cmd, "testenv"),
 			DevenvFlag:    cliutils.GetCobraBoolFlag(cmd, "devenv"),
@@ -60,15 +53,32 @@ For Windows you need instead to specify -user username:password on the command l
 			RsyncUrl:      cliutils.GetCobraStringFlag(cmd, "rsync-url"),
 		}
 
-		// configure environment
-		APIServer := envConfig.ResolveAPIServer()
-		RSYNCServer := envConfig.ResolveRSYNCServer()
+		authOpts := backend.AuthOptions{
+			User:        cliutils.GetCobraStringFlag(cmd, "user"),
+			Token:       cliutils.GetCobraStringFlag(cmd, "token"),
+			Oidc:        cliutils.GetCobraBoolFlag(cmd, "oidc"),
+			TestEnv:     envConfig.TestenvFlag,
+			AutoArchive: cliutils.GetCobraBoolFlag(cmd, "autoarchive"),
+		}
+
+		transportEngine := backend.BootstrapTransportEngine(
+			envConfig.ResolveAPIServer(),
+			envConfig.ResolveRSYNCServer(),
+		)
+
+		userSession, err := transportEngine.InitializeSession(VERSION, authOpts)
+		if err != nil {
+			log.Fatalf("Initialization failed: %v", err)
+		}
+
+		var client = transportEngine.Client
+		var APIServer = transportEngine.APIServer
+		var RSYNCServer = transportEngine.RsyncServer
+		var user = userSession.User
+		var accessGroups = userSession.AccessGroups
 
 		ingestFlag := cliutils.GetCobraBoolFlag(cmd, "ingest")
 		noninteractiveFlag := cliutils.GetCobraBoolFlag(cmd, "noninteractive")
-		userpass := cliutils.GetCobraStringFlag(cmd, "user")
-		token := cliutils.GetCobraStringFlag(cmd, "token")
-		oidc := cliutils.GetCobraBoolFlag(cmd, "oidc")
 		copyFlag := cliutils.GetCobraBoolFlag(cmd, "copy")
 		nocopyFlag := cliutils.GetCobraBoolFlag(cmd, "nocopy")
 		transferTypeFlag := cliutils.GetCobraStringFlag(cmd, "transfer-type")
@@ -124,15 +134,11 @@ For Windows you need instead to specify -user username:password on the command l
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
 				"ingest":              ingestFlag,
-				"testenv":             envConfig.TestenvFlag,
-				"devenv":              envConfig.DevenvFlag,
-				"localenv":            envConfig.LocalenvFlag,
-				"tunnelenv":           envConfig.TunnelenvFlag,
-				"scicat-url":          envConfig.ScicatUrl,
-				"rsync-url":           envConfig.RsyncUrl,
+				"scicat-url":          APIServer,
+				"rsync-url":           RSYNCServer,
 				"noninteractive":      noninteractiveFlag,
-				"user":                userpass,
-				"token":               token,
+				"user":                authOpts.User,
+				"token":               authOpts.Token,
 				"copy":                copyFlag,
 				"nocopy":              nocopyFlag,
 				"tapecopies":          tapecopies,
@@ -176,15 +182,6 @@ For Windows you need instead to specify -user username:password on the command l
 		if showVersion {
 			fmt.Printf("%s\n", VERSION)
 			return
-		}
-
-		// === check for program version ===
-		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
-		datasetUtils.CheckForServiceAvailability(client, envConfig.TestenvFlag, autoarchiveFlag)
-
-		user, accessGroups, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
-		if err != nil {
-			log.Fatal(err)
 		}
 
 		/* TODO Add info about policy settings and that autoarchive will take place or not */
