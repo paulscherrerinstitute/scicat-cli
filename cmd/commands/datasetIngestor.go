@@ -89,7 +89,6 @@ For Windows you need instead to specify -user username:password on the command l
 				log.Fatalln("remoteFileScan cannot be combined with --transfer-type globus (no local transfer is performed)")
 			}
 			extraJobParams.RemoteFileScan = true
-			autoarchiveFlag = true
 			log.Println("Remote file scan enabled. The archive job will request a remote scan to create original datablocks before archiving.")
 		}
 		// TODO: read in CFG!
@@ -414,7 +413,7 @@ For Windows you need instead to specify -user username:password on the command l
 					archivable = true
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = datasetUtils.ArchiveStatusMessageOrigDatablocksNotYetCreated
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = false
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = true
 				} else {
 					archivable = true
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
