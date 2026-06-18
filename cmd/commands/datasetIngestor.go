@@ -90,7 +90,7 @@ For Windows you need instead to specify -user username:password on the command l
 			}
 			extraJobParams.RemoteFileScan = true
 			autoarchiveFlag = true
-			log.Println("Remote file scan enabled. The dataset will be marked as archivable after the remote scan has completed.")
+			log.Println("Remote file scan enabled. The archive job will request a remote scan to create original datablocks before archiving.")
 		}
 		// TODO: read in CFG!
 
@@ -313,7 +313,7 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Printf("Scanning files in dataset %s", datasetSourceFolder)
 			fullFileArray := []datasetIngestor.Datafile{}
 
-			if !remoteFileScan {
+			if !remoteFileScan || copyFlag {
 				// reset skip var. if not set for all datasets
 				if !(skipSymlinks == "sA" || skipSymlinks == "kA" || skipSymlinks == "dA") {
 					skipSymlinks = ""
@@ -408,17 +408,17 @@ For Windows you need instead to specify -user username:password on the command l
 				if copyFlag { // IDEA: maybe add a flag to indicate that we want to copy later?
 					// do not override existing fields
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = false
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "filesNotYetAvailable"
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = datasetUtils.ArchiveStatusMessageFilesNotYetAvailable
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = false
 				} else if remoteFileScan {
 					archivable = true
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = datasetUtils.ArchiveStatusMessageOrigDatablocksNotYetCreated
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = false
 				} else {
 					archivable = true
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
+					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = datasetUtils.ArchiveStatusMessageDatasetCreated
 					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = true
 				}
 				log.Println("Ingesting dataset...")
@@ -463,8 +463,13 @@ For Windows you need instead to specify -user username:password on the command l
 							Filelist:       filePathList,
 							IsSymlinkList:  isSymlinkList,
 						},
-						DatasetId:           datasetId,
-						DatasetSourceFolder: datasetSourceFolder,
+						DatasetId:            datasetId,
+						DatasetSourceFolder:  datasetSourceFolder,
+						ArchiveStatusMessage: datasetUtils.ArchiveStatusMessageDatasetCreated,
+					}
+
+					if remoteFileScan {
+						params.ArchiveStatusMessage = datasetUtils.ArchiveStatusMessageOrigDatablocksNotYetCreated
 					}
 
 					archivable, err = transferFiles(params)

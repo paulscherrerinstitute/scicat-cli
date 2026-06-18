@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
 func TestSendFilesReadyCommand(t *testing.T) {
@@ -50,6 +52,34 @@ func TestSendFilesReadyCommand(t *testing.T) {
 	err := MarkFilesReady(client, server.URL, "testDatasetId", user)
 	if err != nil {
 		// TODO: write cases that trigger errors maybe
+		t.Errorf("Error encountered: %v", err)
+	}
+}
+
+func TestMarkFilesReadyUsesProvidedArchiveStatusMessage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if req.URL.String() != "/Datasets/testDatasetId/datasetlifecycle" {
+			t.Errorf("Expected URL '/Datasets/testDatasetId/datasetlifecycle', got '%s'", req.URL.String())
+		}
+		if req.Method != "PATCH" {
+			t.Errorf("Expected method 'PATCH', got '%s'", req.Method)
+		}
+
+		body, _ := io.ReadAll(req.Body)
+		expectedBody := `{"archivable":true,"archiveStatusMessage":"origDatablocksNotYetCreated"}`
+		if strings.TrimSpace(string(body)) != expectedBody {
+			t.Errorf("Expected body '%s', got '%s'", expectedBody, strings.TrimSpace(string(body)))
+		}
+
+		rw.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	user := map[string]string{"accessToken": "testToken"}
+	client := &http.Client{}
+
+	err := MarkFilesReady(client, server.URL, "testDatasetId", user, datasetUtils.ArchiveStatusMessageOrigDatablocksNotYetCreated)
+	if err != nil {
 		t.Errorf("Error encountered: %v", err)
 	}
 }
