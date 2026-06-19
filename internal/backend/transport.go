@@ -25,7 +25,7 @@ type TransportEngine struct {
 	APIServer   string
 	RsyncServer string
 	Scanner     *bufio.Scanner
-	User        map[string]string
+	UserSession *UserSession
 }
 
 type UserSession struct {
@@ -79,7 +79,7 @@ func (t *TransportEngine) InitializeSession(currentVersion string, opts AuthOpti
 	}
 
 	// 2. Simply bind it directly here inside the method!
-	t.User = userSession.User
+	t.UserSession = userSession
 
 	return userSession, nil
 }
