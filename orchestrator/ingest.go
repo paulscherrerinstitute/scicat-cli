@@ -725,7 +725,6 @@ func IngestTarget(ctx IngestContext, counters GlobalCounters, dArgs DatasetArgs)
 	return ownerGroup, nil
 }
 
-
 // CreateLocalSymlinkCallbackForFileLister isolates interactive symlink evaluation loops
 func CreateLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {
 	scanner := bufio.NewScanner(os.Stdin)
