@@ -442,6 +442,7 @@ func ExecuteFileTransfer(
 	globusClient globus.GlobusClient,
 	gConfig cliutils.GlobusConfig,
 	transferTypeFlag string,
+	markFilesReady bool,
 ) bool {
 	var filePathList []string
 	var isSymlinkList []bool
@@ -458,6 +459,7 @@ func ExecuteFileTransfer(
 			ApiServer:       apiServer,
 			RsyncServer:     rsyncServer,
 			AbsFilelistPath: absFileListing,
+			MarkFilesReady:  markFilesReady,
 		},
 		GlobusParams: cliutils.GlobusParams{
 			GlobusClient:   globusClient,
@@ -721,7 +723,7 @@ func IngestTarget(ctx IngestContext, counters GlobalCounters, dArgs DatasetArgs)
 		if requiresCopy {
 			archivable = ExecuteFileTransfer(
 				ctx.Client, ctx.APIServer, ctx.RSYNCServer, datasetId, datasetSourceFolder,
-				dArgs.AbsFileListing, ctx.User, fileCtx, ctx.TransferFiles, ctx.GlobusClient, ctx.GConfig, ctx.Cfg.TransferTypeFlag,
+				dArgs.AbsFileListing, ctx.User, fileCtx, ctx.TransferFiles, ctx.GlobusClient, ctx.GConfig, ctx.Cfg.TransferTypeFlag, !ctx.Cfg.RemoteFileScan,
 			)
 		}
 
