@@ -30,6 +30,20 @@ type AvailabilityChecker func(username, rsyncServer, sourceFolder string, output
 
 type SourceFolderTester func(datasetPaths []string, client *http.Client, apiServer, token string) (datasetIngestor.DatasetQuery, error)
 
+var (
+	checkForNewVersionFn          = datasetUtils.CheckForNewVersion
+	checkForServiceAvailabilityFn = datasetUtils.CheckForServiceAvailability
+	authenticateFn                = cliutils.Authenticate
+	readAndCheckMetadataFn        = datasetIngestor.ReadAndCheckMetadata
+	testForExistingSourceFolderFn = datasetIngestor.TestForExistingSourceFolder
+	checkCentralAvailabilityFn    = datasetIngestor.CheckDataCentrallyAvailableSsh
+	updateMetaDataFn              = datasetIngestor.UpdateMetaData
+	resetUpdatedMetaDataFn        = datasetIngestor.ResetUpdatedMetaData
+	ingestDatasetFn               = datasetIngestor.IngestDataset
+	addAttachmentFn               = datasetIngestor.AddAttachment
+	createArchivalJobFn           = datasetUtils.CreateArchivalJob
+)
+
 // IngestConfig encapsulates all parameter inputs parsed from CLI flags
 type IngestConfig struct {
 	EnvConfig                 cliutils.InputEnvironmentConfig
@@ -68,6 +82,31 @@ type FileContext struct {
 	Owner         string
 	NumFiles      int64
 	TotalSize     int64
+}
+
+// IngestContext groups runtime dependencies together to avoid parameter bloat
+type IngestContext struct {
+	Cmd           *cobra.Command
+	Cfg           IngestConfig
+	Client        *http.Client
+	APIServer     string
+	RSYNCServer   string
+	User          map[string]string
+	AccessGroups  []string
+	TransferFiles func(cliutils.TransferParams) (bool, error)
+	GlobusClient  globus.GlobusClient
+	GConfig       cliutils.GlobusConfig
+	Scanner       *bufio.Scanner
+}
+
+// GlobalCounters manages cross-target metrics tracking safely
+type GlobalCounters struct {
+	SkipSymlinks     *string
+	SkippedLinks     *uint
+	IllegalFileNames *uint
+	EmptyDatasets    *int
+	TooLargeDatasets *int
+	ArchivableList   *[]string
 }
 
 // ParseConfig builds the IngestConfig straight from Cobra flags
@@ -116,6 +155,55 @@ func ParseAndValidateArgs(args []string) DatasetArgs {
 		}
 	}
 	return dArgs
+}
+
+func ParseAndValidateSeparatorArgs(args []string) (DatasetArgs, error) {
+	if len(args) == 1 && strings.Contains(args[0], ":") {
+		parts := strings.SplitN(args[0], ":", 2)
+		metaFile := parts[0]
+		listFile := parts[1]
+
+		dArgs := DatasetArgs{MetadataFile: metaFile}
+		argFileName := filepath.Base(listFile)
+		if argFileName == "folderlisting.txt" {
+			dArgs.FolderListingTxt = listFile
+		} else {
+			dArgs.DatasetFileListTxt = listFile
+			dArgs.AbsFileListing, _ = filepath.Abs(listFile)
+		}
+		return dArgs, nil
+	}
+	return DatasetArgs{}, fmt.Errorf("invalid arguments")
+}
+
+func ParseAndValidateAllArgs(args []string) ([]DatasetArgs, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("no execution arguments provided")
+	}
+
+	var allArgs []DatasetArgs
+
+	// 1. Check for legacy space-separated behavior at the very start (len == 2, no colon)
+	if len(args) == 2 && !strings.Contains(args[0], ":") && !strings.Contains(args[1], ":") {
+		return []DatasetArgs{ParseAndValidateArgs(args)}, nil
+	}
+
+	// 2. Otherwise, treat everything as a sequence of 1-arg chunks (colon-separated or standalone JSON)
+	for i, arg := range args {
+		if dArgs, err := ParseAndValidateSeparatorArgs([]string{arg}); err == nil {
+			allArgs = append(allArgs, dArgs)
+			continue
+		}
+
+		if strings.HasSuffix(strings.ToLower(arg), ".json") {
+			allArgs = append(allArgs, ParseAndValidateArgs([]string{arg}))
+			continue
+		}
+
+		return nil, fmt.Errorf("invalid argument at position %d: expected metadata.json:list.txt or standalone JSON, got '%s'", i+1, arg)
+	}
+
+	return allArgs, nil
 }
 
 // SetupTransferStrategy configures execution blocks or client initializations per transfer choice
@@ -198,7 +286,7 @@ func GuardExistingSourceFolders(
 	client *http.Client,
 	apiServer, token string,
 	allowExisting, flagChanged bool,
-	testFn SourceFolderTester, // <-- Injected
+	testFn SourceFolderTester,
 ) {
 	log.Println("Testing for existing source folders...")
 	foundList, err := testFn(datasetPaths, client, apiServer, token)
@@ -259,7 +347,7 @@ func VerifyCentralAvailability(
 	rsyncServer, datasetSourceFolder string,
 	user map[string]string,
 	accessGroups []string,
-	checkFn AvailabilityChecker, // <-- Injected
+	checkFn AvailabilityChecker,
 ) bool {
 	log.Println("Checking if data is centrally available...")
 	sshErr, otherErr := checkFn(user["username"], rsyncServer, datasetSourceFolder, os.Stdout)
@@ -321,8 +409,8 @@ func RegisterDatasetWithCatalog(
 	fileCtx FileContext,
 	user map[string]string,
 	cfg IngestConfig,
-	ingestFn DatasetRegistrar, // <-- Injected
-	attachFn AttachmentAdder, // <-- Injected
+	ingestFn DatasetRegistrar,
+	attachFn AttachmentAdder,
 ) string {
 	log.Println("Ingesting dataset...")
 	datasetId, err := ingestFn(client, apiServer, metaDataMap, fileCtx.FullFileArray, user)
@@ -403,7 +491,6 @@ func ExecuteFileTransfer(
 func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 	var tooLargeDatasets = 0
 	var emptyDatasets = 0
-	var originalMap = make(map[string]string)
 
 	var client = &http.Client{
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
@@ -441,10 +528,17 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 		return
 	}
 
-	dArgs := ParseAndValidateArgs(args)
+	jobTargets, err := ParseAndValidateAllArgs(args)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if datasetUtils.TestArgs != nil {
-		datasetUtils.TestArgs([]interface{}{dArgs.MetadataFile, dArgs.DatasetFileListTxt, dArgs.FolderListingTxt})
+		var testInspectionBlock []interface{}
+		for _, target := range jobTargets {
+			testInspectionBlock = append(testInspectionBlock, target.MetadataFile, target.DatasetFileListTxt, target.FolderListingTxt)
+		}
+		datasetUtils.TestArgs(testInspectionBlock)
 		return
 	}
 
@@ -453,30 +547,19 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 		return
 	}
 
-	datasetUtils.CheckForNewVersion(client, "datasetIngestor", version)
-	datasetUtils.CheckForServiceAvailability(client, cfg.EnvConfig.TestenvFlag, cfg.AutoarchiveFlag)
+	checkForNewVersionFn(client, "datasetIngestor", version)
+	checkForServiceAvailabilityFn(client, cfg.EnvConfig.TestenvFlag, cfg.AutoarchiveFlag)
 
-	user, accessGroups, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, cfg.Userpass, cfg.Token, cfg.Oidc)
+	user, accessGroups, err := authenticateFn(cliutils.RealAuthenticator{}, client, APIServer, cfg.Userpass, cfg.Token, cfg.Oidc)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	metaDataMap, metadataSourceFolder, beamlineAccount, err := datasetIngestor.ReadAndCheckMetadata(client, APIServer, dArgs.MetadataFile, user, accessGroups)
-	if err != nil {
-		log.Fatal("Error in CheckMetadata function: ", err)
-	}
-
-	datasetPaths := ResolveDatasetPaths(metadataSourceFolder, dArgs.FolderListingTxt)
-
 	scanner := bufio.NewScanner(os.Stdin)
-
-	// Pass production implementation via direct binding
-	GuardExistingSourceFolders(scanner, datasetPaths, client, APIServer, user["accessToken"], cfg.AllowExistingSourceFolder, cmd.Flags().Changed("allowexistingsource"), datasetIngestor.TestForExistingSourceFolder)
 
 	if cfg.NocopyFlag {
 		cfg.CopyFlag = false
 	}
-	checkCentralAvailability := !(cmd.Flags().Changed("copy") || cmd.Flags().Changed("nocopy") || beamlineAccount || cfg.CopyFlag)
 
 	skipSymlinks := ""
 	if cmd.Flags().Changed("linkfiles") {
@@ -493,64 +576,41 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 	var skippedLinks uint = 0
 	var illegalFileNames uint = 0
 	var archivableDatasetList []string
+	var archivableDatasetListOwnerGroup string
 
-	archivableDatasetListOwnerGroup, ok := metaDataMap["ownerGroup"].(string)
-	if !ok {
-		log.Fatal("can't recover ownerGroup.")
+	// Build parameter context blocks
+	ictx := IngestContext{
+		Cmd:           cmd,
+		Cfg:           cfg,
+		Client:        client,
+		APIServer:     APIServer,
+		RSYNCServer:   RSYNCServer,
+		User:          user,
+		AccessGroups:  accessGroups,
+		TransferFiles: transferFiles,
+		GlobusClient:  globusClient,
+		GConfig:       gConfig,
+		Scanner:       scanner,
 	}
 
-	for _, datasetSourceFolder := range datasetPaths {
-		if datasetSourceFolder == "" {
-			continue
-		}
+	counters := GlobalCounters{
+		SkipSymlinks:     &skipSymlinks,
+		SkippedLinks:     &skippedLinks,
+		IllegalFileNames: &illegalFileNames,
+		EmptyDatasets:    &emptyDatasets,
+		TooLargeDatasets: &tooLargeDatasets,
+		ArchivableList:   &archivableDatasetList,
+	}
 
-		log.Printf("===== Ingesting: \"%s\" =====\n", datasetSourceFolder)
-		metaDataMap["sourceFolder"] = datasetSourceFolder
-
-		fileCtx, err := GatherFiles(datasetSourceFolder, dArgs.DatasetFileListTxt, &skipSymlinks, &skippedLinks, &illegalFileNames)
+	// Dynamic sequence iteration loop
+	for _, dArgs := range jobTargets {
+		ownerGroup, err := IngestTarget(ictx, counters, dArgs)
 		if err != nil {
-			log.Fatalf("Can't gather the filelist of \"%s\"", datasetSourceFolder)
+			log.Fatal(err)
 		}
-
-		if fileCtx.TotalSize == 0 {
-			emptyDatasets++
-			continue
+		if archivableDatasetListOwnerGroup == "" && ownerGroup != "" {
+			archivableDatasetListOwnerGroup = ownerGroup
 		}
-		if fileCtx.NumFiles > cliutils.TOTAL_MAXFILES {
-			tooLargeDatasets++
-			continue
-		}
-
-		if cfg.Tapecopies == 2 {
-			log.Println("Note: this dataset, if archived, will be copied to two tape copies")
-		}
-
-		datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, fileCtx.StartTime, fileCtx.EndTime, fileCtx.Owner, cfg.Tapecopies)
-
-		requiresCopy := cfg.CopyFlag
-		if checkCentralAvailability {
-			requiresCopy = VerifyCentralAvailability(cfg, RSYNCServer, datasetSourceFolder, user, accessGroups, datasetIngestor.CheckDataCentrallyAvailableSsh)
-		}
-
-		if !cfg.IngestFlag {
-			datasetIngestor.ResetUpdatedMetaData(originalMap, metaDataMap)
-			continue
-		}
-
-		archivable := InitializeLifecycleFields(metaDataMap, requiresCopy)
-
-		// Injected runtime functionality handles production catalog calls seamlessly
-		datasetId := RegisterDatasetWithCatalog(client, APIServer, metaDataMap, fileCtx, user, cfg, datasetIngestor.IngestDataset, datasetIngestor.AddAttachment)
-
-		if requiresCopy {
-			archivable = ExecuteFileTransfer(client, APIServer, RSYNCServer, datasetId, datasetSourceFolder, dArgs.AbsFileListing, user, fileCtx, transferFiles, globusClient, gConfig, cfg.TransferTypeFlag)
-		}
-
-		if archivable {
-			archivableDatasetList = append(archivableDatasetList, datasetId)
-		}
-
-		datasetIngestor.ResetUpdatedMetaData(originalMap, metaDataMap)
 	}
 
 	if !cfg.IngestFlag {
@@ -565,9 +625,12 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 		os.Exit(1)
 	}
 
-	if cfg.AutoarchiveFlag && cfg.IngestFlag {
+	if cfg.AutoarchiveFlag && cfg.IngestFlag && len(archivableDatasetList) > 0 {
+		if archivableDatasetListOwnerGroup == "" {
+			log.Fatal("can't recover ownerGroup for archival submission.")
+		}
 		log.Printf("Submitting Archive Job for the ingested datasets.\n")
-		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasetListOwnerGroup, archivableDatasetList, &cfg.Tapecopies, nil)
+		jobId, err := createArchivalJobFn(client, APIServer, user, archivableDatasetListOwnerGroup, archivableDatasetList, &cfg.Tapecopies, nil)
 		if err != nil {
 			color.Set(color.FgRed)
 			log.Printf("Could not create the archival job: %s\n", err.Error())
@@ -580,6 +643,88 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 		fmt.Println(archivableDatasetList[i])
 	}
 }
+
+// IngestTarget handles folder resolution, validation, and execution for a single target unit block
+func IngestTarget(ctx IngestContext, counters GlobalCounters, dArgs DatasetArgs) (string, error) {
+	var originalMap = make(map[string]string)
+
+	metaDataMap, metadataSourceFolder, beamlineAccount, err := readAndCheckMetadataFn(
+		ctx.Client, ctx.APIServer, dArgs.MetadataFile, ctx.User, ctx.AccessGroups,
+	)
+	if err != nil {
+		return "", fmt.Errorf("metadata file error for %s: %w", dArgs.MetadataFile, err)
+	}
+
+	ownerGroup, _ := metaDataMap["ownerGroup"].(string)
+	datasetPaths := ResolveDatasetPaths(metadataSourceFolder, dArgs.FolderListingTxt)
+
+	GuardExistingSourceFolders(
+		ctx.Scanner, datasetPaths, ctx.Client, ctx.APIServer, ctx.User["accessToken"],
+		ctx.Cfg.AllowExistingSourceFolder, ctx.Cmd.Flags().Changed("allowexistingsource"),
+		testForExistingSourceFolderFn,
+	)
+
+	checkCentralAvailability := !(ctx.Cmd.Flags().Changed("copy") || ctx.Cmd.Flags().Changed("nocopy") || beamlineAccount || ctx.Cfg.CopyFlag)
+
+	for _, datasetSourceFolder := range datasetPaths {
+		if datasetSourceFolder == "" {
+			continue
+		}
+
+		log.Printf("===== Ingesting: \"%s\" =====\n", datasetSourceFolder)
+		metaDataMap["sourceFolder"] = datasetSourceFolder
+
+		fileCtx, err := GatherFiles(datasetSourceFolder, dArgs.DatasetFileListTxt, counters.SkipSymlinks, counters.SkippedLinks, counters.IllegalFileNames)
+		if err != nil {
+			return "", fmt.Errorf("failed gathering filelist for directory \"%s\": %w", datasetSourceFolder, err)
+		}
+
+		if fileCtx.TotalSize == 0 {
+			*counters.EmptyDatasets++
+			continue
+		}
+		if fileCtx.NumFiles > cliutils.TOTAL_MAXFILES {
+			*counters.TooLargeDatasets++
+			continue
+		}
+
+		if ctx.Cfg.Tapecopies == 2 {
+			log.Println("Note: this dataset, if archived, will be copied to two tape copies")
+		}
+
+		updateMetaDataFn(ctx.Client, ctx.APIServer, ctx.User, originalMap, metaDataMap, fileCtx.StartTime, fileCtx.EndTime, fileCtx.Owner, ctx.Cfg.Tapecopies)
+
+		requiresCopy := ctx.Cfg.CopyFlag
+		if checkCentralAvailability {
+			requiresCopy = VerifyCentralAvailability(ctx.Cfg, ctx.RSYNCServer, datasetSourceFolder, ctx.User, ctx.AccessGroups, checkCentralAvailabilityFn)
+		}
+
+		if !ctx.Cfg.IngestFlag {
+			resetUpdatedMetaDataFn(originalMap, metaDataMap)
+			continue
+		}
+
+		archivable := InitializeLifecycleFields(metaDataMap, requiresCopy)
+
+		datasetId := RegisterDatasetWithCatalog(ctx.Client, ctx.APIServer, metaDataMap, fileCtx, ctx.User, ctx.Cfg, ingestDatasetFn, addAttachmentFn)
+
+		if requiresCopy {
+			archivable = ExecuteFileTransfer(
+				ctx.Client, ctx.APIServer, ctx.RSYNCServer, datasetId, datasetSourceFolder,
+				dArgs.AbsFileListing, ctx.User, fileCtx, ctx.TransferFiles, ctx.GlobusClient, ctx.GConfig, ctx.Cfg.TransferTypeFlag,
+			)
+		}
+
+		if archivable {
+			*counters.ArchivableList = append(*counters.ArchivableList, datasetId)
+		}
+
+		resetUpdatedMetaDataFn(originalMap, metaDataMap)
+	}
+
+	return ownerGroup, nil
+}
+
 
 // CreateLocalSymlinkCallbackForFileLister isolates interactive symlink evaluation loops
 func CreateLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {

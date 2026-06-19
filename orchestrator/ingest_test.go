@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -158,6 +159,139 @@ func TestRunIngestionPipelinePrintsVersion(t *testing.T) {
 	}
 }
 
+func TestRunIngestionPipelineMultipleArgsCreatesExpectedArchiveJob(t *testing.T) {
+	prevFlagsHook := datasetUtils.TestFlags
+	prevArgsHook := datasetUtils.TestArgs
+	prevCheckVersion := checkForNewVersionFn
+	prevCheckService := checkForServiceAvailabilityFn
+	prevAuth := authenticateFn
+	prevReadMeta := readAndCheckMetadataFn
+	prevTestExisting := testForExistingSourceFolderFn
+	prevCheckCentral := checkCentralAvailabilityFn
+	prevUpdateMeta := updateMetaDataFn
+	prevResetMeta := resetUpdatedMetaDataFn
+	prevIngest := ingestDatasetFn
+	prevAttach := addAttachmentFn
+	prevCreateJob := createArchivalJobFn
+	defer func() {
+		datasetUtils.TestFlags = prevFlagsHook
+		datasetUtils.TestArgs = prevArgsHook
+		checkForNewVersionFn = prevCheckVersion
+		checkForServiceAvailabilityFn = prevCheckService
+		authenticateFn = prevAuth
+		readAndCheckMetadataFn = prevReadMeta
+		testForExistingSourceFolderFn = prevTestExisting
+		checkCentralAvailabilityFn = prevCheckCentral
+		updateMetaDataFn = prevUpdateMeta
+		resetUpdatedMetaDataFn = prevResetMeta
+		ingestDatasetFn = prevIngest
+		addAttachmentFn = prevAttach
+		createArchivalJobFn = prevCreateJob
+	}()
+
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+	checkForNewVersionFn = func(client *http.Client, cmd string, version string) {}
+	checkForServiceAvailabilityFn = func(client *http.Client, testenv bool, autoarchive bool) {}
+	authenticateFn = func(authenticator cliutils.Authenticator, httpClient *http.Client, apiServer string, userpass string, token string, oidc bool, overrideFatalExit ...func(v ...any)) (map[string]string, []string, error) {
+		return map[string]string{"accessToken": "token-123", "username": "alice", "mail": "alice@example.org"}, []string{"group-a"}, nil
+	}
+	testForExistingSourceFolderFn = func(datasetPaths []string, client *http.Client, apiServer, token string) (datasetIngestor.DatasetQuery, error) {
+		return datasetIngestor.DatasetQuery{}, nil
+	}
+	checkCentralAvailabilityFn = func(username, rsyncServer, sourceFolder string, output io.Writer) (error, error) {
+		return nil, nil
+	}
+	updateMetaDataFn = func(client *http.Client, APIServer string, user map[string]string, originalMap map[string]string, metaDataMap map[string]interface{}, startTime time.Time, endTime time.Time, owner string, tapecopies int) {
+		// keep this as a no-op; we only need to avoid external policy calls.
+	}
+	resetUpdatedMetaDataFn = func(originalMap map[string]string, metaDataMap map[string]interface{}) {}
+	addAttachmentFn = func(client *http.Client, apiServer, datasetId string, metaDataMap map[string]interface{}, token, filename, caption string) error {
+		return nil
+	}
+
+	tmp := t.TempDir()
+	metaToSource := map[string]string{
+		"m1.json": filepath.Join(tmp, "ds1"),
+		"m2.json": filepath.Join(tmp, "ds2"),
+		"m3.json": filepath.Join(tmp, "ds3"),
+	}
+	for _, src := range metaToSource {
+		if err := os.MkdirAll(src, 0o755); err != nil {
+			t.Fatalf("failed creating source folder: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(src, "data.txt"), []byte("payload"), 0o600); err != nil {
+			t.Fatalf("failed creating sample data file: %v", err)
+		}
+	}
+
+	readAndCheckMetadataFn = func(client *http.Client, APIServer string, metadatafile string, user map[string]string, accessGroups []string) (map[string]interface{}, string, bool, error) {
+		src, ok := metaToSource[metadatafile]
+		if !ok {
+			return nil, "", false, errors.New("unexpected metadata file")
+		}
+		return map[string]interface{}{
+			"type":       "raw",
+			"ownerGroup": "p12345",
+		}, src, false, nil
+	}
+
+	ingestDatasetFn = func(client *http.Client, APIServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error) {
+		sourceFolder, _ := metaDataMap["sourceFolder"].(string)
+		if sourceFolder == "" {
+			return "", errors.New("sourceFolder not set in metadata")
+		}
+		return "pid-" + filepath.Base(sourceFolder), nil
+	}
+
+	var jobCalled bool
+	var gotOwnerGroup string
+	var gotDatasetList []string
+	var gotTapeCopies int
+	createArchivalJobFn = func(client *http.Client, APIServer string, user map[string]string, ownerGroup string, datasetList []string, tapecopies *int, executionTime *time.Time) (string, error) {
+		jobCalled = true
+		gotOwnerGroup = ownerGroup
+		gotDatasetList = append([]string{}, datasetList...)
+		if tapecopies != nil {
+			gotTapeCopies = *tapecopies
+		}
+		return "job-123", nil
+	}
+
+	cmd := makeIngestPipelineTestCmd()
+	if err := cmd.Flags().Set("ingest", "true"); err != nil {
+		t.Fatalf("failed to set ingest flag: %v", err)
+	}
+	if err := cmd.Flags().Set("autoarchive", "true"); err != nil {
+		t.Fatalf("failed to set autoarchive flag: %v", err)
+	}
+	if err := cmd.Flags().Set("nocopy", "true"); err != nil {
+		t.Fatalf("failed to set nocopy flag: %v", err)
+	}
+	if err := cmd.Flags().Set("tapecopies", "2"); err != nil {
+		t.Fatalf("failed to set tapecopies flag: %v", err)
+	}
+
+	RunIngestionPipeline(cmd, []string{"m1.json", "m2.json", "m3.json"}, "v1.2.3")
+
+	if !jobCalled {
+		t.Fatalf("expected CreateArchivalJob to be called")
+	}
+	if gotOwnerGroup != "p12345" {
+		t.Fatalf("expected ownerGroup p12345, got %q", gotOwnerGroup)
+	}
+	if gotTapeCopies != 2 {
+		t.Fatalf("expected tapecopies=2, got %d", gotTapeCopies)
+	}
+
+	expected := []string{"pid-ds1", "pid-ds2", "pid-ds3"}
+	sort.Strings(expected)
+	sort.Strings(gotDatasetList)
+	if strings.Join(gotDatasetList, ",") != strings.Join(expected, ",") {
+		t.Fatalf("unexpected archive dataset list: got=%#v expected=%#v", gotDatasetList, expected)
+	}
+}
+
 func TestParseAndValidateArgs(t *testing.T) {
 	t.Run("single arg", func(t *testing.T) {
 		got := ParseAndValidateArgs([]string{"meta.json"})
@@ -187,6 +321,106 @@ func TestParseAndValidateArgs(t *testing.T) {
 		}
 		if got.DatasetFileListTxt != "" {
 			t.Fatalf("dataset file list should be empty when folderlisting is provided")
+		}
+	})
+}
+
+func TestParseAndValidateSeparatorArgs(t *testing.T) {
+	t.Run("metadata and filelist in one arg", func(t *testing.T) {
+		got, err := ParseAndValidateSeparatorArgs([]string{"meta.json:list.txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got.MetadataFile != "meta.json" {
+			t.Fatalf("unexpected metadata file: %s", got.MetadataFile)
+		}
+		if got.DatasetFileListTxt != "list.txt" {
+			t.Fatalf("unexpected dataset file list: %s", got.DatasetFileListTxt)
+		}
+		expectedAbs, _ := filepath.Abs("list.txt")
+		if got.AbsFileListing != expectedAbs {
+			t.Fatalf("expected abs file listing %s, got %s", expectedAbs, got.AbsFileListing)
+		}
+	})
+
+	t.Run("metadata and folderlisting in one arg", func(t *testing.T) {
+		got, err := ParseAndValidateSeparatorArgs([]string{"meta.json:folderlisting.txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got.MetadataFile != "meta.json" {
+			t.Fatalf("unexpected metadata file: %s", got.MetadataFile)
+		}
+		if got.FolderListingTxt != "folderlisting.txt" {
+			t.Fatalf("unexpected folder listing: %s", got.FolderListingTxt)
+		}
+		if got.DatasetFileListTxt != "" {
+			t.Fatalf("expected dataset file list to be empty, got %s", got.DatasetFileListTxt)
+		}
+	})
+
+	t.Run("invalid separator args", func(t *testing.T) {
+		_, err := ParseAndValidateSeparatorArgs([]string{"meta.json"})
+		if err == nil {
+			t.Fatalf("expected error for args without separator")
+		}
+	})
+}
+
+func TestParseAndValidateAllArgs(t *testing.T) {
+	t.Run("legacy two-argument mode", func(t *testing.T) {
+		got, err := ParseAndValidateAllArgs([]string{"meta.json", "list.txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(got) != 1 {
+			t.Fatalf("expected exactly one parsed target, got %d", len(got))
+		}
+		if got[0].MetadataFile != "meta.json" || got[0].DatasetFileListTxt != "list.txt" {
+			t.Fatalf("unexpected parsed target: %#v", got[0])
+		}
+	})
+
+	t.Run("multi target separator mode", func(t *testing.T) {
+		got, err := ParseAndValidateAllArgs([]string{"m1.json:l1.txt", "m2.json:folderlisting.txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(got) != 2 {
+			t.Fatalf("expected 2 parsed targets, got %d", len(got))
+		}
+		if got[0].MetadataFile != "m1.json" || got[0].DatasetFileListTxt != "l1.txt" {
+			t.Fatalf("unexpected first target: %#v", got[0])
+		}
+		if got[1].MetadataFile != "m2.json" || got[1].FolderListingTxt != "folderlisting.txt" {
+			t.Fatalf("unexpected second target: %#v", got[1])
+		}
+	})
+
+	t.Run("two standalone json args use legacy mode", func(t *testing.T) {
+		got, err := ParseAndValidateAllArgs([]string{"m1.json", "m2.json"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(got) != 1 {
+			t.Fatalf("expected 1 parsed target in legacy mode, got %d", len(got))
+		}
+		if got[0].MetadataFile != "m1.json" || got[0].DatasetFileListTxt != "m2.json" {
+			t.Fatalf("unexpected parsed target in legacy mode: %#v", got[0])
+		}
+	})
+
+	t.Run("empty args", func(t *testing.T) {
+		_, err := ParseAndValidateAllArgs([]string{})
+		if err == nil {
+			t.Fatalf("expected error for empty args")
+		}
+	})
+
+	t.Run("invalid arg format", func(t *testing.T) {
+		_, err := ParseAndValidateAllArgs([]string{"meta.json:list.txt", "bad-arg"})
+		if err == nil {
+			t.Fatalf("expected error for invalid argument format")
 		}
 	})
 }
