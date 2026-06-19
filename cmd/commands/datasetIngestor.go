@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -161,38 +160,44 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Fatalln("Strategy allocation failed:", err)
 		}
 
+		ingestService := backend.NewIngestService(transportEngine, fileService)
+
+		batch, err := ingestService.PrepareBatch(metadatafile, absFileListing)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		// assemble list of datasetPaths (=datasets) to be created
 		datasetPaths := fileService.ResolveDatasetPaths()
 
 		// test if a sourceFolder already used in the past and give warning
 		log.Println("Testing for existing source folders...")
-		foundList, err := datasetIngestor.TestForExistingSourceFolder(datasetPaths, client, APIServer, user["accessToken"])
+		foundList, err := ingestService.CheckExistingSources(datasetPaths)
 		if err != nil {
 			log.Fatal(err)
 		}
-		color.Set(color.FgYellow)
 		if len(foundList) > 0 {
-			fmt.Println("Warning! The following datasets have been found with the same sourceFolders: ")
+			color.Set(color.FgYellow)
+			fmt.Println("Warning! The following datasets have been found with the same sourceFolders:")
+			for _, element := range foundList {
+				fmt.Printf("  - PID: \"%s\", sourceFolder: \"%s\"\n", element.Pid, element.SourceFolder)
+			}
+			color.Unset()
+
+			// Evaluate flag logic and user intent locally
+			if !allowExistingSourceFolder && cmd.Flags().Changed("allowexistingsource") {
+				log.Fatalln("Existing sourceFolders are not allowed. Aborted.")
+			}
+			if !allowExistingSourceFolder && !cmd.Flags().Changed("allowexistingsource") {
+				log.Printf("Do you want to continue (y/N) ? ")
+				scanner.Scan()
+				if scanner.Text() != "y" {
+					log.Fatalln("Aborted.")
+				}
+			}
 		} else {
 			log.Println("Finished testing for existing source folders.")
 		}
-		for _, element := range foundList {
-			fmt.Printf("  - PID: \"%s\", sourceFolder: \"%s\"\n", element.Pid, element.SourceFolder)
-		}
-		color.Unset()
-		if !allowExistingSourceFolder && len(foundList) > 0 {
-			if !cmd.Flags().Changed("allowexistingsource") {
-				log.Printf("Do you want to ingest the corresponding new datasets nevertheless (y/N) ? ")
-				scanner.Scan()
-				archiveAgain := scanner.Text()
-				if archiveAgain != "y" {
-					log.Fatalln("Aborted.")
-				}
-			} else {
-				log.Fatalln("Existing sourceFolders are not allowed. Aborted.")
-			}
-		}
-
 		// TODO ask archive system if sourcefolder is known to them. If yes no copy needed, otherwise
 		// a destination location is defined by the archive system
 		// for now let the user decide if he needs a copy
@@ -202,12 +207,17 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 		checkCentralAvailability := !(cmd.Flags().Changed("copy") || cmd.Flags().Changed("nocopy") || beamlineAccount || copyFlag)
 		skipSymlinks := fileService.EvaluateSymlinkStrategy(cmd.Flags().Changed("linkfiles"), linkfiles)
-
-		localSymlinkCallback := createLocalSymlinkCallbackForFileLister(fileService, &skipSymlinks)
+		runtimeCfg := backend.DatasetIngestRuntimeConfig{
+			Tapecopies:    tapecopies,
+			AddAttachment: addAttachment,
+			AddCaption:    addCaption,
+			RSYNCServer:   transportEngine.RsyncServer,
+		}
+		archivableDatasetListOwnerGroup := batch.MetaDataMap["ownerGroup"].(string)
 
 		// now everything is prepared, prepare to loop over all folders
 		var archivableDatasetList []string
-		archivableDatasetListOwnerGroup, ok := metaDataMap["ownerGroup"].(string)
+		archivableDatasetListOwnerGroup, ok := batch.MetaDataMap["ownerGroup"].(string)
 		if !ok {
 			log.Fatal("can't recover ownerGroup. This should normally be impossible as the checkMetadata function should've caught it already.")
 		}
@@ -223,6 +233,7 @@ For Windows you need instead to specify -user username:password on the command l
 
 			// reset skip var. if not set for all datasets
 			skipSymlinks = fileService.ResetLocalSymlinkStrategy(skipSymlinks)
+			localSymlinkCallback := createLocalSymlinkCallbackForFileLister(fileService, &skipSymlinks)
 
 			// === get filelist of dataset ===
 			fullFileArray, startTime, endTime, owner, isValid, err := fileService.ScanAndVerifyFiles(
@@ -245,11 +256,6 @@ For Windows you need instead to specify -user username:password on the command l
 				log.Printf("Note: this dataset, if archived, will be copied to two tape copies")
 				color.Unset()
 			}
-			// === update metadata ===
-			datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
-			pretty, _ := json.MarshalIndent(metaDataMap, "", "    ")
-
-			log.Printf("Updated metadata object:\n%s\n", pretty)
 
 			// === check central availability of data ===
 			// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
@@ -285,66 +291,11 @@ For Windows you need instead to specify -user username:password on the command l
 				}
 			}
 
-			// === ingest dataset ===
 			if ingestFlag {
-				// create ingest . For decentral case delay setting status to archivable until data is copied
-				archivable := false
-				if _, ok := metaDataMap["datasetlifecycle"]; !ok {
-					metaDataMap["datasetlifecycle"] = map[string]interface{}{}
-				}
-				if copyFlag { // IDEA: maybe add a flag to indicate that we want to copy later?
-					// do not override existing fields
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = false
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "filesNotYetAvailable"
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = false
-				} else {
-					archivable = true
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = true
-				}
-				log.Println("Ingesting dataset...")
-				datasetId, err := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user)
+				_, err := ingestService.Ingest(batch, datasetSourceFolder, fullFileArray, startTime, endTime, owner, copyFlag, runtimeCfg)
+
 				if err != nil {
-					log.Fatal("Couldn't ingest dataset:", err)
-				}
-				log.Println("Dataset created:", datasetId)
-				// add attachment optionally
-				if addAttachment != "" {
-					log.Println("Adding attachment...")
-					err := datasetIngestor.AddAttachment(client, APIServer, datasetId, metaDataMap, user["accessToken"], addAttachment, addCaption)
-					if err != nil {
-						log.Println("Couldn't add attachment:", err)
-					}
-					log.Printf("Attachment file %v added to dataset %v\n", addAttachment, datasetId)
-				}
-				// === copying files ===
-				if copyFlag {
-					archivable, err = fileService.TransferDatasetFiles(
-						datasetId,
-						datasetSourceFolder,
-						fullFileArray,
-						client,
-						APIServer,
-					)
-
-					if err != nil {
-						color.Set(color.FgRed)
-						log.Printf("The command to copy files exited with error %v \n", err)
-						log.Printf("The dataset %v is not yet in an archivable state\n", datasetId)
-						color.Unset()
-					}
-					if err == nil && !archivable {
-						color.Set(color.FgYellow)
-						log.Println("The command finished successfully, however the dataset is not yet archivable.")
-						log.Println("This means that the dataset has to be marked as archivable after the asynchronous transfer has finished.")
-						log.Printf("Please consult the %s transfer type's doc for handling this.\n", transferTypeFlag)
-						color.Unset()
-					}
-				}
-
-				if archivable {
-					archivableDatasetList = append(archivableDatasetList, datasetId)
+					log.Fatalf("Ingestion sequence aborted: %v", err)
 				}
 			}
 			// reset dataset metadata for next dataset ingestion
