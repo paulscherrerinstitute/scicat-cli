@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"bufio"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -159,6 +160,19 @@ func ParseAndValidateArgs(args []string) DatasetArgs {
 	return dArgs
 }
 
+func isDatasetIdShape(s string) bool {
+	return strings.Contains(strings.ToLower(s), "/") && !strings.HasSuffix(strings.ToLower(s), ".json")
+}
+
+func ParseAndValidateDatasetArgs(args []string) (DatasetArgs, bool) {
+	if len(args) == 1 && isDatasetIdShape(args[0]) {
+		return DatasetArgs{
+			MetadataFile: args[0], // Store the datasetId inside the MetadataFile slot temporarily
+		}, true
+	}
+	return DatasetArgs{}, false
+}
+
 func ParseAndValidateSeparatorArgs(args []string) (DatasetArgs, error) {
 	if len(args) == 1 && strings.Contains(args[0], ":") {
 		parts := strings.SplitN(args[0], ":", 2)
@@ -199,6 +213,11 @@ func ParseAndValidateAllArgs(args []string) ([]DatasetArgs, error) {
 
 		if strings.HasSuffix(strings.ToLower(arg), ".json") {
 			allArgs = append(allArgs, ParseAndValidateArgs([]string{arg}))
+			continue
+		}
+
+		if dArgs, ok := ParseAndValidateDatasetArgs([]string{arg}); ok {
+			allArgs = append(allArgs, dArgs)
 			continue
 		}
 
@@ -646,9 +665,47 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 	}
 }
 
+type DatasetExistenceStatus struct {
+	DatasetExists       bool
+	OrigDatablocksExist bool
+}
+
+func ReadAndCheckMetadataFromDatasetId(client *http.Client, apiServer, datasetId string, user map[string]string, status *DatasetExistenceStatus) (map[string]interface{}, string, bool, error) {
+	metadataArray, missing, err := datasetUtils.GetDatasetDetails(client, apiServer, user["accessToken"], []string{datasetId}, "")
+	if err != nil || len(missing) > 0 {
+		return nil, "", false, err
+	}
+
+	ds := metadataArray[0]
+	status.OrigDatablocksExist = ds.Size != 0
+	status.DatasetExists = true
+
+	data, err := json.Marshal(ds)
+	if err != nil {
+		return nil, "", false, fmt.Errorf("failed to marshal dataset struct: %w", err)
+	}
+
+	var convertedMap map[string]interface{}
+	if err := json.Unmarshal(data, &convertedMap); err != nil {
+		return nil, "", false, fmt.Errorf("failed to unmarshal dataset into map: %w", err)
+	}
+
+	convertedMap["datasetId"] = ds.Pid
+
+	return convertedMap, ds.SourceFolder, status.OrigDatablocksExist, nil
+}
+
 // IngestTarget handles folder resolution, validation, and execution for a single target unit block
 func IngestTarget(ctx IngestContext, counters GlobalCounters, dArgs DatasetArgs) (string, error) {
 	var originalMap = make(map[string]string)
+	status := &DatasetExistenceStatus{}
+
+	readAndCheckMetadataFn = readAndCheckMetadataFn
+	if isDatasetIdShape(dArgs.MetadataFile) {
+		readAndCheckMetadataFn = func(client *http.Client, apiServer, targetId string, user map[string]string, accessGroups []string) (map[string]interface{}, string, bool, error) {
+			return ReadAndCheckMetadataFromDatasetId(client, apiServer, targetId, user, status)
+		}
+	}
 
 	metaDataMap, metadataSourceFolder, beamlineAccount, err := readAndCheckMetadataFn(
 		ctx.Client, ctx.APIServer, dArgs.MetadataFile, ctx.User, ctx.AccessGroups,
@@ -658,13 +715,18 @@ func IngestTarget(ctx IngestContext, counters GlobalCounters, dArgs DatasetArgs)
 	}
 
 	ownerGroup, _ := metaDataMap["ownerGroup"].(string)
+	if status.OrigDatablocksExist {
+		return ownerGroup, nil
+	}
 	datasetPaths := ResolveDatasetPaths(metadataSourceFolder, dArgs.FolderListingTxt)
 
-	GuardExistingSourceFolders(
-		ctx.Scanner, datasetPaths, ctx.Client, ctx.APIServer, ctx.User["accessToken"],
-		ctx.Cfg.AllowExistingSourceFolder, ctx.Cmd.Flags().Changed("allowexistingsource"),
-		testForExistingSourceFolderFn,
-	)
+	if !status.DatasetExists {
+		GuardExistingSourceFolders(
+			ctx.Scanner, datasetPaths, ctx.Client, ctx.APIServer, ctx.User["accessToken"],
+			ctx.Cfg.AllowExistingSourceFolder, ctx.Cmd.Flags().Changed("allowexistingsource"),
+			testForExistingSourceFolderFn,
+		)
+	}
 
 	checkCentralAvailability := !(ctx.Cmd.Flags().Changed("copy") || ctx.Cmd.Flags().Changed("nocopy") || beamlineAccount || ctx.Cfg.CopyFlag)
 
@@ -694,16 +756,17 @@ func IngestTarget(ctx IngestContext, counters GlobalCounters, dArgs DatasetArgs)
 			log.Println("Note: this dataset, if archived, will be copied to two tape copies")
 		}
 
-		updateMetaDataFn(ctx.Client, ctx.APIServer, ctx.User, originalMap, metaDataMap, fileCtx.StartTime, fileCtx.EndTime, fileCtx.Owner, ctx.Cfg.Tapecopies)
+		if !status.DatasetExists {
+			updateMetaDataFn(ctx.Client, ctx.APIServer, ctx.User, originalMap, metaDataMap, fileCtx.StartTime, fileCtx.EndTime, fileCtx.Owner, ctx.Cfg.Tapecopies)
+			if !ctx.Cfg.IngestFlag {
+				resetUpdatedMetaDataFn(originalMap, metaDataMap)
+				continue
+			}
+		}
 
 		requiresCopy := ctx.Cfg.CopyFlag
 		if checkCentralAvailability {
 			requiresCopy = VerifyCentralAvailability(ctx.Cfg, ctx.RSYNCServer, datasetSourceFolder, ctx.User, ctx.AccessGroups, checkCentralAvailabilityFn)
-		}
-
-		if !ctx.Cfg.IngestFlag {
-			resetUpdatedMetaDataFn(originalMap, metaDataMap)
-			continue
 		}
 
 		archivable := InitializeLifecycleFields(metaDataMap, requiresCopy)
@@ -715,6 +778,12 @@ func IngestTarget(ctx IngestContext, counters GlobalCounters, dArgs DatasetArgs)
 			}
 			registrarFn = func(client *http.Client, apiServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error) {
 				return datasetIngestor.CreateDataset(client, apiServer, metaDataMap, user)
+			}
+		}
+		if status.DatasetExists {
+			registrarFn = func(client *http.Client, apiServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error) {
+				datasetId := metaDataMap["datasetId"].(string)
+				return datasetId, datasetIngestor.CreateOrigDatablocks(client, apiServer, fullFileArray, datasetId, user)
 			}
 		}
 		datasetId = RegisterDatasetWithCatalog(ctx.Client, ctx.APIServer, metaDataMap, fileCtx, ctx.User, ctx.Cfg, registrarFn, addAttachmentFn)

@@ -163,6 +163,148 @@ func TestRunIngestionPipelinePrintsVersion(t *testing.T) {
 	}
 }
 
+func TestParseAndValidateDatasetArgs(t *testing.T) {
+	got, ok := ParseAndValidateDatasetArgs([]string{"/beamline/p12345/ds1"})
+	if !ok {
+		t.Fatalf("expected dataset-id style argument to be recognized")
+	}
+	if got.MetadataFile != "/beamline/p12345/ds1" {
+		t.Fatalf("unexpected dataset-id metadata file: %s", got.MetadataFile)
+	}
+
+	_, ok = ParseAndValidateDatasetArgs([]string{"meta.json"})
+	if ok {
+		t.Fatalf("expected plain metadata file to be rejected by dataset-id parser")
+	}
+}
+
+func TestRunIngestionPipelineInvokesTestArgsHookForDatasetID(t *testing.T) {
+	prevFlagsHook := datasetUtils.TestFlags
+	prevArgsHook := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlagsHook
+		datasetUtils.TestArgs = prevArgsHook
+	}()
+
+	cmd := makeIngestPipelineTestCmd()
+	datasetUtils.TestFlags = nil
+
+	called := false
+	var got []interface{}
+	datasetUtils.TestArgs = func(args []interface{}) {
+		called = true
+		got = args
+	}
+
+	RunIngestionPipeline(cmd, []string{"/beamline/p12345/ds1"}, "v1.2.3")
+
+	if !called {
+		t.Fatalf("expected TestArgs hook to be called")
+	}
+	if len(got) != 3 {
+		t.Fatalf("expected 3 args in hook, got %d", len(got))
+	}
+	if got[0] != "/beamline/p12345/ds1" || got[1] != "" || got[2] != "" {
+		t.Fatalf("unexpected dataset-id parsed args payload: %#v", got)
+	}
+}
+
+func TestRunIngestionPipelineDatasetIDUsesOnlyOrigDatablocks(t *testing.T) {
+	prevFlagsHook := datasetUtils.TestFlags
+	prevArgsHook := datasetUtils.TestArgs
+	prevCheckVersion := checkForNewVersionFn
+	prevCheckService := checkForServiceAvailabilityFn
+	prevAuth := authenticateFn
+	prevTestExisting := testForExistingSourceFolderFn
+	prevCheckCentral := checkCentralAvailabilityFn
+	prevUpdateMeta := updateMetaDataFn
+	prevResetMeta := resetUpdatedMetaDataFn
+	prevIngest := ingestDatasetFn
+	prevAttach := addAttachmentFn
+	prevCreateJob := createArchivalJobFn
+	defer func() {
+		datasetUtils.TestFlags = prevFlagsHook
+		datasetUtils.TestArgs = prevArgsHook
+		checkForNewVersionFn = prevCheckVersion
+		checkForServiceAvailabilityFn = prevCheckService
+		authenticateFn = prevAuth
+		testForExistingSourceFolderFn = prevTestExisting
+		checkCentralAvailabilityFn = prevCheckCentral
+		updateMetaDataFn = prevUpdateMeta
+		resetUpdatedMetaDataFn = prevResetMeta
+		ingestDatasetFn = prevIngest
+		addAttachmentFn = prevAttach
+		createArchivalJobFn = prevCreateJob
+	}()
+
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+	checkForNewVersionFn = func(client *http.Client, cmd string, version string) {}
+	checkForServiceAvailabilityFn = func(client *http.Client, testenv bool, autoarchive bool) {}
+	authenticateFn = func(authenticator cliutils.Authenticator, httpClient *http.Client, apiServer string, userpass string, token string, oidc bool, overrideFatalExit ...func(v ...any)) (map[string]string, []string, error) {
+		return map[string]string{"accessToken": "token-123", "username": "alice", "mail": "alice@example.org"}, []string{"group-a"}, nil
+	}
+	testForExistingSourceFolderFn = func(datasetPaths []string, client *http.Client, apiServer, token string) (datasetIngestor.DatasetQuery, error) {
+		return datasetIngestor.DatasetQuery{}, nil
+	}
+	checkCentralAvailabilityFn = func(username, rsyncServer, sourceFolder string, output io.Writer) (error, error) {
+		return nil, nil
+	}
+	updateMetaDataFn = func(client *http.Client, APIServer string, user map[string]string, originalMap map[string]string, metaDataMap map[string]interface{}, startTime time.Time, endTime time.Time, owner string, tapecopies int) {
+	}
+	resetUpdatedMetaDataFn = func(originalMap map[string]string, metaDataMap map[string]interface{}) {}
+	addAttachmentFn = func(client *http.Client, apiServer, datasetId string, metaDataMap map[string]interface{}, token, filename, caption string) error {
+		return nil
+	}
+	ingestDatasetFn = func(client *http.Client, APIServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error) {
+		t.Fatalf("ingestDatasetFn should not be used when dataset id is passed")
+		return "", nil
+	}
+
+	tmp := t.TempDir()
+	sourceFolder := filepath.Join(tmp, "source")
+	if err := os.MkdirAll(sourceFolder, 0o755); err != nil {
+		t.Fatalf("failed creating source folder: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceFolder, "data.txt"), []byte("payload"), 0o600); err != nil {
+		t.Fatalf("failed creating sample data file: %v", err)
+	}
+
+	var origDatablockRequests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/Datasets":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(fmt.Sprintf(`[{"pid":"%s","sourceFolder":"%s","size":0,"ownerGroup":"p12345"}]`, "/beamline/p12345/ds1", sourceFolder)))
+		case r.Method == http.MethodPost && r.URL.Path == "/origdatablocks":
+			origDatablockRequests++
+			w.WriteHeader(http.StatusOK)
+		case r.Method == http.MethodPost && r.URL.Path == "/datasets":
+			t.Fatalf("dataset creation must not be called when passing a dataset id")
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	cmd := makeIngestPipelineTestCmd()
+	if err := cmd.Flags().Set("ingest", "true"); err != nil {
+		t.Fatalf("failed to set ingest flag: %v", err)
+	}
+	if err := cmd.Flags().Set("nocopy", "true"); err != nil {
+		t.Fatalf("failed to set nocopy flag: %v", err)
+	}
+	if err := cmd.Flags().Set("scicat-url", server.URL); err != nil {
+		t.Fatalf("failed to set scicat-url flag: %v", err)
+	}
+
+	RunIngestionPipeline(cmd, []string{"/beamline/p12345/ds1"}, "v1.2.3")
+
+	if origDatablockRequests == 0 {
+		t.Fatalf("expected orig datablocks to be created for dataset id input")
+	}
+}
+
 func TestRunIngestionPipelineMultipleArgsCreatesExpectedArchiveJob(t *testing.T) {
 	prevFlagsHook := datasetUtils.TestFlags
 	prevArgsHook := datasetUtils.TestArgs
