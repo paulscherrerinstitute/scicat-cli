@@ -90,10 +90,12 @@ func TestSubmitArchivalJobSuccess(t *testing.T) {
 	base := &TransportEngine{
 		Client:    server.Client(),
 		APIServer: server.URL,
-		User: map[string]string{
-			"accessToken": "token-123",
-			"username":    "alice",
-			"mail":        "alice@example.org",
+		UserSession: &UserSession{
+			User: map[string]string{
+				"accessToken": "token-123",
+				"username":    "alice",
+				"mail":        "alice@example.org",
+			},
 		},
 	}
 	svc := NewArchiveService(base)
@@ -117,10 +119,12 @@ func TestSubmitArchivalJobReturnsErrorOnBackendFailure(t *testing.T) {
 	base := &TransportEngine{
 		Client:    server.Client(),
 		APIServer: server.URL,
-		User: map[string]string{
-			"accessToken": "token-123",
-			"username":    "alice",
-			"mail":        "alice@example.org",
+		UserSession: &UserSession{
+			User: map[string]string{
+				"accessToken": "token-123",
+				"username":    "alice",
+				"mail":        "alice@example.org",
+			},
 		},
 	}
 	svc := NewArchiveService(base)
@@ -138,10 +142,12 @@ func TestSubmitArchivalJobReturnsErrorWhenOwnerGroupMissing(t *testing.T) {
 	base := &TransportEngine{
 		Client:    &http.Client{},
 		APIServer: "http://example.invalid",
-		User: map[string]string{
-			"accessToken": "token-123",
-			"username":    "alice",
-			"mail":        "alice@example.org",
+		UserSession: &UserSession{
+			User: map[string]string{
+				"accessToken": "token-123",
+				"username":    "alice",
+				"mail":        "alice@example.org",
+			},
 		},
 	}
 	svc := NewArchiveService(base)

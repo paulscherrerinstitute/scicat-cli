@@ -30,7 +30,7 @@ func (as *ArchiveService) SubmitArchivalJob(commonOwnerGroup string, datasetIDs 
 	jobId, err := datasetUtils.CreateArchivalJob(
 		as.Base.Client,
 		as.Base.APIServer,
-		as.Base.User,
+		as.Base.UserSession.User,
 		commonOwnerGroup,
 		datasetIDs,
 		&tapeCopies,
