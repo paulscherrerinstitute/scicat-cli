@@ -64,6 +64,7 @@ type IngestConfig struct {
 	ShowVersion               bool
 	GlobusCfgFlag             string
 	GlobusCfgChanged          bool
+	RemoteFileScan            bool
 }
 
 // DatasetArgs holds the evaluated CLI positional arguments
@@ -137,6 +138,7 @@ func ParseConfig(cmd *cobra.Command) IngestConfig {
 		ShowVersion:               cliutils.GetCobraBoolFlag(cmd, "version"),
 		GlobusCfgFlag:             cliutils.GetCobraStringFlag(cmd, "globus-cfg"),
 		GlobusCfgChanged:          cmd.Flags().Lookup("globus-cfg").Changed,
+		RemoteFileScan:            cliutils.GetCobraBoolFlag(cmd, "remotefilescan"),
 	}
 }
 
@@ -705,9 +707,17 @@ func IngestTarget(ctx IngestContext, counters GlobalCounters, dArgs DatasetArgs)
 		}
 
 		archivable := InitializeLifecycleFields(metaDataMap, requiresCopy)
-
-		datasetId := RegisterDatasetWithCatalog(ctx.Client, ctx.APIServer, metaDataMap, fileCtx, ctx.User, ctx.Cfg, ingestDatasetFn, addAttachmentFn)
-
+		datasetId := ""
+		var registrarFn DatasetRegistrar = ingestDatasetFn
+		if ctx.Cfg.RemoteFileScan {
+			if lifecycle, ok := metaDataMap["datasetlifecycle"].(map[string]interface{}); ok {
+				lifecycle["archiveStatusMessage"] = "origDatablocksNotYetAvailable"
+			}
+			registrarFn = func(client *http.Client, apiServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error) {
+				return datasetIngestor.CreateDataset(client, apiServer, metaDataMap, user)
+			}
+		}
+		datasetId = RegisterDatasetWithCatalog(ctx.Client, ctx.APIServer, metaDataMap, fileCtx, ctx.User, ctx.Cfg, registrarFn, addAttachmentFn)
 		if requiresCopy {
 			archivable = ExecuteFileTransfer(
 				ctx.Client, ctx.APIServer, ctx.RSYNCServer, datasetId, datasetSourceFolder,

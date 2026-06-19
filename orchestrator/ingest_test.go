@@ -1,9 +1,12 @@
 package orchestrator
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sort"
@@ -38,6 +41,7 @@ func makeIngestPipelineTestCmd() *cobra.Command {
 	cmd.Flags().Bool("autoarchive", false, "")
 	cmd.Flags().String("linkfiles", "keepInternalOnly", "")
 	cmd.Flags().Bool("allowexistingsource", false, "")
+	cmd.Flags().Bool("remotefilescan", false, "")
 	cmd.Flags().String("addattachment", "", "")
 	cmd.Flags().String("addcaption", "", "")
 	cmd.Flags().Bool("version", false, "")
@@ -289,6 +293,173 @@ func TestRunIngestionPipelineMultipleArgsCreatesExpectedArchiveJob(t *testing.T)
 	sort.Strings(gotDatasetList)
 	if strings.Join(gotDatasetList, ",") != strings.Join(expected, ",") {
 		t.Fatalf("unexpected archive dataset list: got=%#v expected=%#v", gotDatasetList, expected)
+	}
+}
+
+func TestRunIngestionPipelineRemoteFileScanUsesDatasetStatusWithoutOrigDatablocks(t *testing.T) {
+	prevFlagsHook := datasetUtils.TestFlags
+	prevArgsHook := datasetUtils.TestArgs
+	prevCheckVersion := checkForNewVersionFn
+	prevCheckService := checkForServiceAvailabilityFn
+	prevAuth := authenticateFn
+	prevReadMeta := readAndCheckMetadataFn
+	prevTestExisting := testForExistingSourceFolderFn
+	prevCheckCentral := checkCentralAvailabilityFn
+	prevUpdateMeta := updateMetaDataFn
+	prevResetMeta := resetUpdatedMetaDataFn
+	prevIngest := ingestDatasetFn
+	prevAttach := addAttachmentFn
+	prevCreateJob := createArchivalJobFn
+	defer func() {
+		datasetUtils.TestFlags = prevFlagsHook
+		datasetUtils.TestArgs = prevArgsHook
+		checkForNewVersionFn = prevCheckVersion
+		checkForServiceAvailabilityFn = prevCheckService
+		authenticateFn = prevAuth
+		readAndCheckMetadataFn = prevReadMeta
+		testForExistingSourceFolderFn = prevTestExisting
+		checkCentralAvailabilityFn = prevCheckCentral
+		updateMetaDataFn = prevUpdateMeta
+		resetUpdatedMetaDataFn = prevResetMeta
+		ingestDatasetFn = prevIngest
+		addAttachmentFn = prevAttach
+		createArchivalJobFn = prevCreateJob
+	}()
+
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+	checkForNewVersionFn = func(client *http.Client, cmd string, version string) {}
+	checkForServiceAvailabilityFn = func(client *http.Client, testenv bool, autoarchive bool) {}
+	authenticateFn = func(authenticator cliutils.Authenticator, httpClient *http.Client, apiServer string, userpass string, token string, oidc bool, overrideFatalExit ...func(v ...any)) (map[string]string, []string, error) {
+		return map[string]string{"accessToken": "token-123", "username": "alice", "mail": "alice@example.org"}, []string{"group-a"}, nil
+	}
+	testForExistingSourceFolderFn = func(datasetPaths []string, client *http.Client, apiServer, token string) (datasetIngestor.DatasetQuery, error) {
+		return datasetIngestor.DatasetQuery{}, nil
+	}
+	checkCentralAvailabilityFn = func(username, rsyncServer, sourceFolder string, output io.Writer) (error, error) {
+		return nil, nil
+	}
+	updateMetaDataFn = func(client *http.Client, APIServer string, user map[string]string, originalMap map[string]string, metaDataMap map[string]interface{}, startTime time.Time, endTime time.Time, owner string, tapecopies int) {
+	}
+	resetUpdatedMetaDataFn = func(originalMap map[string]string, metaDataMap map[string]interface{}) {}
+	addAttachmentFn = func(client *http.Client, apiServer, datasetId string, metaDataMap map[string]interface{}, token, filename, caption string) error {
+		return nil
+	}
+	ingestDatasetFn = func(client *http.Client, APIServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error) {
+		t.Fatalf("ingestDatasetFn should not be used when remoteFileScan is enabled")
+		return "", nil
+	}
+
+	tmp := t.TempDir()
+	metaToSource := map[string]string{
+		"m1.json": filepath.Join(tmp, "remote1"),
+		"m2.json": filepath.Join(tmp, "remote2"),
+	}
+	metaToFolderList := make(map[string]string, len(metaToSource))
+	for metaFile, src := range metaToSource {
+		if err := os.MkdirAll(src, 0o755); err != nil {
+			t.Fatalf("failed creating source folder: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(src, "data.txt"), []byte("payload"), 0o600); err != nil {
+			t.Fatalf("failed creating sample data file: %v", err)
+		}
+		listPath := filepath.Join(tmp, strings.TrimSuffix(metaFile, ".json")+"-folderlisting.txt")
+		if err := os.WriteFile(listPath, []byte(src+"\n"), 0o600); err != nil {
+			t.Fatalf("failed creating folder listing file: %v", err)
+		}
+		metaToFolderList[metaFile] = listPath
+	}
+
+	var postedLifecycleStatuses []string
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/datasets":
+			requestCount++
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("failed reading dataset request body: %v", err)
+			}
+			var payload map[string]interface{}
+			if err := json.Unmarshal(body, &payload); err != nil {
+				t.Fatalf("failed decoding dataset payload: %v", err)
+			}
+			lifecycle, ok := payload["datasetlifecycle"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("expected datasetlifecycle object in payload: %#v", payload)
+			}
+			status, _ := lifecycle["archiveStatusMessage"].(string)
+			postedLifecycleStatuses = append(postedLifecycleStatuses, status)
+			if status != "origDatablocksNotYetAvailable" {
+				t.Fatalf("expected archiveStatusMessage=origDatablocksNotYetAvailable, got %q", status)
+			}
+			if lifecycle["isOnCentralDisk"] != true || lifecycle["archivable"] != true {
+				t.Fatalf("unexpected lifecycle fields: %#v", lifecycle)
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"pid":"pid-remote-%d"}`, requestCount)))
+		case "/origdatablocks":
+			t.Fatalf("origdatablocks endpoint must not be called in remoteFileScan mode")
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	readAndCheckMetadataFn = func(client *http.Client, APIServer string, metadatafile string, user map[string]string, accessGroups []string) (map[string]interface{}, string, bool, error) {
+		src, ok := metaToSource[metadatafile]
+		if !ok {
+			return nil, "", false, errors.New("unexpected metadata file")
+		}
+		return map[string]interface{}{
+			"type":       "raw",
+			"ownerGroup": "p12345",
+		}, src, false, nil
+	}
+	ingestDatasetFn = func(client *http.Client, APIServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error) {
+		t.Fatalf("ingestDatasetFn should not be used when remoteFileScan is enabled")
+		return "", nil
+	}
+
+	var jobCalled bool
+	var gotDatasetList []string
+	createArchivalJobFn = func(client *http.Client, APIServer string, user map[string]string, ownerGroup string, datasetList []string, tapecopies *int, executionTime *time.Time) (string, error) {
+		jobCalled = true
+		gotDatasetList = append([]string{}, datasetList...)
+		if ownerGroup != "p12345" {
+			t.Fatalf("unexpected ownerGroup: %s", ownerGroup)
+		}
+		return "job-remote", nil
+	}
+
+	cmd := makeIngestPipelineTestCmd()
+	if err := cmd.Flags().Set("ingest", "true"); err != nil {
+		t.Fatalf("failed to set ingest flag: %v", err)
+	}
+	if err := cmd.Flags().Set("autoarchive", "true"); err != nil {
+		t.Fatalf("failed to set autoarchive flag: %v", err)
+	}
+	if err := cmd.Flags().Set("remotefilescan", "true"); err != nil {
+		t.Fatalf("failed to set remotefilescan flag: %v", err)
+	}
+	if err := cmd.Flags().Set("scicat-url", server.URL); err != nil {
+		t.Fatalf("failed to set scicat-url flag: %v", err)
+	}
+
+	args := []string{"m1.json:" + metaToFolderList["m1.json"], "m2.json:" + metaToFolderList["m2.json"]}
+	RunIngestionPipeline(cmd, args, "v1.2.3")
+
+	if !jobCalled {
+		t.Fatalf("expected archival job to be submitted")
+	}
+	if len(gotDatasetList) != 2 {
+		t.Fatalf("expected two dataset ids in archive job, got %#v", gotDatasetList)
+	}
+	if len(postedLifecycleStatuses) != 2 {
+		t.Fatalf("expected lifecycle to be posted for both datasets, got %#v", postedLifecycleStatuses)
+	}
+	if gotDatasetList[0] != "pid-remote-1" || gotDatasetList[1] != "pid-remote-2" {
+		t.Fatalf("unexpected archive dataset list: %#v", gotDatasetList)
 	}
 }
 

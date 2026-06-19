@@ -50,4 +50,5 @@ func init() {
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
+	datasetIngestorCmd.MarkFlagsMutuallyExclusive("remotefilescan", "copy")
 }
