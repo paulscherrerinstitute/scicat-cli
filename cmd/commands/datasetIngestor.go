@@ -7,9 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
-	"github.com/SwissOpenEM/globus"
 	"github.com/fatih/color"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
@@ -93,44 +91,6 @@ For Windows you need instead to specify -user username:password on the command l
 
 		// TODO: read in CFG!
 
-		// transfer type
-		transferType, err := cliutils.ConvertToTransferType(transferTypeFlag)
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-		var transferFiles func(params cliutils.TransferParams) (archivable bool, err error)
-
-		// globus specific vars (if needed)
-		var globusClient globus.GlobusClient
-		var gConfig cliutils.GlobusConfig
-
-		switch transferType {
-		case cliutils.Ssh:
-			transferFiles = cliutils.SshTransfer
-		case cliutils.Globus:
-			transferFiles = cliutils.GlobusTransfer
-			var globusConfigPath string
-			if cmd.Flags().Lookup("globus-cfg").Changed {
-				globusConfigPath = globusCfgFlag
-			} else {
-				execPath, err := os.Executable()
-				if err != nil {
-					log.Fatalln("can't find executable path:", err)
-				}
-				globusConfigPath = filepath.Join(filepath.Dir(execPath), "globus.yaml")
-			}
-
-			globusClient, gConfig, err = cliutils.GlobusLogin(globusConfigPath)
-			if err != nil {
-				log.Fatalln("couldn't create globus client:", err)
-			}
-
-			if autoarchiveFlag {
-				log.Fatalln("Cannot autoarchive when transferring via Globus due to the transfer happening asynchronously. Use the \"globusCheckTransfer\" command to archive them")
-			}
-		}
-
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
 				"ingest":              ingestFlag,
@@ -189,42 +149,20 @@ For Windows you need instead to specify -user username:password on the command l
 		if err != nil {
 			log.Fatal("Error in CheckMetadata function: ", err)
 		}
-		//log.Printf("metadata object: %v\n", metaDataMap)
+
+		fileService := backend.NewFileService(user, metadataSourceFolder, folderListingTxt, absFileListing, RSYNCServer)
+		err = fileService.InitializeTransferStrategy(
+			transferTypeFlag,
+			globusCfgFlag,
+			cmd.Flags().Lookup("globus-cfg").Changed,
+			autoarchiveFlag,
+		)
+		if err != nil {
+			log.Fatalln("Strategy allocation failed:", err)
+		}
 
 		// assemble list of datasetPaths (=datasets) to be created
-		var datasetPaths []string
-		if folderListingTxt == "" {
-			datasetPaths = append(datasetPaths, metadataSourceFolder)
-		} else {
-			// get folders from file
-			folderlist, err := os.ReadFile(folderListingTxt)
-			if err != nil {
-				log.Fatal(err)
-			}
-			lines := strings.Split(string(folderlist), "\n")
-			// remove all empty and comment lines
-			for _, line := range lines {
-				if line == "" || string(line[0]) == "#" {
-					continue
-				}
-				// NOTE what is this special third level "data" folder that needs to be unsymlinked?
-				// convert into canonical form only for certain online data linked from eaccounts home directories
-				var parts = strings.Split(line, "/")
-				if len(parts) > 3 && parts[3] == "data" {
-					realSourceFolder, err := filepath.EvalSymlinks(line)
-					if err != nil {
-						log.Fatalf("Failed to find canonical form of sourceFolder:%v %v\n", line, err)
-					}
-					color.Set(color.FgYellow)
-					log.Printf("Transform sourceFolder %v to canonical form: %v\n", line, realSourceFolder)
-					color.Unset()
-					datasetPaths = append(datasetPaths, realSourceFolder)
-				} else {
-					datasetPaths = append(datasetPaths, line)
-				}
-			}
-		}
-		// log.Printf("Selected folders: %v\n", folders)
+		datasetPaths := fileService.ResolveDatasetPaths()
 
 		// test if a sourceFolder already used in the past and give warning
 		log.Println("Testing for existing source folders...")
@@ -263,24 +201,9 @@ For Windows you need instead to specify -user username:password on the command l
 			copyFlag = false
 		}
 		checkCentralAvailability := !(cmd.Flags().Changed("copy") || cmd.Flags().Changed("nocopy") || beamlineAccount || copyFlag)
-		skipSymlinks := ""
+		skipSymlinks := fileService.EvaluateSymlinkStrategy(cmd.Flags().Changed("linkfiles"), linkfiles)
 
-		// check if skip flag is globally defined via flags:
-		if cmd.Flags().Changed("linkfiles") {
-			switch linkfiles {
-			case "delete":
-				skipSymlinks = "sA"
-			case "keep":
-				skipSymlinks = "kA"
-			default:
-				skipSymlinks = "dA" // default behaviour = keep internal for all
-			}
-		}
-
-		var skippedLinks uint = 0
-		var illegalFileNames uint = 0
-		localSymlinkCallback := createLocalSymlinkCallbackForFileLister(&skipSymlinks, &skippedLinks)
-		localFilepathFilterCallback := createLocalFilenameFilterCallback(&illegalFileNames)
+		localSymlinkCallback := createLocalSymlinkCallbackForFileLister(fileService, &skipSymlinks)
 
 		// now everything is prepared, prepare to loop over all folders
 		var archivableDatasetList []string
@@ -299,34 +222,20 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Printf("Scanning files in dataset %s", datasetSourceFolder)
 
 			// reset skip var. if not set for all datasets
-			if !(skipSymlinks == "sA" || skipSymlinks == "kA" || skipSymlinks == "dA") {
-				skipSymlinks = ""
-			}
+			skipSymlinks = fileService.ResetLocalSymlinkStrategy(skipSymlinks)
 
 			// === get filelist of dataset ===
-			log.Printf("Getting filelist for \"%s\"...\n", datasetSourceFolder)
-			fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
-				datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback)
+			fullFileArray, startTime, endTime, owner, isValid, err := fileService.ScanAndVerifyFiles(
+				datasetSourceFolder,
+				datasetFileListTxt,
+				localSymlinkCallback,
+			)
 			if err != nil {
-				log.Fatalf("Can't gather the filelist of \"%s\"", datasetSourceFolder)
+				log.Fatalf("Verification failed for \"%s\": %v", datasetSourceFolder, err)
 			}
 			log.Println("File list collected.")
-			//log.Printf("full fileListing: %v\n Start and end time: %s %s\n ", fullFileArray, startTime, endTime)
-			log.Printf("The dataset contains %v files with a total size of %v bytes.\n", numFiles, totalSize)
 
-			// filecount checks
-			if totalSize == 0 {
-				emptyDatasets++
-				color.Set(color.FgRed)
-				log.Printf("\"%s\" dataset cannot be ingested - contains no files\n", datasetSourceFolder)
-				color.Unset()
-				continue
-			}
-			if numFiles > cliutils.TOTAL_MAXFILES {
-				tooLargeDatasets++
-				color.Set(color.FgRed)
-				log.Printf("\"%s\" dataset cannot be ingested - too many files: has %d, max. %d\n", datasetSourceFolder, numFiles, cliutils.TOTAL_MAXFILES)
-				color.Unset()
+			if !isValid {
 				continue
 			}
 
@@ -347,33 +256,32 @@ For Windows you need instead to specify -user username:password on the command l
 			// and unless (no)copy flag defined via command line
 			if checkCentralAvailability {
 				log.Println("Checking if data is centrally available...")
-				sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(user["username"], RSYNCServer, datasetSourceFolder, os.Stdout)
-				if otherErr != nil {
-					log.Fatalln("Cannot check if data is centrally available:", otherErr)
+				needsCopy, sshErr := fileService.AuditCentralDataAvailability(datasetSourceFolder)
+				if sshErr != nil && needsCopy == false {
+					log.Fatalln("Cannot check if data is centrally available:", sshErr)
 				}
 				// if the ssh command's error is not nil, the dataset is *likely* to be not centrally available (maybe should check the error returned)
-				if sshErr != nil {
+				if needsCopy {
 					color.Set(color.FgYellow)
 					log.Printf("The source folder %v is not centrally available.\nThe data must first be copied.\n ", datasetSourceFolder)
 					color.Unset()
+
 					copyFlag = true
-					// check if user account
+
 					if len(accessGroups) == 0 {
 						color.Set(color.FgRed)
 						log.Println("For copying, you must use a personal account. Beamline accounts are not supported.")
 						color.Unset()
 						os.Exit(1)
 					}
+
 					if !noninteractiveFlag {
 						log.Printf("Do you want to continue (Y/n)? ")
 						scanner.Scan()
-						continueFlag := scanner.Text()
-						if continueFlag == "n" {
+						if scanner.Text() == "n" {
 							log.Fatalln("Further ingests interrupted because copying is needed, but no copy wanted.")
 						}
 					}
-				} else {
-					log.Println("Data is present centrally.")
 				}
 			}
 
@@ -412,39 +320,17 @@ For Windows you need instead to specify -user username:password on the command l
 				}
 				// === copying files ===
 				if copyFlag {
-					var err error = nil
-					// convert fullFileArray to a list of paths and symlink tests
-					var filePathList []string
-					var isSymlinkList []bool
-					for _, file := range fullFileArray {
-						filePathList = append(filePathList, file.Path)
-						isSymlinkList = append(isSymlinkList, file.IsSymlink)
-					}
-					params := cliutils.TransferParams{
-						SshParams: cliutils.SshParams{
-							Client:          client,
-							User:            user,
-							ApiServer:       APIServer,
-							RsyncServer:     RSYNCServer,
-							AbsFilelistPath: absFileListing,
-						},
-						GlobusParams: cliutils.GlobusParams{
-							GlobusClient:   globusClient,
-							SrcCollection:  gConfig.SourceCollection,
-							SrcPrefixPath:  gConfig.SourcePrefixPath,
-							DestCollection: gConfig.DestinationCollection,
-							DestPrefixPath: gConfig.DestinationPrefixPath,
-							Filelist:       filePathList,
-							IsSymlinkList:  isSymlinkList,
-						},
-						DatasetId:           datasetId,
-						DatasetSourceFolder: datasetSourceFolder,
-					}
+					archivable, err = fileService.TransferDatasetFiles(
+						datasetId,
+						datasetSourceFolder,
+						fullFileArray,
+						client,
+						APIServer,
+					)
 
-					archivable, err = transferFiles(params)
 					if err != nil {
 						color.Set(color.FgRed)
-						log.Printf("The  command to copy files exited with error %v \n", err)
+						log.Printf("The command to copy files exited with error %v \n", err)
 						log.Printf("The dataset %v is not yet in an archivable state\n", datasetId)
 						color.Unset()
 					}
@@ -465,6 +351,16 @@ For Windows you need instead to specify -user username:password on the command l
 			datasetIngestor.ResetUpdatedMetaData(originalMap, metaDataMap)
 		}
 
+		if fileService.EmptyDatasetsCount > 0 {
+			color.Set(color.FgRed)
+			log.Printf("Total empty datasets skipped: %d\n", fileService.EmptyDatasetsCount)
+		}
+		if fileService.TooLargeDatasetsCount > 0 {
+			color.Set(color.FgRed)
+			log.Printf("Total oversized datasets skipped: %d\n", fileService.TooLargeDatasetsCount)
+		}
+		color.Unset()
+
 		if !ingestFlag {
 			color.Set(color.FgRed)
 			log.Printf("Note: you run in 'dry' mode to simply to check data consistency. Use the --ingest flag to really ingest datasets.")
@@ -480,13 +376,13 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 		color.Unset()
 		// print file statistics
-		if skippedLinks > 0 {
+		if fileService.TotalSkippedLinks > 0 {
 			color.Set(color.FgYellow)
-			log.Printf("Total number of link files skipped:%v\n", skippedLinks)
+			log.Printf("Total number of link files skipped:%v\n", fileService.TotalSkippedLinks)
 		}
-		if illegalFileNames > 0 {
+		if fileService.TotalIllegalFileNames > 0 {
 			color.Set(color.FgRed)
-			log.Printf("Number of files ignored because of illegal filenames:%v\n", illegalFileNames)
+			log.Printf("Number of files ignored because of illegal filenames:%v\n", fileService.TotalIllegalFileNames)
 		}
 		color.Unset()
 
@@ -539,90 +435,31 @@ func init() {
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
 }
 
-func createLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {
+func createLocalSymlinkCallbackForFileLister(fileService *backend.FileService, skipSymlinks *string) func(string, string) (bool, error) {
 	scanner := bufio.NewScanner(os.Stdin)
+
 	return func(symlinkPath string, sourceFolder string) (bool, error) {
-		keep := true
-		pointee, _ := os.Readlink(symlinkPath) // just pass the file name
-		if !filepath.IsAbs(pointee) {
-			symlinkAbs, err := filepath.Abs(filepath.Dir(symlinkPath))
-			if err != nil {
-				return false, err
-			}
-			pointeeAbs := filepath.Join(symlinkAbs, pointee)
-			pointee, err = filepath.EvalSymlinks(pointeeAbs)
-			if err != nil {
-				log.Printf("Could not follow symlink for file:%v %v", pointeeAbs, err)
-				keep = false
-				log.Printf("keep variable set to %v", keep)
-			}
-		}
-		if *skipSymlinks == "ka" || *skipSymlinks == "kA" {
-			keep = true
-		} else if *skipSymlinks == "sa" || *skipSymlinks == "sA" {
-			keep = false
-		} else if *skipSymlinks == "da" || *skipSymlinks == "dA" {
-			keep = strings.HasPrefix(pointee, sourceFolder)
-		} else {
+		cliPromptHandler := func(warningMsg string, choicePrompt string) string {
 			color.Set(color.FgYellow)
-			log.Printf("Warning: the file %s is a link pointing to %v.", symlinkPath, pointee)
+			log.Println(warningMsg)
 			color.Unset()
-			log.Printf(`
-	Please test if this link is meaningful and not pointing
-	outside the sourceFolder %s. The default behaviour is to
-	keep only internal links within a source folder.
-	You can also specify that you want to apply the same answer to ALL
-	subsequent links within the current dataset, by appending an a (dA,ka,sa).
-	If you want to give the same answer even to all subsequent datasets
-	in this command then specify a capital 'A', e.g. (dA,kA,sA)
-	Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, sourceFolder)
+
+			log.Print(choicePrompt)
 			scanner.Scan()
-			*skipSymlinks = scanner.Text()
-			if *skipSymlinks == "" {
-				*skipSymlinks = "d"
-			}
-			if *skipSymlinks == "d" || *skipSymlinks == "dA" {
-				keep = strings.HasPrefix(pointee, sourceFolder)
-			} else {
-				keep = (*skipSymlinks != "s" && *skipSymlinks != "sa" && *skipSymlinks != "sA")
-			}
+			return scanner.Text()
 		}
+
+		keep, updatedStrategy := fileService.EvaluateSymlink(symlinkPath, sourceFolder, *skipSymlinks, cliPromptHandler)
+
+		*skipSymlinks = updatedStrategy
+
 		if keep {
 			color.Set(color.FgGreen)
-			log.Printf("You chose to keep the link %v -> %v.\n\n", symlinkPath, pointee)
 		} else {
 			color.Set(color.FgRed)
-			*skippedLinks++
-			log.Printf("You chose to remove the link %v -> %v.\n\n", symlinkPath, pointee)
 		}
 		color.Unset()
-		return keep, nil
-	}
-}
 
-func createLocalFilenameFilterCallback(illegalFileNamesCounter *uint) func(filepath string) bool {
-	return func(filepath string) (keep bool) {
-		keep = true
-		// make sure that filenames do not contain characters like "\" or "*"
-		if strings.ContainsAny(filepath, "*\\") {
-			color.Set(color.FgRed)
-			log.Printf("Warning: the file %s contains illegal characters like *,\\ and will not be archived.", filepath)
-			color.Unset()
-			if illegalFileNamesCounter != nil {
-				*illegalFileNamesCounter++
-			}
-			keep = false
-		}
-		// and check for triple blanks, they are used to separate columns in messages
-		if keep && strings.Contains(filepath, "   ") {
-			color.Set(color.FgRed)
-			log.Printf("Warning: the file %s contains 3 consecutive blanks which is not allowed. The file not be archived.", filepath)
-			color.Unset()
-			if illegalFileNamesCounter != nil {
-				*illegalFileNamesCounter++
-			}
-			keep = false
-		}
-		return keep
+		return keep, nil
 	}
 }
