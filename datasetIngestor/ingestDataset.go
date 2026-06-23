@@ -57,7 +57,7 @@ The function first creates a new dataset by sending a POST request to the approp
 based on the dataset type specified in metaDataMap. The dataset type can be "raw", "derived", or "base".
 If the dataset type is not one of these, the function logs a fatal error.
 
-The function then creates original data blocks for the dataset. It splits the dataset into blocks if the dataset
+The function then creates original data blocks for the dataset if remoteFiles is false. It splits the dataset into blocks if the dataset
 contains more than a certain number of files or if the total size of the files exceeds a certain limit.
 Each block is created by calling the createOrigBlock function and then sending a POST request to the "/OrigDatablocks"
 endpoint on the API server.
@@ -68,13 +68,14 @@ Returns:
 The ID of the created dataset.
 */
 func IngestDataset(client *http.Client, APIServer string, metaDataMap map[string]interface{},
-	fullFileArray []Datafile, user map[string]string) (datasetId string, err error) {
+	fullFileArray []Datafile, user map[string]string, remoteFiles bool) (datasetId string, err error) {
 	datasetId, err = createDataset(client, APIServer, metaDataMap, user)
 	if err != nil {
 		return datasetId, err
 	}
-	err = createOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
-
+	if !remoteFiles {
+		err = createOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
+	}
 	return datasetId, err
 }
 

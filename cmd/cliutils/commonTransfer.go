@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/SwissOpenEM/globus"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
 type SshParams struct {
@@ -28,6 +29,7 @@ type TransferParams struct {
 	SshParams
 	GlobusParams
 	// other params
-	DatasetId           string
-	DatasetSourceFolder string
+	DatasetId            string
+	DatasetSourceFolder  string
+	ArchiveStatusMessage datasetUtils.ArchiveStatusMessage
 }

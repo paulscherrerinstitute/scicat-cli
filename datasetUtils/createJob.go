@@ -13,6 +13,10 @@ type Job struct {
 	Id string `json:"id"`
 }
 
+type ExtraArchiveJobParams struct {
+	RemoteFileScan bool `json:"remoteFileScan,omitempty"`
+}
+
 /*
 `CreateArchivalJob` creates a new job on the server. It takes in an HTTP client, the API server URL, a user map, a list of datasets, and a pointer to an integer representing the number of tape copies.
 
@@ -26,13 +30,16 @@ Parameters:
 - client: A pointer to an http.Client instance
 - APIServer: A string representing the API server URL
 - user: A map with string keys and values representing user information
-- datasetMap: A list of datasets grouped by ownerGroups
+- ownerGroup: A string representing the owner group to which the job should belong
+- datasetList: A list of strings representing the datasets to be included in the job
 - tapecopies: A pointer to an integer representing the number of tape copies
+- executionTime: A pointer to a time.Time representing the execution time of the job
+- extraJobParams: An ExtraArchiveJobParams struct containing additional job parameters
 
 Returns:
 - jobId: A string representing the job ID if the job was successfully created, or an empty string otherwise
 */
-func CreateArchivalJob(client *http.Client, APIServer string, user map[string]string, ownerGroup string, datasetList []string, tapecopies *int, executionTime *time.Time) (jobId string, err error) {
+func CreateArchivalJob(client *http.Client, APIServer string, user map[string]string, ownerGroup string, datasetList []string, tapecopies *int, executionTime *time.Time, extraJobParams ExtraArchiveJobParams) (jobId string, err error) {
 	// important: define field with capital names and rename fields via 'json' constructs
 	// otherwise the marshaling will omit the fields !
 
@@ -45,6 +52,7 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 		TapeCopies string `json:"tapeCopies"`
 		Username   string `json:"username"`
 		OwnerGroup string `json:"ownerGroup"`
+		ExtraArchiveJobParams
 	}
 
 	type createJobDto struct {
@@ -77,9 +85,10 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 	createJob := createJobDto{
 		JobType: "archive",
 		JobParams: jobParamsStruct{
-			TapeCopies: tc,
-			Username:   user["username"],
-			OwnerGroup: ownerGroup,
+			TapeCopies:            tc,
+			Username:              user["username"],
+			OwnerGroup:            ownerGroup,
+			ExtraArchiveJobParams: extraJobParams,
 		},
 		JobStatusMessage: "jobSubmitted",
 		DatasetList:      dsMap,
@@ -130,7 +139,7 @@ func CreateArchivalJobs(client *http.Client, APIServer string, user map[string]s
 	errs = make([]error, len(groupedDatasetLists))
 	i := 0
 	for group := range groupedDatasetLists {
-		jobIds[i], errs[i] = CreateArchivalJob(client, APIServer, user, group, groupedDatasetLists[group], tapecopies, nil)
+		jobIds[i], errs[i] = CreateArchivalJob(client, APIServer, user, group, groupedDatasetLists[group], tapecopies, nil, ExtraArchiveJobParams{})
 	}
 	return jobIds, errs
 }
