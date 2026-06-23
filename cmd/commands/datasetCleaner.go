@@ -37,26 +37,36 @@ For further help see "` + cliutils.MANUAL + `"`,
 
 		const CMD = "datasetCleaner"
 
+		envConfig := cliutils.InputEnvironmentConfig{
+			TestenvFlag: cliutils.GetCobraBoolFlag(cmd, "testenv"),
+			DevenvFlag:  cliutils.GetCobraBoolFlag(cmd, "devenv"),
+			ScicatUrl:   cliutils.GetCobraStringFlag(cmd, "scicat-url"),
+		}
+
 		// pass parameters
-		removeFromCatalogFlag, _ := cmd.Flags().GetBool("removeFromCatalog")
-		nonInteractiveFlag, _ := cmd.Flags().GetBool("nonInteractive")
-		testenvFlag, _ := cmd.Flags().GetBool("testenv")
-		devenvFlag, _ := cmd.Flags().GetBool("devenv")
-		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
-		userpass, _ := cmd.Flags().GetString("user")
-		token, _ := cmd.Flags().GetString("token")
-		oidc, _ := cmd.Flags().GetBool("oidc")
-		showVersion, _ := cmd.Flags().GetBool("version")
+		ingestorConfig := cliutils.CleanConfig{
+			BaseConfig: cliutils.BaseConfig{
+				Userpass:       cliutils.GetCobraStringFlag(cmd, "user"),
+				Token:          cliutils.GetCobraStringFlag(cmd, "token"),
+				EnvConfig:      envConfig,
+				Oidc:           cliutils.GetCobraBoolFlag(cmd, "oidc"),
+				NonInteractive: cliutils.GetCobraBoolFlag(cmd, "nonInteractive"),
+				HttpClient:     client,
+			},
+			RemoveFromCatalog: cliutils.GetCobraBoolFlag(cmd, "removeFromCatalog"),
+		}
+
+		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
-				"user":              userpass,
-				"token":             token,
-				"testenv":           testenvFlag,
-				"devenv":            devenvFlag,
-				"scicat-url":        scicatUrl,
-				"nonInteractive":    nonInteractiveFlag,
-				"removeFromCatalog": removeFromCatalogFlag,
+				"user":              ingestorConfig.Userpass,
+				"token":             ingestorConfig.Token,
+				"testenv":           envConfig.TestenvFlag,
+				"devenv":            envConfig.DevenvFlag,
+				"scicat-url":        envConfig.ScicatUrl,
+				"nonInteractive":    ingestorConfig.NonInteractive,
+				"removeFromCatalog": ingestorConfig.RemoveFromCatalog,
 				"version":           showVersion,
 			})
 			return
@@ -68,57 +78,17 @@ For further help see "` + cliutils.MANUAL + `"`,
 			return
 		}
 
-		// check for program version only if running interactively
-
-		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
-		datasetUtils.CheckForServiceAvailability(client, testenvFlag, true)
-
-		// configure environment
-		config := cliutils.InputEnvironmentConfig{
-			TestenvFlag: testenvFlag,
-			DevenvFlag:  devenvFlag,
-			ScicatUrl:   scicatUrl,
-		}
-		APIServer := config.ResolveAPIServer()
-
 		if len(args) != 1 {
 			log.Println("invalid number of args")
 			return
 		}
-		pid := args[0]
 
-		user, _, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
+		err := ingestorConfig.RunFullRemoval(args[0], VERSION, CMD)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		if user["username"] != "archiveManager" {
-			log.Fatalf("You must be archiveManager to be allowed to delete datasets\n")
-		}
-
-		jobID, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag)
-		if err != nil {
-			if jobID != "" {
-				patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobID, string(datasetUtils.JobFailed))
-				if patchError != nil {
-					log.Fatalf("Failed to patch job status: %v", patchError)
-				}
-			}
-			log.Fatal(err)
-		}
-
-		if removeFromCatalogFlag {
-			err = datasetUtils.RemoveFromCatalog(client, APIServer, pid, jobID, user, nonInteractiveFlag)
-			if err != nil {
-				if jobID != "" {
-					patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobID, string(datasetUtils.JobFailed))
-					if patchError != nil {
-						log.Fatalf("Failed to patch job status: %v", patchError)
-					}
-				}
-				log.Fatal(err)
-			}
-		} else {
+		if !ingestorConfig.RemoveFromCatalog {
 			log.Println("To also delete the dataset from the catalog add the flag --removeFromCatalog")
 		}
 	},
