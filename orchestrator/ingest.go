@@ -64,6 +64,16 @@ type DatasetArgs struct {
 	AbsFileListing     string
 }
 
+type ingestionResult struct {
+	archivableDatasets []string
+	ownerGroup         string
+	user               map[string]string
+	skippedLinks       uint
+	illegalFileNames   uint
+	emptyDatasets      int
+	tooLargeDatasets   int
+}
+
 type FileContext struct {
 	FullFileArray []datasetIngestor.Datafile
 	StartTime     time.Time
@@ -149,6 +159,83 @@ func ParseAndValidateArgs(args []string) (DatasetArgs, error) {
 		}
 	}
 	return dArgs, nil
+}
+
+func ParseAndValidateSeparatorArg(arg string) (DatasetArgs, error) {
+	meta, fileList, _ := strings.Cut(arg, "@")
+	if meta == "" {
+		return DatasetArgs{}, fmt.Errorf("invalid argument %q: metadata file cannot be empty", arg)
+	}
+	if fileList == "" {
+		return ParseAndValidateArgs([]string{meta})
+	}
+	return ParseAndValidateArgs([]string{meta, fileList})
+}
+
+func ParseAndValidateAllArgs(args []string) ([]DatasetArgs, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("no execution arguments provided")
+	}
+
+	for _, arg := range args {
+		if err := ValidateArgumentFormat(arg); err != nil {
+			return nil, err
+		}
+	}
+
+	// Legacy mode: no colons anywhere — delegate to the single/double positional arg parser.
+	if isLegacyMode(args) {
+		singleArg, err := ParseAndValidateArgs(args)
+		if err != nil {
+			return nil, fmt.Errorf("invalid arguments: %w", err)
+		}
+		return []DatasetArgs{singleArg}, nil
+	}
+
+	// Colon mode: every arg is "meta.json[:filelist.txt]".
+	allArgs := make([]DatasetArgs, 0, len(args))
+	for i, arg := range args {
+		dArgs, err := ParseAndValidateSeparatorArg(arg)
+		if err != nil {
+			return nil, fmt.Errorf("invalid argument at position %d: %w", i+1, err)
+		}
+		allArgs = append(allArgs, dArgs)
+	}
+	return allArgs, nil
+}
+
+func isLegacyMode(args []string) bool {
+	return len(args) == 2 &&
+		filepath.Ext(args[1]) == ".txt" &&
+		!strings.Contains(args[0], "@") &&
+		!strings.Contains(args[1], "@")
+}
+
+func ValidateArgumentFormat(arg string) error {
+	cleanArg := strings.TrimSpace(arg)
+	if cleanArg == "" {
+		return fmt.Errorf("argument cannot be empty")
+	}
+
+	if left, right, found := strings.Cut(cleanArg, "@"); found {
+		if strings.HasSuffix(cleanArg, "@") {
+			return fmt.Errorf("invalid argument format %q: argument cannot end with @", arg)
+		}
+		if filepath.Ext(left) != ".json" {
+			return fmt.Errorf("invalid format in pair %q: left side must have a .json extension", arg)
+		}
+		if right != "" && filepath.Ext(right) != ".txt" {
+			return fmt.Errorf("invalid format in pair %q: right side must have a .txt extension", arg)
+		}
+		return nil
+	}
+
+	ext := filepath.Ext(cleanArg)
+	if ext == ".json" || ext == ".txt" {
+		return nil
+	}
+
+	return fmt.Errorf("invalid argument format %q: must be 'metadata.json@filelist.txt', '.json', or '.txt'", arg)
 }
 
 func SetupTransferStrategy(cfg IngestConfig) (func(cliutils.TransferParams) (bool, error), globus.GlobusClient, cliutils.GlobusConfig, error) {
@@ -429,6 +516,25 @@ func ExecuteFileTransfer(
 	return archivable
 }
 
+func submitAndPrintResults(ictx IngestContext, user map[string]string, ownerGroup string, archivableDatasets []string) error {
+	for _, id := range archivableDatasets {
+		fmt.Println(id)
+	}
+	if !ictx.Cfg.AutoarchiveFlag || !ictx.Cfg.IngestFlag || len(archivableDatasets) == 0 {
+		return nil
+	}
+	log.Printf("Submitting Archive Job for the ingested datasets.\n")
+	jobId, err := ictx.CreateArchivalJob(ictx.Client, ictx.APIServer, user, ownerGroup, archivableDatasets, &ictx.Cfg.Tapecopies, nil)
+	if err != nil {
+		color.Set(color.FgRed)
+		log.Printf("Could not create the archival job: %s\n", err.Error())
+		color.Unset()
+		return fmt.Errorf("could not create the archival job: %w", err)
+	}
+	log.Println("Submitted job:", jobId)
+	return nil
+}
+
 // RunIngestionPipeline is the Cobra entry point. It wires real implementations
 // into IngestContext and is the only function in this package that calls log.Fatal.
 func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
@@ -464,15 +570,74 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 		AddAttachment:               datasetIngestor.AddAttachment,
 		CreateArchivalJob:           datasetUtils.CreateArchivalJob,
 	}
-	if err := runIngestionPipeline(ctx, args, version); err != nil {
+
+	dArgs, err := ParseAndValidateAllArgs(args)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if len(dArgs) > 1 && cfg.AutoarchiveFlag {
+		color.Set(color.FgYellow)
+		fmt.Println("All datasets must share the same 'ownerGroup' or auto-archive will fail.")
+		color.Unset()
+	}
+
+	if err := runIngestionPipeline(ctx, dArgs, version); err != nil {
 		log.Fatal(err)
 	}
 }
 
-// runIngestionPipeline is the unexported, testable core. It operates entirely
+func runIngestionPipeline(ictx IngestContext, dArgs []DatasetArgs, version string) error {
+	var allArchivable []string
+	var ownerGroup string
+	var firstUser map[string]string
+	var skippedLinks, illegalFileNames uint
+	var emptyDatasets, tooLargeDatasets int
+
+	for _, dArg := range dArgs {
+		res, err := runIngestionBeforeArchive(ictx, dArg, version)
+		if err != nil {
+			return fmt.Errorf("error ingesting dataset with metadata %q: %w", dArg.MetadataFile, err)
+		}
+		allArchivable = append(allArchivable, res.archivableDatasets...)
+		skippedLinks += res.skippedLinks
+		illegalFileNames += res.illegalFileNames
+		emptyDatasets += res.emptyDatasets
+		tooLargeDatasets += res.tooLargeDatasets
+		if firstUser == nil {
+			firstUser = res.user
+			ownerGroup = res.ownerGroup
+		}
+	}
+
+	if !ictx.Cfg.IngestFlag {
+		color.Set(color.FgRed)
+		log.Printf("Note: you run in 'dry' mode to simply to check data consistency. Use the --ingest flag to really ingest datasets.")
+		color.Unset()
+	}
+
+	if skippedLinks > 0 {
+		color.Set(color.FgYellow)
+		log.Printf("Total number of link files skipped: %v\n", skippedLinks)
+		color.Unset()
+	}
+	if illegalFileNames > 0 {
+		color.Set(color.FgRed)
+		log.Printf("Number of files ignored because of illegal filenames: %v\n", illegalFileNames)
+		color.Unset()
+	}
+
+	if emptyDatasets > 0 || tooLargeDatasets > 0 {
+		return fmt.Errorf("errors encountered with dataset layouts: %d empty, %d too large", emptyDatasets, tooLargeDatasets)
+	}
+
+	return submitAndPrintResults(ictx, firstUser, ownerGroup, allArchivable)
+}
+
+// runIngestionBeforeArchive is the per-dataset core. It operates entirely
 // through ictx and never reads package-level state except for the project-wide
 // datasetUtils.TestFlags/TestArgs hooks.
-func runIngestionPipeline(ictx IngestContext, args []string, version string) error {
+func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, version string) (ingestionResult, error) {
 	tooLargeDatasets := 0
 	emptyDatasets := 0
 	originalMap := make(map[string]string)
@@ -499,22 +664,17 @@ func runIngestionPipeline(ictx IngestContext, args []string, version string) err
 			"addcaption":          ictx.Cfg.AddCaption,
 			"version":             ictx.Cfg.ShowVersion,
 		})
-		return nil
-	}
-
-	dArgs, err := ParseAndValidateArgs(args)
-	if err != nil {
-		return err
+		return ingestionResult{}, nil
 	}
 
 	if datasetUtils.TestArgs != nil {
 		datasetUtils.TestArgs([]interface{}{dArgs.MetadataFile, dArgs.DatasetFileListTxt, dArgs.FolderListingTxt})
-		return nil
+		return ingestionResult{}, nil
 	}
 
 	if ictx.Cfg.ShowVersion {
 		fmt.Printf("%s\n", version)
-		return nil
+		return ingestionResult{}, nil
 	}
 
 	ictx.CheckForNewVersion(ictx.Client, "datasetIngestor", version)
@@ -522,17 +682,17 @@ func runIngestionPipeline(ictx IngestContext, args []string, version string) err
 
 	user, accessGroups, err := ictx.Authenticate(cliutils.RealAuthenticator{}, ictx.Client, ictx.APIServer, ictx.Cfg.Userpass, ictx.Cfg.Token, ictx.Cfg.Oidc)
 	if err != nil {
-		return err
+		return ingestionResult{}, err
 	}
 
 	metaDataMap, metadataSourceFolder, beamlineAccount, err := ictx.ReadAndCheckMetadata(ictx.Client, ictx.APIServer, dArgs.MetadataFile, user, accessGroups)
 	if err != nil {
-		return fmt.Errorf("error in CheckMetadata function: %w", err)
+		return ingestionResult{}, fmt.Errorf("error in CheckMetadata function: %w", err)
 	}
 
 	datasetPaths, err := ResolveDatasetPaths(metadataSourceFolder, dArgs.FolderListingTxt)
 	if err != nil {
-		return err
+		return ingestionResult{}, err
 	}
 
 	if err := GuardExistingSourceFolders(
@@ -540,7 +700,7 @@ func runIngestionPipeline(ictx IngestContext, args []string, version string) err
 		ictx.Cfg.AllowExistingSourceFolder, ictx.Cfg.AllowExistingSourceFolderChanged,
 		ictx.TestForExistingSourceFolder,
 	); err != nil {
-		return err
+		return ingestionResult{}, err
 	}
 
 	if ictx.Cfg.NocopyFlag {
@@ -565,7 +725,7 @@ func runIngestionPipeline(ictx IngestContext, args []string, version string) err
 
 	archivableDatasetListOwnerGroup, ok := metaDataMap["ownerGroup"].(string)
 	if !ok {
-		return errors.New("can't recover ownerGroup")
+		return ingestionResult{}, errors.New("can't recover ownerGroup")
 	}
 
 	for _, datasetSourceFolder := range datasetPaths {
@@ -578,7 +738,7 @@ func runIngestionPipeline(ictx IngestContext, args []string, version string) err
 
 		fileCtx, err := GatherFiles(datasetSourceFolder, dArgs.DatasetFileListTxt, &skipSymlinks, &skippedLinks, &illegalFileNames)
 		if err != nil {
-			return fmt.Errorf("can't gather filelist of %q: %w", datasetSourceFolder, err)
+			return ingestionResult{}, fmt.Errorf("can't gather filelist of %q: %w", datasetSourceFolder, err)
 		}
 
 		if fileCtx.TotalSize == 0 {
@@ -613,7 +773,7 @@ func runIngestionPipeline(ictx IngestContext, args []string, version string) err
 		if checkCentralAvailability {
 			requiresCopy, err = VerifyCentralAvailability(ictx.Cfg, ictx.RsyncServer, datasetSourceFolder, user, accessGroups, ictx.Scanner, ictx.CheckCentralAvailability)
 			if err != nil {
-				return err
+				return ingestionResult{}, err
 			}
 		}
 
@@ -626,7 +786,7 @@ func runIngestionPipeline(ictx IngestContext, args []string, version string) err
 
 		datasetId, err := RegisterDatasetWithCatalog(ictx.Client, ictx.APIServer, metaDataMap, fileCtx, user, ictx.Cfg, ictx.IngestDataset, ictx.AddAttachment)
 		if err != nil {
-			return err
+			return ingestionResult{}, err
 		}
 
 		if requiresCopy {
@@ -640,43 +800,15 @@ func runIngestionPipeline(ictx IngestContext, args []string, version string) err
 		ictx.ResetUpdatedMetaData(originalMap, metaDataMap)
 	}
 
-	if !ictx.Cfg.IngestFlag {
-		color.Set(color.FgRed)
-		log.Printf("Note: you run in 'dry' mode to simply to check data consistency. Use the --ingest flag to really ingest datasets.")
-		color.Unset()
-	}
-
-	if skippedLinks > 0 {
-		color.Set(color.FgYellow)
-		log.Printf("Total number of link files skipped: %v\n", skippedLinks)
-		color.Unset()
-	}
-	if illegalFileNames > 0 {
-		color.Set(color.FgRed)
-		log.Printf("Number of files ignored because of illegal filenames: %v\n", illegalFileNames)
-		color.Unset()
-	}
-
-	if emptyDatasets > 0 || tooLargeDatasets > 0 {
-		return fmt.Errorf("errors encountered with dataset layouts: %d empty, %d too large", emptyDatasets, tooLargeDatasets)
-	}
-
-	if ictx.Cfg.AutoarchiveFlag && ictx.Cfg.IngestFlag {
-		log.Printf("Submitting Archive Job for the ingested datasets.\n")
-		jobId, err := ictx.CreateArchivalJob(ictx.Client, ictx.APIServer, user, archivableDatasetListOwnerGroup, archivableDatasetList, &ictx.Cfg.Tapecopies, nil)
-		if err != nil {
-			color.Set(color.FgRed)
-			log.Printf("Could not create the archival job: %s\n", err.Error())
-			color.Unset()
-		} else {
-			log.Println("Submitted job:", jobId)
-		}
-	}
-
-	for _, id := range archivableDatasetList {
-		fmt.Println(id)
-	}
-	return nil
+	return ingestionResult{
+		archivableDatasets: archivableDatasetList,
+		ownerGroup:         archivableDatasetListOwnerGroup,
+		user:               user,
+		skippedLinks:       skippedLinks,
+		illegalFileNames:   illegalFileNames,
+		emptyDatasets:      emptyDatasets,
+		tooLargeDatasets:   tooLargeDatasets,
+	}, nil
 }
 
 func CreateLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {

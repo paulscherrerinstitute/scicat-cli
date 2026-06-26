@@ -154,7 +154,7 @@ func TestMainFlags(t *testing.T) {
 				"addcaption":          "",
 				"tapecopies":          0,
 			},
-			args: []string{"datasetIngestor", "argument placeholder"},
+			args: []string{"datasetIngestor", "argument_placeholder.json"},
 		},
 		{ // note: the environment flags are mutually exclusive, not all of them can be set at once
 			name: "datasetIngestor test with (almost) all flags set",
@@ -204,7 +204,7 @@ func TestMainFlags(t *testing.T) {
 				"--addcaption",
 				"a seemingly random caption",
 				"--version",
-				"argument placeholder",
+				"argument_placeholder.json",
 			},
 		},
 		// datasetPublishData

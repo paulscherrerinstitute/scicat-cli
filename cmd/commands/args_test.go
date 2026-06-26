@@ -36,10 +36,10 @@ func TestArgs(t *testing.T) {
 			name: "datasetIngestor test with 2 params - filelisting",
 			expectedArgs: []interface{}{
 				"some/place/metadata.json",
-				"/some/path/",
+				"/some/path/filelisting.txt",
 				"",
 			},
-			args: []string{"datasetIngestor", "some/place/metadata.json", "/some/path/"},
+			args: []string{"datasetIngestor", "some/place/metadata.json", "/some/path/filelisting.txt"},
 		},
 	}
 
