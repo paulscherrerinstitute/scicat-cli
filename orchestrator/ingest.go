@@ -56,6 +56,7 @@ type IngestConfig struct {
 	ShowVersion                      bool
 	GlobusCfgFlag                    string
 	GlobusCfgChanged                 bool
+	RemoteFileScan                   bool
 }
 
 type DatasetArgs struct {
@@ -140,6 +141,7 @@ func ParseConfig(cmd *cobra.Command) IngestConfig {
 		ShowVersion:                      cliutils.GetCobraBoolFlag(cmd, "version"),
 		GlobusCfgFlag:                    cliutils.GetCobraStringFlag(cmd, "globus-cfg"),
 		GlobusCfgChanged:                 cmd.Flags().Lookup("globus-cfg").Changed,
+		RemoteFileScan:                   cliutils.GetCobraBoolFlag(cmd, "remotefilescan"),
 	}
 }
 
@@ -470,6 +472,7 @@ func ExecuteFileTransfer(
 	globusClient globus.GlobusClient,
 	gConfig cliutils.GlobusConfig,
 	transferTypeFlag string,
+	markFilesReady bool,
 ) bool {
 	filePathList := make([]string, 0, len(fileCtx.FullFileArray))
 	isSymlinkList := make([]bool, 0, len(fileCtx.FullFileArray))
@@ -486,6 +489,7 @@ func ExecuteFileTransfer(
 			ApiServer:       apiServer,
 			RsyncServer:     rsyncServer,
 			AbsFilelistPath: absFileListing,
+			MarkFilesReady:  markFilesReady,
 		},
 		GlobusParams: cliutils.GlobusParams{
 			GlobusClient:   globusClient,
@@ -549,6 +553,13 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 		log.Fatal(err)
 	}
 
+	if cfg.RemoteFileScan {
+		cfg.NocopyFlag = true
+		cfg.NocopyFlagChanged = true
+	}
+
+	ingestFn := selectIngestFunction(cfg)
+
 	ctx := IngestContext{
 		Cfg:           cfg,
 		Client:        client,
@@ -567,7 +578,7 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 		CheckCentralAvailability:    datasetIngestor.CheckDataCentrallyAvailableSsh,
 		UpdateMetaData:              datasetIngestor.UpdateMetaData,
 		ResetUpdatedMetaData:        datasetIngestor.ResetUpdatedMetaData,
-		IngestDataset:               datasetIngestor.IngestDataset,
+		IngestDataset:               ingestFn,
 		AddAttachment:               datasetIngestor.AddAttachment,
 		CreateArchivalJob:           datasetUtils.CreateArchivalJob,
 	}
@@ -586,6 +597,16 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 	if err := runIngestionPipeline(ctx, dArgs, version); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func selectIngestFunction(cfg IngestConfig) func(client *http.Client, APIServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error) {
+	ingestFn := datasetIngestor.IngestDataset
+	if cfg.RemoteFileScan {
+		ingestFn = func(client *http.Client, APIServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error) {
+			return datasetIngestor.CreateDataset(client, APIServer, metaDataMap, user)
+		}
+	}
+	return ingestFn
 }
 
 func runParallelIngestionPipeline(ictx IngestContext, dArgs []DatasetArgs, version string, runResult *ingestionResult) error {
@@ -719,6 +740,7 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, version st
 			"addattachment":       ictx.Cfg.AddAttachment,
 			"addcaption":          ictx.Cfg.AddCaption,
 			"version":             ictx.Cfg.ShowVersion,
+			"remotefilescan":      ictx.Cfg.RemoteFileScan,
 		})
 		return ingestionResult{}, nil
 	}
@@ -792,37 +814,41 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, version st
 		log.Printf("===== Ingesting: \"%s\" =====\n", datasetSourceFolder)
 		metaDataMap["sourceFolder"] = datasetSourceFolder
 
-		fileCtx, err := GatherFiles(datasetSourceFolder, dArgs.DatasetFileListTxt, &skipSymlinks, &skippedLinks, &illegalFileNames)
-		if err != nil {
-			return ingestionResult{}, fmt.Errorf("can't gather filelist of %q: %w", datasetSourceFolder, err)
-		}
+		var err error
+		var fileCtx FileContext
+		if !ictx.Cfg.RemoteFileScan {
+			fileCtx, err = GatherFiles(datasetSourceFolder, dArgs.DatasetFileListTxt, &skipSymlinks, &skippedLinks, &illegalFileNames)
+			if err != nil {
+				return ingestionResult{}, fmt.Errorf("can't gather filelist of %q: %w", datasetSourceFolder, err)
+			}
 
-		if fileCtx.TotalSize == 0 {
-			emptyDatasets++
-			color.Set(color.FgRed)
-			log.Printf("\"%s\" dataset cannot be ingested - contains no files\n", datasetSourceFolder)
-			color.Unset()
-			continue
-		}
-		if fileCtx.NumFiles > cliutils.TOTAL_MAXFILES {
-			tooLargeDatasets++
-			color.Set(color.FgRed)
-			log.Printf("\"%s\" dataset cannot be ingested - too many files: has %d, max. %d\n", datasetSourceFolder, fileCtx.NumFiles, cliutils.TOTAL_MAXFILES)
-			color.Unset()
-			continue
+			if fileCtx.TotalSize == 0 {
+				emptyDatasets++
+				color.Set(color.FgRed)
+				log.Printf("\"%s\" dataset cannot be ingested - contains no files\n", datasetSourceFolder)
+				color.Unset()
+				continue
+			}
+			if fileCtx.NumFiles > cliutils.TOTAL_MAXFILES {
+				tooLargeDatasets++
+				color.Set(color.FgRed)
+				log.Printf("\"%s\" dataset cannot be ingested - too many files: has %d, max. %d\n", datasetSourceFolder, fileCtx.NumFiles, cliutils.TOTAL_MAXFILES)
+				color.Unset()
+				continue
+			}
+
+			ictx.UpdateMetaData(ictx.Client, ictx.APIServer, user, originalMap, metaDataMap, fileCtx.StartTime, fileCtx.EndTime, fileCtx.Owner, ictx.Cfg.Tapecopies)
+			if pretty, err := json.MarshalIndent(metaDataMap, "", "    "); err != nil {
+				log.Printf("Warning: could not marshal metadata for display: %v\n", err)
+			} else {
+				log.Printf("Updated metadata object:\n%s\n", pretty)
+			}
 		}
 
 		if ictx.Cfg.Tapecopies == 2 {
 			color.Set(color.FgYellow)
 			log.Println("Note: this dataset, if archived, will be copied to two tape copies")
 			color.Unset()
-		}
-
-		ictx.UpdateMetaData(ictx.Client, ictx.APIServer, user, originalMap, metaDataMap, fileCtx.StartTime, fileCtx.EndTime, fileCtx.Owner, ictx.Cfg.Tapecopies)
-		if pretty, err := json.MarshalIndent(metaDataMap, "", "    "); err != nil {
-			log.Printf("Warning: could not marshal metadata for display: %v\n", err)
-		} else {
-			log.Printf("Updated metadata object:\n%s\n", pretty)
 		}
 
 		requiresCopy := ictx.Cfg.CopyFlag
@@ -839,14 +865,18 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, version st
 		}
 
 		archivable := InitializeLifecycleFields(metaDataMap, requiresCopy)
-
+		if ictx.Cfg.RemoteFileScan {
+			if lifecycle, ok := metaDataMap["datasetlifecycle"].(map[string]interface{}); ok {
+				lifecycle["archiveStatusMessage"] = "origDatablocksNotYetAvailable"
+			}
+		}
 		datasetId, err := RegisterDatasetWithCatalog(ictx.Client, ictx.APIServer, metaDataMap, fileCtx, user, ictx.Cfg, ictx.IngestDataset, ictx.AddAttachment)
 		if err != nil {
 			return ingestionResult{}, err
 		}
 
 		if requiresCopy {
-			archivable = ExecuteFileTransfer(ictx.Client, ictx.APIServer, ictx.RsyncServer, datasetId, datasetSourceFolder, dArgs.AbsFileListing, user, fileCtx, ictx.TransferFiles, ictx.GlobusClient, ictx.GConfig, ictx.Cfg.TransferTypeFlag)
+			archivable = ExecuteFileTransfer(ictx.Client, ictx.APIServer, ictx.RsyncServer, datasetId, datasetSourceFolder, dArgs.AbsFileListing, user, fileCtx, ictx.TransferFiles, ictx.GlobusClient, ictx.GConfig, ictx.Cfg.TransferTypeFlag, !ictx.Cfg.RemoteFileScan)
 		}
 
 		if archivable {
