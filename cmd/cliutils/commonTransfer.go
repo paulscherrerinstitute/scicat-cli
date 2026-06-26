@@ -12,6 +12,7 @@ type SshParams struct {
 	User            map[string]string
 	RsyncServer     string
 	AbsFilelistPath string
+	MarkFilesReady  bool
 }
 
 type GlobusParams struct {

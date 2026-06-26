@@ -79,6 +79,7 @@ func makeIngestPipelineTestCmd() *cobra.Command {
 	cmd.Flags().String("addcaption", "", "")
 	cmd.Flags().Bool("version", false, "")
 	cmd.Flags().String("globus-cfg", "", "")
+	cmd.Flags().Bool("remotefilescan", false, "")
 	return cmd
 }
 
@@ -592,6 +593,7 @@ func TestExecuteFileTransferBuildsParams(t *testing.T) {
 		globus.GlobusClient{},
 		cliutils.GlobusConfig{},
 		"ssh",
+		true,
 	)
 
 	if !called {
@@ -619,6 +621,7 @@ func TestExecuteFileTransferReturnsFalseOnError(t *testing.T) {
 		globus.GlobusClient{},
 		cliutils.GlobusConfig{},
 		"ssh",
+		true,
 	)
 
 	if archivable {
@@ -1206,5 +1209,94 @@ func TestIsLegacyMode(t *testing.T) {
 				t.Fatalf("isLegacyMode(%v) = %v, want %v", tc.args, got, tc.want)
 			}
 		})
+	}
+}
+
+// TestRunIngestionPipelineRemoteFileScanSetsArchiveStatus verifies that with
+// --remotefilescan the orchestrator:
+//   - skips GatherFiles (sourceFolder is a non-existent remote path; if GatherFiles
+//     ran it would Chdir there and fail, causing the pipeline to error)
+//   - sets archiveStatusMessage to "origDatablocksNotYetAvailable"
+//   - registers the dataset as archivable (prints the dataset ID)
+func TestRunIngestionPipelineRemoteFileScanSetsArchiveStatus(t *testing.T) {
+	prevFlags := datasetUtils.TestFlags
+	prevArgs := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlags
+		datasetUtils.TestArgs = prevArgs
+	}()
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+
+	var gotArchiveStatus string
+
+	ctx := noopCtx()
+	ctx.Cfg = IngestConfig{
+		IngestFlag:        true,
+		RemoteFileScan:    true,
+		NocopyFlag:        true,
+		NocopyFlagChanged: true,
+		Tapecopies:        1,
+	}
+	// Return a remote path that does not exist locally — GatherFiles would fail
+	// if called, so a successful pipeline proves it was skipped.
+	ctx.ReadAndCheckMetadata = func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
+		return map[string]interface{}{"type": "raw", "ownerGroup": "grp"}, "/nonexistent/remote/source", false, nil
+	}
+	ctx.IngestDataset = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
+		if lc, ok := meta["datasetlifecycle"].(map[string]interface{}); ok {
+			gotArchiveStatus, _ = lc["archiveStatusMessage"].(string)
+		}
+		return "pid-remote", nil
+	}
+
+	out := captureStdout(t, func() {
+		dArgsList, err := ParseAndValidateAllArgs([]string{"meta.json"})
+		if err != nil {
+			t.Fatalf("parse error: %v", err)
+		}
+		if err := runIngestionPipeline(ctx, dArgsList, "v1.0.0"); err != nil {
+			t.Fatalf("pipeline error: %v", err)
+		}
+	})
+
+	if gotArchiveStatus != "origDatablocksNotYetAvailable" {
+		t.Fatalf("expected archiveStatusMessage %q, got %q", "origDatablocksNotYetAvailable", gotArchiveStatus)
+	}
+	if !strings.Contains(out, "pid-remote") {
+		t.Fatalf("expected dataset id in output, got: %q", out)
+	}
+}
+
+// TestExecuteFileTransferMarkFilesReadyPassedThrough verifies that the
+// markFilesReady flag is forwarded into SshParams.
+func TestExecuteFileTransferMarkFilesReadyPassedThrough(t *testing.T) {
+	for _, wantMark := range []bool{true, false} {
+		var gotMark bool
+		ExecuteFileTransfer(
+			&http.Client{}, "https://api", "rsync", "pid-1", "/src", "/list",
+			map[string]string{"username": "alice"},
+			FileContext{FullFileArray: []datasetIngestor.Datafile{{Path: "f"}}},
+			func(p cliutils.TransferParams) (bool, error) {
+				gotMark = p.SshParams.MarkFilesReady
+				return false, nil
+			},
+			globus.GlobusClient{}, cliutils.GlobusConfig{}, "ssh",
+			wantMark,
+		)
+		if gotMark != wantMark {
+			t.Fatalf("MarkFilesReady: got %v, want %v", gotMark, wantMark)
+		}
+	}
+}
+
+// TestSelectIngestFunction verifies that selectIngestFunction returns non-nil
+// for both modes (sanity check; real behavior tested via full-pipeline tests).
+func TestSelectIngestFunction(t *testing.T) {
+	if fn := selectIngestFunction(IngestConfig{RemoteFileScan: false}); fn == nil {
+		t.Fatal("expected non-nil function for RemoteFileScan=false")
+	}
+	if fn := selectIngestFunction(IngestConfig{RemoteFileScan: true}); fn == nil {
+		t.Fatal("expected non-nil function for RemoteFileScan=true")
 	}
 }
