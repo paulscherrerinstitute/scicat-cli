@@ -61,7 +61,9 @@ func init() {
 	datasetIngestorCmd.Flags().String("addattachment", "", "Filename of image to attach (single dataset case only)")
 	datasetIngestorCmd.Flags().String("addcaption", "", "Optional caption to be stored with attachment (single dataset case only)")
 	datasetIngestorCmd.Flags().String("globus-cfg", "", "Override globus transfer config file location [default: globus.yaml next to executable]")
+	datasetIngestorCmd.Flags().Bool("remotefilescan", false, "Enable remote file scan instead of local file scan (only for central case, i.e. --nocopy).")
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
+	datasetIngestorCmd.MarkFlagsMutuallyExclusive("remotefilescan", "copy")
 }

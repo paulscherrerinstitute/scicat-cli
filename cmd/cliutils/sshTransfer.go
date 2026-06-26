@@ -24,7 +24,9 @@ func SshTransfer(params TransferParams) (archivable bool, err error) {
 	if err == nil {
 		// mark dataset ready for archival
 		archivable = true
-		err = datasetIngestor.MarkFilesReady(client, apiServer, datasetId, user)
+		if params.MarkFilesReady {
+			err = datasetIngestor.MarkFilesReady(client, apiServer, datasetId, user)
+		}
 	}
 	log.Println("Syncing files - DONE")
 
