@@ -249,7 +249,11 @@ func TestRunIngestionPipelineMultipleSourceFoldersCreatesArchiveJob(t *testing.T
 		return "job-abc", nil
 	}
 
-	if err := runIngestionPipeline(ctx, []string{"meta.json", listPath}, "v1.0.0"); err != nil {
+	dArgsList, err := ParseAndValidateAllArgs([]string{"meta.json", listPath})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if err := runIngestionPipeline(ctx, dArgsList, "v1.0.0"); err != nil {
 		t.Fatalf("unexpected pipeline error: %v", err)
 	}
 
@@ -305,6 +309,143 @@ func TestParseAndValidateArgs(t *testing.T) {
 		}
 		if got.DatasetFileListTxt != "" {
 			t.Fatalf("dataset file list should be empty when folderlisting is provided")
+		}
+	})
+}
+
+func TestParseAndValidateSeparatorArg(t *testing.T) {
+	t.Run("meta with filelist", func(t *testing.T) {
+		got, err := ParseAndValidateSeparatorArg("meta.json@list.txt")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got.MetadataFile != "meta.json" || got.DatasetFileListTxt != "list.txt" {
+			t.Fatalf("unexpected result: %#v", got)
+		}
+		expectedAbs, _ := filepath.Abs("list.txt")
+		if got.AbsFileListing != expectedAbs {
+			t.Fatalf("expected abs %s, got %s", expectedAbs, got.AbsFileListing)
+		}
+	})
+
+	t.Run("meta without filelist via separator", func(t *testing.T) {
+		got, err := ParseAndValidateSeparatorArg("meta.json@")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got.MetadataFile != "meta.json" {
+			t.Fatalf("unexpected metadata file: %s", got.MetadataFile)
+		}
+		if got.DatasetFileListTxt != "" || got.AbsFileListing != "" {
+			t.Fatalf("expected empty filelist fields, got: %#v", got)
+		}
+	})
+
+	t.Run("no @ falls back to single meta arg", func(t *testing.T) {
+		got, err := ParseAndValidateSeparatorArg("meta.json")
+		if err != nil {
+			t.Fatalf("unexpected error for bare meta arg: %v", err)
+		}
+		if got.MetadataFile != "meta.json" {
+			t.Fatalf("unexpected metadata file: %s", got.MetadataFile)
+		}
+		if got.DatasetFileListTxt != "" || got.AbsFileListing != "" {
+			t.Fatalf("expected empty filelist fields, got: %#v", got)
+		}
+	})
+
+	t.Run("empty metadata returns error", func(t *testing.T) {
+		_, err := ParseAndValidateSeparatorArg("@list.txt")
+		if err == nil {
+			t.Fatal("expected error for empty metadata file")
+		}
+	})
+}
+
+func TestParseAndValidateAllArgs(t *testing.T) {
+	t.Run("legacy single arg", func(t *testing.T) {
+		got, err := ParseAndValidateAllArgs([]string{"meta.json"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(got) != 1 || got[0].MetadataFile != "meta.json" {
+			t.Fatalf("unexpected result: %#v", got)
+		}
+	})
+
+	t.Run("legacy two args with filelist", func(t *testing.T) {
+		got, err := ParseAndValidateAllArgs([]string{"meta.json", "list.txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(got) != 1 || got[0].DatasetFileListTxt != "list.txt" {
+			t.Fatalf("unexpected result: %#v", got)
+		}
+	})
+
+	t.Run("legacy two args with folderlisting", func(t *testing.T) {
+		got, err := ParseAndValidateAllArgs([]string{"meta.json", "folderlisting.txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(got) != 1 || got[0].FolderListingTxt != "folderlisting.txt" {
+			t.Fatalf("unexpected result: %#v", got)
+		}
+	})
+
+	t.Run("@ syntax single pair", func(t *testing.T) {
+		got, err := ParseAndValidateAllArgs([]string{"meta.json@list.txt"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(got) != 1 || got[0].MetadataFile != "meta.json" || got[0].DatasetFileListTxt != "list.txt" {
+			t.Fatalf("unexpected result: %#v", got)
+		}
+	})
+
+	t.Run("@ syntax multiple pairs", func(t *testing.T) {
+		got, err := ParseAndValidateAllArgs([]string{"a.json@l1.txt", "b.json@l2.txt", "c.json"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(got) != 3 {
+			t.Fatalf("expected 3 results, got %d", len(got))
+		}
+		if got[0].MetadataFile != "a.json" || got[1].MetadataFile != "b.json" || got[2].MetadataFile != "c.json" {
+			t.Fatalf("unexpected metadata files: %v %v %v", got[0].MetadataFile, got[1].MetadataFile, got[2].MetadataFile)
+		}
+		if got[2].DatasetFileListTxt != "" || got[2].AbsFileListing != "" {
+			t.Fatalf("expected empty filelist for third pair: %#v", got[2])
+		}
+	})
+
+	t.Run("empty args returns error", func(t *testing.T) {
+		_, err := ParseAndValidateAllArgs([]string{})
+		if err == nil {
+			t.Fatal("expected error for empty args")
+		}
+	})
+
+	t.Run("@ syntax with bare meta arg yields two datasets", func(t *testing.T) {
+		got, err := ParseAndValidateAllArgs([]string{"a.json@l.txt", "b.json"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(got) != 2 {
+			t.Fatalf("expected 2 results, got %d", len(got))
+		}
+		if got[0].MetadataFile != "a.json" || got[0].DatasetFileListTxt != "l.txt" {
+			t.Fatalf("unexpected first dataset: %#v", got[0])
+		}
+		if got[1].MetadataFile != "b.json" || got[1].DatasetFileListTxt != "" {
+			t.Fatalf("unexpected second dataset: %#v", got[1])
+		}
+	})
+
+	t.Run("invalid separator pair format returns error", func(t *testing.T) {
+		_, err := ParseAndValidateAllArgs([]string{"a.json@l.txt", "bad.csv@list.txt"})
+		if err == nil {
+			t.Fatal("expected error for invalid @ pair format (left side not .json)")
 		}
 	})
 }
@@ -625,8 +766,184 @@ func TestRunIngestionPipelineReturnsErrorWhenReadMetadataFails(t *testing.T) {
 		return nil, "", false, metaErr
 	}
 
-	err := runIngestionPipeline(ctx, []string{"meta.json"}, "v1.0.0")
+	dArgsList, _ := ParseAndValidateAllArgs([]string{"meta.json"})
+	err := runIngestionPipeline(ctx, dArgsList, "v1.0.0")
 	if !errors.Is(err, metaErr) {
 		t.Fatalf("expected metadata error to propagate, got: %v", err)
+	}
+}
+
+func TestRunIngestionPipelineKeepsSuccessesWhenOneDatasetFails(t *testing.T) {
+	prevFlags := datasetUtils.TestFlags
+	prevArgs := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlags
+		datasetUtils.TestArgs = prevArgs
+	}()
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+
+	tmp := t.TempDir()
+	metaErr := errors.New("bad metadata for b")
+
+	ctx := noopCtx()
+	ctx.Cfg = IngestConfig{
+		IngestFlag:        true,
+		AutoarchiveFlag:   true,
+		NocopyFlag:        true,
+		NocopyFlagChanged: true,
+	}
+	ctx.ReadAndCheckMetadata = func(_ *http.Client, _, metaFile string, _ map[string]string, _ []string) (map[string]interface{}, string, bool, error) {
+		if filepath.Base(metaFile) == "b.json" {
+			return nil, "", false, metaErr
+		}
+		dir := filepath.Join(tmp, strings.TrimSuffix(filepath.Base(metaFile), ".json"))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, "", false, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "data.dat"), []byte("x"), 0o600); err != nil {
+			return nil, "", false, err
+		}
+		return map[string]interface{}{"type": "raw", "ownerGroup": "grp"}, dir, false, nil
+	}
+	ctx.IngestDataset = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
+		return "pid-" + filepath.Base(meta["sourceFolder"].(string)), nil
+	}
+	var gotDatasets []string
+	ctx.CreateArchivalJob = func(_ *http.Client, _ string, _ map[string]string, _ string, datasets []string, _ *int, _ *time.Time) (string, error) {
+		gotDatasets = append([]string{}, datasets...)
+		return "job-abc", nil
+	}
+
+	dArgsList, err := ParseAndValidateAllArgs([]string{"a.json", "b.json", "c.json"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+
+	out := captureStdout(t, func() {
+		err = runIngestionPipeline(ctx, dArgsList, "v1.0.0")
+	})
+
+	if !errors.Is(err, metaErr) {
+		t.Fatalf("expected the b.json failure to propagate, got: %v", err)
+	}
+	if !strings.Contains(out, "pid-a") || !strings.Contains(out, "pid-c") {
+		t.Fatalf("expected successful datasets a and c to still be printed, got: %q", out)
+	}
+	want := []string{"pid-a", "pid-c"}
+	sort.Strings(want)
+	sort.Strings(gotDatasets)
+	if strings.Join(gotDatasets, ",") != strings.Join(want, ",") {
+		t.Fatalf("expected archival job to still include the successful datasets, got=%v want=%v", gotDatasets, want)
+	}
+}
+
+func TestRunIngestionPipelineAuthenticatesOnceAcrossMultipleDatasetArgs(t *testing.T) {
+	prevFlags := datasetUtils.TestFlags
+	prevArgs := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlags
+		datasetUtils.TestArgs = prevArgs
+	}()
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+
+	tmp := t.TempDir()
+	var authCalls int
+	var ingested []string
+
+	ctx := noopCtx()
+	ctx.Cfg = IngestConfig{
+		IngestFlag:        true,
+		NocopyFlag:        true,
+		NocopyFlagChanged: true,
+	}
+	ctx.Authenticate = func(_ cliutils.Authenticator, _ *http.Client, _, _, _ string, _ bool, _ ...func(...any)) (map[string]string, []string, error) {
+		authCalls++
+		return map[string]string{"accessToken": "test-token", "username": "alice"}, []string{"group-a"}, nil
+	}
+	ctx.ReadAndCheckMetadata = func(_ *http.Client, _, metaFile string, _ map[string]string, _ []string) (map[string]interface{}, string, bool, error) {
+		dir := filepath.Join(tmp, strings.TrimSuffix(filepath.Base(metaFile), ".json"))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, "", false, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "data.dat"), []byte("x"), 0o600); err != nil {
+			return nil, "", false, err
+		}
+		return map[string]interface{}{"type": "raw", "ownerGroup": "grp"}, dir, false, nil
+	}
+	ctx.IngestDataset = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
+		id := "pid-" + filepath.Base(meta["sourceFolder"].(string))
+		ingested = append(ingested, id)
+		return id, nil
+	}
+
+	dArgsList, err := ParseAndValidateAllArgs([]string{"a.json", "b.json", "c.json"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if err := runIngestionPipeline(ctx, dArgsList, "v1.0.0"); err != nil {
+		t.Fatalf("unexpected pipeline error: %v", err)
+	}
+
+	if len(ingested) != 3 {
+		t.Fatalf("expected 3 ingested datasets, got %d: %v", len(ingested), ingested)
+	}
+	if authCalls != 1 {
+		t.Fatalf("expected exactly 1 shared Authenticate call across the dataset batch, got %d", authCalls)
+	}
+}
+
+func TestValidateArgumentFormat(t *testing.T) {
+	tests := []struct {
+		arg     string
+		wantErr bool
+	}{
+		{"", true},
+		{"   ", true},
+		{"meta.json", false},
+		{"list.txt", false},
+		{"meta.json@list.txt", false},
+		{"meta.json@", true},
+		{"@list.txt", true},
+		{"notvalid", true},
+		{"/some/path/", true},
+		{"meta.json@bad.csv", true},
+		{"bad.csv@list.txt", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.arg, func(t *testing.T) {
+			err := ValidateArgumentFormat(tc.arg)
+			if tc.wantErr && err == nil {
+				t.Fatalf("expected error for %q, got nil", tc.arg)
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error for %q: %v", tc.arg, err)
+			}
+		})
+	}
+}
+
+func TestIsLegacyMode(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{"single arg", []string{"meta.json"}, false},
+		{"two args json+txt", []string{"meta.json", "list.txt"}, true},
+		{"two args json+folderlisting", []string{"meta.json", "folderlisting.txt"}, true},
+		{"two args json+json", []string{"meta.json", "other.json"}, false},
+		{"three args", []string{"a.json", "b.json", "c.json"}, false},
+		{"@ in first arg", []string{"meta.json@list.txt", "other.txt"}, false},
+		{"@ in second arg", []string{"meta.json", "list@extra.txt"}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isLegacyMode(tc.args)
+			if got != tc.want {
+				t.Fatalf("isLegacyMode(%v) = %v, want %v", tc.args, got, tc.want)
+			}
+		})
 	}
 }

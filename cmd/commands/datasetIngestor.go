@@ -12,16 +12,30 @@ var datasetIngestorCmd = &cobra.Command{
 	Long: `Purpose: define and add a dataset to the SciCat datacatalog
 
 This command must be run on the machine having access to the data
-which comprises the dataset. It takes one or two input
-files and creates the necessary messages which trigger
-the creation of the corresponding datacatalog entries
+which comprises the dataset. It takes one or more arguments and creates
+the necessary messages which trigger the creation of the corresponding
+datacatalog entries.
+
+Argument formats accepted:
+
+  Single dataset (legacy positional form):
+    metadata.json
+    metadata.json filelist.txt
+    metadata.json folderlisting.txt
+
+  Multiple datasets (@ separator form):
+    metadata1.json@filelist1.txt metadata2.json@filelist2.txt ...
+    metadata1.json metadata2.json ...
+
+  In the @ form the right-hand side (filelist.txt) is optional.
+  Omit the @ entirely to pass only the metadata file.
 
 For further help see "` + cliutils.MANUAL + `"
 
 Special hints for the decentral use case, where data is copied first to intermediate storage:
 For Linux you need to have a valid Kerberos tickets, which you can get via the kinit command.
 For Windows you need instead to specify -user username:password on the command line.`,
-	Args: rangeArgsWithVersionException(1, 2),
+	Args: minArgsWithVersionException(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		orchestrator.RunIngestionPipeline(cmd, args, VERSION)
 	},
