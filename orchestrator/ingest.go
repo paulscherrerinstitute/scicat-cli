@@ -23,6 +23,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const DATASET_ID_PREFIX = "20.500.11935/"
+
 type DatasetRegistrar func(client *http.Client, apiServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error)
 
 type AttachmentAdder func(client *http.Client, apiServer, datasetId string, metaDataMap map[string]interface{}, token, filename, caption string) error
@@ -64,6 +66,7 @@ type DatasetArgs struct {
 	DatasetFileListTxt string
 	FolderListingTxt   string
 	AbsFileListing     string
+	DatasetStatus      datasetExistenceStatus
 }
 
 type ingestionResult struct {
@@ -76,6 +79,12 @@ type ingestionResult struct {
 	tooLargeDatasets   int
 }
 
+type datasetExistenceStatus struct {
+	IsDatasetId         bool
+	DatasetExists       bool
+	OrigDatablocksExist bool
+}
+
 type FileContext struct {
 	FullFileArray []datasetIngestor.Datafile
 	StartTime     time.Time
@@ -83,6 +92,50 @@ type FileContext struct {
 	Owner         string
 	NumFiles      int64
 	TotalSize     int64
+}
+
+// IngestionStrategy is the per-arg-type strategy. Two implementations are held
+// in IngestContext: FileIngestion for metadata-file args and DatasetIdIngestion
+// for dataset-ID args. runIngestionBeforeArchive selects one and calls it uniformly.
+type IngestionStrategy interface {
+	ReadMetadata(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error)
+	Ingest(*http.Client, string, map[string]interface{}, []datasetIngestor.Datafile, map[string]string) (string, error)
+	// IngestRemote is used instead of Ingest when --remotefilescan is set.
+	IngestRemote(*http.Client, string, map[string]interface{}, []datasetIngestor.Datafile, map[string]string) (string, error)
+	AddAttachment(*http.Client, string, string, map[string]interface{}, string, string, string) error
+}
+
+// FileIngestion implements IngestionStrategy for metadata-file args.
+type FileIngestion struct{}
+
+func (FileIngestion) ReadMetadata(c *http.Client, api, arg string, user map[string]string, groups []string) (map[string]interface{}, string, bool, error) {
+	return datasetIngestor.ReadAndCheckMetadata(c, api, arg, user, groups)
+}
+func (FileIngestion) Ingest(c *http.Client, api string, meta map[string]interface{}, files []datasetIngestor.Datafile, user map[string]string) (string, error) {
+	return datasetIngestor.IngestDataset(c, api, meta, files, user)
+}
+func (FileIngestion) IngestRemote(c *http.Client, api string, meta map[string]interface{}, _ []datasetIngestor.Datafile, user map[string]string) (string, error) {
+	return datasetIngestor.CreateDataset(c, api, meta, user)
+}
+func (FileIngestion) AddAttachment(c *http.Client, api, id string, meta map[string]interface{}, token, file, caption string) error {
+	return datasetIngestor.AddAttachment(c, api, id, meta, token, file, caption)
+}
+
+// DatasetIdIngestion implements IngestionStrategy for dataset-ID args.
+type DatasetIdIngestion struct{}
+
+func (DatasetIdIngestion) ReadMetadata(c *http.Client, api, id string, user map[string]string, groups []string) (map[string]interface{}, string, bool, error) {
+	return ReadAndCheckMetadataFromDatasetId(c, api, id, user, groups)
+}
+func (DatasetIdIngestion) Ingest(c *http.Client, api string, meta map[string]interface{}, files []datasetIngestor.Datafile, user map[string]string) (string, error) {
+	id := meta["datasetId"].(string)
+	return id, datasetIngestor.CreateOrigDatablocks(c, api, files, id, user)
+}
+func (d DatasetIdIngestion) IngestRemote(c *http.Client, api string, meta map[string]interface{}, files []datasetIngestor.Datafile, user map[string]string) (string, error) {
+	return d.Ingest(c, api, meta, files, user)
+}
+func (DatasetIdIngestion) AddAttachment(*http.Client, string, string, map[string]interface{}, string, string, string) error {
+	return nil
 }
 
 // IngestContext bundles all injectable functions so that runIngestionPipeline
@@ -100,13 +153,12 @@ type IngestContext struct {
 	CheckForNewVersion          func(*http.Client, string, string)
 	CheckForServiceAvailability func(*http.Client, bool, bool)
 	Authenticate                func(cliutils.Authenticator, *http.Client, string, string, string, bool, ...func(...any)) (map[string]string, []string, error)
-	ReadAndCheckMetadata        func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error)
 	TestForExistingSourceFolder SourceFolderTester
 	CheckCentralAvailability    AvailabilityChecker
 	UpdateMetaData              func(*http.Client, string, map[string]string, map[string]string, map[string]interface{}, time.Time, time.Time, string, int)
 	ResetUpdatedMetaData        func(map[string]string, map[string]interface{})
-	IngestDataset               DatasetRegistrar
-	AddAttachment               AttachmentAdder
+	FileIngestion               IngestionStrategy
+	DatasetIdIngestion          IngestionStrategy
 	CreateArchivalJob           func(*http.Client, string, map[string]string, string, []string, *int, *time.Time) (string, error)
 }
 
@@ -145,6 +197,10 @@ func ParseConfig(cmd *cobra.Command) IngestConfig {
 	}
 }
 
+func isDatasetId(s string) bool {
+	return strings.HasPrefix(strings.ToLower(s), DATASET_ID_PREFIX)
+}
+
 func ParseAndValidateArgs(args []string) (DatasetArgs, error) {
 	dArgs := DatasetArgs{
 		MetadataFile: args[0],
@@ -166,8 +222,11 @@ func ParseAndValidateArgs(args []string) (DatasetArgs, error) {
 
 func ParseAndValidateSeparatorArg(arg string) (DatasetArgs, error) {
 	meta, fileList, _ := strings.Cut(arg, "@")
-	if meta == "" {
-		return DatasetArgs{}, fmt.Errorf("invalid argument %q: metadata file cannot be empty", arg)
+	if meta == "" || filepath.Ext(meta) != ".json" {
+		return DatasetArgs{}, fmt.Errorf("invalid argument %q: metadata file cannot be empty or must have a .json extension", arg)
+	}
+	if fileList != "" && filepath.Ext(fileList) != ".txt" {
+		return DatasetArgs{}, fmt.Errorf("invalid argument %q: file list must have a .txt extension", arg)
 	}
 	if fileList == "" {
 		return ParseAndValidateArgs([]string{meta})
@@ -198,6 +257,13 @@ func ParseAndValidateAllArgs(args []string) ([]DatasetArgs, error) {
 	// Colon mode: every arg is "meta.json[:filelist.txt]".
 	allArgs := make([]DatasetArgs, 0, len(args))
 	for i, arg := range args {
+		if isDatasetId(arg) {
+			allArgs = append(allArgs, DatasetArgs{
+				MetadataFile:  arg,
+				DatasetStatus: datasetExistenceStatus{IsDatasetId: true},
+			})
+			continue
+		}
 		dArgs, err := ParseAndValidateSeparatorArg(arg)
 		if err != nil {
 			return nil, fmt.Errorf("invalid argument at position %d: %w", i+1, err)
@@ -218,6 +284,10 @@ func ValidateArgumentFormat(arg string) error {
 	cleanArg := strings.TrimSpace(arg)
 	if cleanArg == "" {
 		return fmt.Errorf("argument cannot be empty")
+	}
+
+	if isDatasetId(cleanArg) {
+		return nil
 	}
 
 	if left, right, found := strings.Cut(cleanArg, "@"); found {
@@ -540,6 +610,28 @@ func submitAndPrintResults(ictx IngestContext, user map[string]string, ownerGrou
 	return nil
 }
 
+// ReadAndCheckMetadataFromDatasetId satisfies the ReadAndCheckMetadata contract
+// for existing dataset IDs. The bool return is true when orig datablocks already
+// exist (ds.Size > 0), false when they still need to be created.
+func ReadAndCheckMetadataFromDatasetId(client *http.Client, apiServer, datasetId string, user map[string]string, _ []string) (map[string]interface{}, string, bool, error) {
+	metadataArray, missing, err := datasetUtils.GetDatasetDetails(client, apiServer, user["accessToken"], []string{datasetId}, "")
+	if err != nil {
+		return nil, "", false, fmt.Errorf("failed to fetch dataset %q: %w", datasetId, err)
+	}
+	if len(missing) > 0 {
+		return nil, "", false, fmt.Errorf("dataset %q not found", datasetId)
+	}
+
+	ds := metadataArray[0]
+	metaDataMap := map[string]interface{}{
+		"datasetId":    ds.Pid,
+		"sourceFolder": ds.SourceFolder,
+		"ownerGroup":   ds.OwnerGroup,
+	}
+
+	return metaDataMap, ds.SourceFolder, ds.Size != 0, nil
+}
+
 // RunIngestionPipeline is the Cobra entry point. It wires real implementations
 // into IngestContext and is the only function in this package that calls log.Fatal.
 func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
@@ -558,8 +650,6 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 		cfg.NocopyFlagChanged = true
 	}
 
-	ingestFn := selectIngestFunction(cfg)
-
 	ctx := IngestContext{
 		Cfg:           cfg,
 		Client:        client,
@@ -573,13 +663,12 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 		CheckForNewVersion:          datasetUtils.CheckForNewVersion,
 		CheckForServiceAvailability: datasetUtils.CheckForServiceAvailability,
 		Authenticate:                cliutils.Authenticate,
-		ReadAndCheckMetadata:        datasetIngestor.ReadAndCheckMetadata,
 		TestForExistingSourceFolder: datasetIngestor.TestForExistingSourceFolder,
 		CheckCentralAvailability:    datasetIngestor.CheckDataCentrallyAvailableSsh,
 		UpdateMetaData:              datasetIngestor.UpdateMetaData,
 		ResetUpdatedMetaData:        datasetIngestor.ResetUpdatedMetaData,
-		IngestDataset:               ingestFn,
-		AddAttachment:               datasetIngestor.AddAttachment,
+		FileIngestion:               FileIngestion{},
+		DatasetIdIngestion:          DatasetIdIngestion{},
 		CreateArchivalJob:           datasetUtils.CreateArchivalJob,
 	}
 
@@ -597,16 +686,6 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 	if err := runIngestionPipeline(ctx, dArgs, version); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func selectIngestFunction(cfg IngestConfig) func(client *http.Client, APIServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error) {
-	ingestFn := datasetIngestor.IngestDataset
-	if cfg.RemoteFileScan {
-		ingestFn = func(client *http.Client, APIServer string, metaDataMap map[string]interface{}, fullFileArray []datasetIngestor.Datafile, user map[string]string) (string, error) {
-			return datasetIngestor.CreateDataset(client, APIServer, metaDataMap, user)
-		}
-	}
-	return ingestFn
 }
 
 func runParallelIngestionPipeline(ictx IngestContext, dArgs []DatasetArgs, version string, runResult *ingestionResult) error {
@@ -763,9 +842,37 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, version st
 		return ingestionResult{}, err
 	}
 
-	metaDataMap, metadataSourceFolder, beamlineAccount, err := ictx.ReadAndCheckMetadata(ictx.Client, ictx.APIServer, dArgs.MetadataFile, user, accessGroups)
+	strategy := ictx.FileIngestion
+	if dArgs.DatasetStatus.IsDatasetId {
+		strategy = ictx.DatasetIdIngestion
+	}
+	metaDataMap, metadataSourceFolder, extraBool, err := strategy.ReadMetadata(ictx.Client, ictx.APIServer, dArgs.MetadataFile, user, accessGroups)
 	if err != nil {
 		return ingestionResult{}, fmt.Errorf("error in CheckMetadata function: %w", err)
+	}
+
+	// extraBool means beamlineAccount for metadata-file args and origDatablocksExist
+	// for dataset-ID args; interpret it based on which mode we are in.
+	datasetStatus := dArgs.DatasetStatus
+	var beamlineAccount bool
+	if datasetStatus.IsDatasetId {
+		datasetStatus.DatasetExists = true
+		datasetStatus.OrigDatablocksExist = extraBool
+	} else {
+		beamlineAccount = extraBool
+	}
+
+	archivableDatasetListOwnerGroup, ok := metaDataMap["ownerGroup"].(string)
+	if !ok {
+		return ingestionResult{}, errors.New("can't recover ownerGroup")
+	}
+	if datasetStatus.OrigDatablocksExist {
+		// Dataset and orig datablocks already exist — nothing to ingest, just archive.
+		return ingestionResult{
+			archivableDatasets: []string{metaDataMap["datasetId"].(string)},
+			ownerGroup:         archivableDatasetListOwnerGroup,
+			user:               user,
+		}, nil
 	}
 
 	datasetPaths, err := ResolveDatasetPaths(metadataSourceFolder, dArgs.FolderListingTxt)
@@ -773,12 +880,14 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, version st
 		return ingestionResult{}, err
 	}
 
-	if err := GuardExistingSourceFolders(
-		ictx.Scanner, datasetPaths, ictx.Client, ictx.APIServer, user["accessToken"],
-		ictx.Cfg.AllowExistingSourceFolder, ictx.Cfg.AllowExistingSourceFolderChanged,
-		ictx.TestForExistingSourceFolder,
-	); err != nil {
-		return ingestionResult{}, err
+	if !datasetStatus.DatasetExists {
+		if err := GuardExistingSourceFolders(
+			ictx.Scanner, datasetPaths, ictx.Client, ictx.APIServer, user["accessToken"],
+			ictx.Cfg.AllowExistingSourceFolder, ictx.Cfg.AllowExistingSourceFolderChanged,
+			ictx.TestForExistingSourceFolder,
+		); err != nil {
+			return ingestionResult{}, err
+		}
 	}
 
 	if ictx.Cfg.NocopyFlag {
@@ -800,11 +909,6 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, version st
 
 	var skippedLinks, illegalFileNames uint
 	var archivableDatasetList []string
-
-	archivableDatasetListOwnerGroup, ok := metaDataMap["ownerGroup"].(string)
-	if !ok {
-		return ingestionResult{}, errors.New("can't recover ownerGroup")
-	}
 
 	for _, datasetSourceFolder := range datasetPaths {
 		if datasetSourceFolder == "" {
@@ -837,11 +941,13 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, version st
 				continue
 			}
 
-			ictx.UpdateMetaData(ictx.Client, ictx.APIServer, user, originalMap, metaDataMap, fileCtx.StartTime, fileCtx.EndTime, fileCtx.Owner, ictx.Cfg.Tapecopies)
-			if pretty, err := json.MarshalIndent(metaDataMap, "", "    "); err != nil {
-				log.Printf("Warning: could not marshal metadata for display: %v\n", err)
-			} else {
-				log.Printf("Updated metadata object:\n%s\n", pretty)
+			if !datasetStatus.DatasetExists {
+				ictx.UpdateMetaData(ictx.Client, ictx.APIServer, user, originalMap, metaDataMap, fileCtx.StartTime, fileCtx.EndTime, fileCtx.Owner, ictx.Cfg.Tapecopies)
+				if pretty, err := json.MarshalIndent(metaDataMap, "", "    "); err != nil {
+					log.Printf("Warning: could not marshal metadata for display: %v\n", err)
+				} else {
+					log.Printf("Updated metadata object:\n%s\n", pretty)
+				}
 			}
 		}
 
@@ -852,7 +958,7 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, version st
 		}
 
 		requiresCopy := ictx.Cfg.CopyFlag
-		if checkCentralAvailability {
+		if !datasetStatus.DatasetExists && checkCentralAvailability {
 			requiresCopy, err = VerifyCentralAvailability(ictx.Cfg, ictx.RsyncServer, datasetSourceFolder, user, accessGroups, ictx.Scanner, ictx.CheckCentralAvailability)
 			if err != nil {
 				return ingestionResult{}, err
@@ -870,7 +976,11 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, version st
 				lifecycle["archiveStatusMessage"] = "origDatablocksNotYetAvailable"
 			}
 		}
-		datasetId, err := RegisterDatasetWithCatalog(ictx.Client, ictx.APIServer, metaDataMap, fileCtx, user, ictx.Cfg, ictx.IngestDataset, ictx.AddAttachment)
+		ingestFn := strategy.Ingest
+		if ictx.Cfg.RemoteFileScan {
+			ingestFn = strategy.IngestRemote
+		}
+		datasetId, err := RegisterDatasetWithCatalog(ictx.Client, ictx.APIServer, metaDataMap, fileCtx, user, ictx.Cfg, ingestFn, strategy.AddAttachment)
 		if err != nil {
 			return ingestionResult{}, err
 		}

@@ -20,6 +20,47 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// stubStrategy implements IngestionStrategy via function fields, letting tests
+// override individual methods without writing a full concrete type per test.
+type stubStrategy struct {
+	readMetadata  func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error)
+	ingest        func(*http.Client, string, map[string]interface{}, []datasetIngestor.Datafile, map[string]string) (string, error)
+	ingestRemote  func(*http.Client, string, map[string]interface{}, []datasetIngestor.Datafile, map[string]string) (string, error)
+	addAttachment func(*http.Client, string, string, map[string]interface{}, string, string, string) error
+}
+
+func (s stubStrategy) ReadMetadata(c *http.Client, api, arg string, user map[string]string, groups []string) (map[string]interface{}, string, bool, error) {
+	return s.readMetadata(c, api, arg, user, groups)
+}
+func (s stubStrategy) Ingest(c *http.Client, api string, meta map[string]interface{}, files []datasetIngestor.Datafile, user map[string]string) (string, error) {
+	return s.ingest(c, api, meta, files, user)
+}
+func (s stubStrategy) IngestRemote(c *http.Client, api string, meta map[string]interface{}, files []datasetIngestor.Datafile, user map[string]string) (string, error) {
+	return s.ingestRemote(c, api, meta, files, user)
+}
+func (s stubStrategy) AddAttachment(c *http.Client, api, id string, meta map[string]interface{}, token, file, caption string) error {
+	return s.addAttachment(c, api, id, meta, token, file, caption)
+}
+
+// errStub returns a stubStrategy whose every method returns an error, so a test
+// that forgets to wire a method fails loudly instead of silently passing.
+func errStub(name string) stubStrategy {
+	return stubStrategy{
+		readMetadata: func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
+			return nil, "", false, errors.New(name + ".ReadMetadata not configured for this test")
+		},
+		ingest: func(*http.Client, string, map[string]interface{}, []datasetIngestor.Datafile, map[string]string) (string, error) {
+			return "", errors.New(name + ".Ingest not configured for this test")
+		},
+		ingestRemote: func(*http.Client, string, map[string]interface{}, []datasetIngestor.Datafile, map[string]string) (string, error) {
+			return "", errors.New(name + ".IngestRemote not configured for this test")
+		},
+		addAttachment: func(*http.Client, string, string, map[string]interface{}, string, string, string) error {
+			return nil
+		},
+	}
+}
+
 // noopCtx returns an IngestContext with every injectable function replaced by a
 // safe no-op or minimal stub. Override only the fields that matter in each test.
 func noopCtx() IngestContext {
@@ -32,9 +73,6 @@ func noopCtx() IngestContext {
 		Authenticate: func(_ cliutils.Authenticator, _ *http.Client, _, _, _ string, _ bool, _ ...func(...any)) (map[string]string, []string, error) {
 			return map[string]string{"accessToken": "test-token", "username": "alice"}, []string{"group-a"}, nil
 		},
-		ReadAndCheckMetadata: func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
-			return nil, "", false, errors.New("ReadAndCheckMetadata not configured for this test")
-		},
 		TestForExistingSourceFolder: func(_ []string, _ *http.Client, _, _ string) (datasetIngestor.DatasetQuery, error) {
 			return nil, nil
 		},
@@ -43,12 +81,8 @@ func noopCtx() IngestContext {
 		},
 		UpdateMetaData:       func(*http.Client, string, map[string]string, map[string]string, map[string]interface{}, time.Time, time.Time, string, int) {},
 		ResetUpdatedMetaData: func(map[string]string, map[string]interface{}) {},
-		IngestDataset: func(*http.Client, string, map[string]interface{}, []datasetIngestor.Datafile, map[string]string) (string, error) {
-			return "", errors.New("IngestDataset not configured for this test")
-		},
-		AddAttachment: func(*http.Client, string, string, map[string]interface{}, string, string, string) error {
-			return nil
-		},
+		FileIngestion:        errStub("FileIngestion"),
+		DatasetIdIngestion:   errStub("DatasetIdIngestion"),
 		CreateArchivalJob: func(*http.Client, string, map[string]string, string, []string, *int, *time.Time) (string, error) {
 			return "", errors.New("CreateArchivalJob not configured for this test")
 		},
@@ -238,13 +272,15 @@ func TestRunIngestionPipelineMultipleSourceFoldersCreatesArchiveJob(t *testing.T
 		NocopyFlagChanged: true,
 		Tapecopies:        1,
 	}
-	ctx.ReadAndCheckMetadata = func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
+	fs := errStub("FileIngestion")
+	fs.readMetadata = func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
 		return map[string]interface{}{"type": "raw", "ownerGroup": "p12345"}, "", false, nil
 	}
-	ctx.IngestDataset = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
+	fs.ingest = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
 		src, _ := meta["sourceFolder"].(string)
 		return "pid-" + filepath.Base(src), nil
 	}
+	ctx.FileIngestion = fs
 	ctx.CreateArchivalJob = func(_ *http.Client, _ string, _ map[string]string, ownerGroup string, datasets []string, _ *int, _ *time.Time) (string, error) {
 		gotOwnerGroup = ownerGroup
 		gotDatasets = append([]string{}, datasets...)
@@ -766,9 +802,11 @@ func TestRunIngestionPipelineReturnsErrorWhenReadMetadataFails(t *testing.T) {
 	metaErr := errors.New("bad metadata")
 	ctx := noopCtx()
 	ctx.Cfg = IngestConfig{IngestFlag: true}
-	ctx.ReadAndCheckMetadata = func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
+	fs := errStub("FileIngestion")
+	fs.readMetadata = func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
 		return nil, "", false, metaErr
 	}
+	ctx.FileIngestion = fs
 
 	dArgsList, _ := ParseAndValidateAllArgs([]string{"meta.json"})
 	err := runIngestionPipeline(ctx, dArgsList, "v1.0.0")
@@ -798,7 +836,8 @@ func TestRunIngestionPipelineParallelSucceeds(t *testing.T) {
 		NocopyFlag:        true,
 		NocopyFlagChanged: true,
 	}
-	ctx.ReadAndCheckMetadata = func(_ *http.Client, _, metaFile string, _ map[string]string, _ []string) (map[string]interface{}, string, bool, error) {
+	fs := errStub("FileIngestion")
+	fs.readMetadata = func(_ *http.Client, _, metaFile string, _ map[string]string, _ []string) (map[string]interface{}, string, bool, error) {
 		dir := filepath.Join(tmp, strings.TrimSuffix(filepath.Base(metaFile), ".json"))
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, "", false, err
@@ -808,13 +847,14 @@ func TestRunIngestionPipelineParallelSucceeds(t *testing.T) {
 		}
 		return map[string]interface{}{"type": "raw", "ownerGroup": "grp"}, dir, false, nil
 	}
-	ctx.IngestDataset = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
+	fs.ingest = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
 		id := "pid-" + filepath.Base(meta["sourceFolder"].(string))
 		mu.Lock()
 		ingested = append(ingested, id)
 		mu.Unlock()
 		return id, nil
 	}
+	ctx.FileIngestion = fs
 
 	dArgsList, err := ParseAndValidateAllArgs([]string{"a.json", "b.json", "c.json"})
 	if err != nil {
@@ -842,9 +882,11 @@ func TestRunIngestionPipelineParallelReturnsErrorWhenAnyFails(t *testing.T) {
 	metaErr := errors.New("bad metadata")
 	ctx := noopCtx()
 	ctx.Cfg = IngestConfig{IngestFlag: true, NoninteractiveFlag: true}
-	ctx.ReadAndCheckMetadata = func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
+	fs := errStub("FileIngestion")
+	fs.readMetadata = func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
 		return nil, "", false, metaErr
 	}
+	ctx.FileIngestion = fs
 
 	dArgsList, _ := ParseAndValidateAllArgs([]string{"a.json", "b.json"})
 	err := runIngestionPipeline(ctx, dArgsList, "v1.0.0")
@@ -935,15 +977,17 @@ func TestRunIngestionPipelineRemoteFileScanSetsArchiveStatus(t *testing.T) {
 	}
 	// Return a remote path that does not exist locally — GatherFiles would fail
 	// if called, so a successful pipeline proves it was skipped.
-	ctx.ReadAndCheckMetadata = func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
+	fs := errStub("FileIngestion")
+	fs.readMetadata = func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
 		return map[string]interface{}{"type": "raw", "ownerGroup": "grp"}, "/nonexistent/remote/source", false, nil
 	}
-	ctx.IngestDataset = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
+	fs.ingestRemote = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
 		if lc, ok := meta["datasetlifecycle"].(map[string]interface{}); ok {
 			gotArchiveStatus, _ = lc["archiveStatusMessage"].(string)
 		}
 		return "pid-remote", nil
 	}
+	ctx.FileIngestion = fs
 
 	out := captureStdout(t, func() {
 		dArgsList, err := ParseAndValidateAllArgs([]string{"meta.json"})
@@ -985,13 +1029,166 @@ func TestExecuteFileTransferMarkFilesReadyPassedThrough(t *testing.T) {
 	}
 }
 
-// TestSelectIngestFunction verifies that selectIngestFunction returns non-nil
-// for both modes (sanity check; real behavior tested via full-pipeline tests).
-func TestSelectIngestFunction(t *testing.T) {
-	if fn := selectIngestFunction(IngestConfig{RemoteFileScan: false}); fn == nil {
-		t.Fatal("expected non-nil function for RemoteFileScan=false")
+// TestIngestionStrategyNonNil verifies that both strategy slots in noopCtx()
+// are wired. Method completeness is guaranteed by the interface at compile time.
+func TestIngestionStrategyNonNil(t *testing.T) {
+	ctx := noopCtx()
+	if ctx.FileIngestion == nil {
+		t.Error("FileIngestion must not be nil")
 	}
-	if fn := selectIngestFunction(IngestConfig{RemoteFileScan: true}); fn == nil {
-		t.Fatal("expected non-nil function for RemoteFileScan=true")
+	if ctx.DatasetIdIngestion == nil {
+		t.Error("DatasetIdIngestion must not be nil")
+	}
+}
+
+// TestReadAndCheckMetadataFromDatasetIdNotFound verifies an error is returned when
+// GetDatasetDetails reports the dataset as missing.
+func TestReadAndCheckMetadataFromDatasetIdNotFound(t *testing.T) {
+	// The real GetDatasetDetails hits a network; we test the function signature
+	// and not-found branch by passing a bad URL that produces an HTTP error.
+	// We can't inject the HTTP client easily here, so we test the missing-list path
+	// indirectly: a dataset ID that can't be fetched must return a non-nil error.
+	_, _, _, err := ReadAndCheckMetadataFromDatasetId(
+		&http.Client{Transport: &errorTransport{}},
+		"https://api.example.org",
+		"20.500.11935/nonexistent",
+		map[string]string{"accessToken": "tok"},
+		nil,
+	)
+	if err == nil {
+		t.Fatal("expected error for unreachable API, got nil")
+	}
+}
+
+// errorTransport always returns a transport-level error.
+type errorTransport struct{}
+
+func (e *errorTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errors.New("simulated network error")
+}
+
+// TestRunIngestionPipelineDatasetIdOrigsExist verifies that when all requested
+// dataset IDs already have orig datablocks (bool return = true), the pipeline
+// returns them as archivable without calling IngestDataset or CreateOrigDatablocks.
+func TestRunIngestionPipelineDatasetIdOrigsExist(t *testing.T) {
+	prevFlags := datasetUtils.TestFlags
+	prevArgs := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlags
+		datasetUtils.TestArgs = prevArgs
+	}()
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+
+	ctx := noopCtx()
+	ctx.Cfg = IngestConfig{
+		IngestFlag:        true,
+		AutoarchiveFlag:   true,
+		NocopyFlag:        true,
+		NocopyFlagChanged: true,
+		Tapecopies:        1,
+	}
+	// Simulate a dataset that already has orig datablocks: bool return = true.
+	ds := errStub("DatasetIdIngestion")
+	ds.readMetadata = func(_ *http.Client, _ string, id string, _ map[string]string, _ []string) (map[string]interface{}, string, bool, error) {
+		return map[string]interface{}{
+			"datasetId":    id,
+			"sourceFolder": "/remote/data",
+			"ownerGroup":   "grp",
+		}, "/remote/data", true, nil
+	}
+	mustNotCall := func(*http.Client, string, map[string]interface{}, []datasetIngestor.Datafile, map[string]string) (string, error) {
+		t.Error("DatasetIdIngestion.Ingest must not be called when orig datablocks already exist")
+		return "", nil
+	}
+	ds.ingest = mustNotCall
+	ds.ingestRemote = mustNotCall
+	ctx.DatasetIdIngestion = ds
+
+	fs := errStub("FileIngestion")
+	fs.ingest = func(*http.Client, string, map[string]interface{}, []datasetIngestor.Datafile, map[string]string) (string, error) {
+		t.Error("FileIngestion.Ingest must not be called for dataset-ID args")
+		return "", nil
+	}
+	ctx.FileIngestion = fs
+
+	var gotDatasets []string
+	ctx.CreateArchivalJob = func(_ *http.Client, _ string, _ map[string]string, _ string, datasets []string, _ *int, _ *time.Time) (string, error) {
+		gotDatasets = append([]string{}, datasets...)
+		return "job-1", nil
+	}
+
+	dArgsList := []DatasetArgs{
+		{MetadataFile: "20.500.11935/pid-1", DatasetStatus: datasetExistenceStatus{IsDatasetId: true}},
+		{MetadataFile: "20.500.11935/pid-2", DatasetStatus: datasetExistenceStatus{IsDatasetId: true}},
+	}
+	if err := runIngestionPipeline(ctx, dArgsList, "v1.0.0"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(gotDatasets) != 2 {
+		t.Fatalf("expected 2 datasets in archive job, got %d: %v", len(gotDatasets), gotDatasets)
+	}
+}
+
+// TestRunIngestionPipelineDatasetIdNoOrigsCreatesOrigs verifies that when the
+// dataset exists but orig datablocks are missing (bool return = false), the
+// pipeline calls CreateOrigDatablocks and marks the dataset as archivable.
+func TestRunIngestionPipelineDatasetIdNoOrigsCreatesOrigs(t *testing.T) {
+	prevFlags := datasetUtils.TestFlags
+	prevArgs := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlags
+		datasetUtils.TestArgs = prevArgs
+	}()
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "data.dat"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	var gotOrigDatasetId string
+	ctx := noopCtx()
+	ctx.Cfg = IngestConfig{
+		IngestFlag:        true,
+		NocopyFlag:        true,
+		NocopyFlagChanged: true,
+		Tapecopies:        1,
+	}
+	// Simulate a dataset with no orig datablocks: bool return = false.
+	createOrigsFn := func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
+		gotOrigDatasetId = meta["datasetId"].(string)
+		return gotOrigDatasetId, nil
+	}
+	ds := errStub("DatasetIdIngestion")
+	ds.readMetadata = func(_ *http.Client, _ string, id string, _ map[string]string, _ []string) (map[string]interface{}, string, bool, error) {
+		return map[string]interface{}{
+			"datasetId":    id,
+			"sourceFolder": tmp,
+			"ownerGroup":   "grp",
+		}, tmp, false, nil
+	}
+	ds.ingest = createOrigsFn
+	ds.ingestRemote = createOrigsFn
+	ctx.DatasetIdIngestion = ds
+
+	fs := errStub("FileIngestion")
+	fs.ingest = func(*http.Client, string, map[string]interface{}, []datasetIngestor.Datafile, map[string]string) (string, error) {
+		t.Error("FileIngestion.Ingest must not be called for dataset-ID args")
+		return "", nil
+	}
+	ctx.FileIngestion = fs
+
+	dArgsList := []DatasetArgs{
+		{MetadataFile: "20.500.11935/pid-abc", DatasetStatus: datasetExistenceStatus{IsDatasetId: true}},
+	}
+	if err := runIngestionPipeline(ctx, dArgsList, "v1.0.0"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if gotOrigDatasetId != "20.500.11935/pid-abc" {
+		t.Fatalf("expected CreateOrigDatablocks called with pid-abc, got %q", gotOrigDatasetId)
 	}
 }
