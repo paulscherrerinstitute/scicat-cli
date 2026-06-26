@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/SwissOpenEM/globus"
@@ -587,26 +588,67 @@ func RunIngestionPipeline(cmd *cobra.Command, args []string, version string) {
 	}
 }
 
-func runIngestionPipeline(ictx IngestContext, dArgs []DatasetArgs, version string) error {
-	var allArchivable []string
-	var ownerGroup string
-	var firstUser map[string]string
-	var skippedLinks, illegalFileNames uint
-	var emptyDatasets, tooLargeDatasets int
+func runParallelIngestionPipeline(ictx IngestContext, dArgs []DatasetArgs, version string, runResult *ingestionResult) error {
+	type singleRunResult struct {
+		res ingestionResult
+		err error
+	}
 
+	resultCh := make(chan singleRunResult, len(dArgs))
+	var wg sync.WaitGroup
 	for _, dArg := range dArgs {
-		res, err := runIngestionBeforeArchive(ictx, dArg, version)
-		if err != nil {
-			return fmt.Errorf("error ingesting dataset with metadata %q: %w", dArg.MetadataFile, err)
+		wg.Add(1)
+		go func(d DatasetArgs) {
+			defer wg.Done()
+			res, err := runIngestionBeforeArchive(ictx, d, version)
+			resultCh <- singleRunResult{res: res, err: err}
+		}(dArg)
+	}
+	wg.Wait()
+	close(resultCh)
+
+	var failed bool
+	for r := range resultCh {
+		if r.err != nil {
+			log.Println(r.err)
+			failed = true
+			continue
 		}
-		allArchivable = append(allArchivable, res.archivableDatasets...)
-		skippedLinks += res.skippedLinks
-		illegalFileNames += res.illegalFileNames
-		emptyDatasets += res.emptyDatasets
-		tooLargeDatasets += res.tooLargeDatasets
-		if firstUser == nil {
-			firstUser = res.user
-			ownerGroup = res.ownerGroup
+		updateResultCounters(runResult, r.res)
+	}
+	if failed {
+		return errors.New("one or more ingestions failed")
+	}
+	return nil
+}
+
+func runIngestionPipeline(ictx IngestContext, dArgs []DatasetArgs, version string) error {
+	runResult := ingestionResult{
+		archivableDatasets: []string{},
+		user:               nil,
+		ownerGroup:         "",
+		skippedLinks:       0,
+		illegalFileNames:   0,
+		emptyDatasets:      0,
+		tooLargeDatasets:   0,
+	}
+
+	if !ictx.Cfg.NoninteractiveFlag && len(dArgs) > 1 {
+		log.Println("Note: running ingestions sequentially because --noninteractive is not set. Pass --noninteractive to run them in parallel.")
+	}
+
+	if ictx.Cfg.NoninteractiveFlag && len(dArgs) > 1 {
+		err := runParallelIngestionPipeline(ictx, dArgs, version, &runResult)
+		if err != nil {
+			return err
+		}
+	} else {
+		for _, dArg := range dArgs {
+			res, err := runIngestionBeforeArchive(ictx, dArg, version)
+			if err != nil {
+				return fmt.Errorf("error ingesting dataset with metadata %q: %w", dArg.MetadataFile, err)
+			}
+			updateResultCounters(&runResult, res)
 		}
 	}
 
@@ -616,22 +658,36 @@ func runIngestionPipeline(ictx IngestContext, dArgs []DatasetArgs, version strin
 		color.Unset()
 	}
 
-	if skippedLinks > 0 {
+	if runResult.skippedLinks > 0 {
 		color.Set(color.FgYellow)
-		log.Printf("Total number of link files skipped: %v\n", skippedLinks)
+		log.Printf("Total number of link files skipped: %v\n", runResult.skippedLinks)
 		color.Unset()
 	}
-	if illegalFileNames > 0 {
+	if runResult.illegalFileNames > 0 {
 		color.Set(color.FgRed)
-		log.Printf("Number of files ignored because of illegal filenames: %v\n", illegalFileNames)
+		log.Printf("Number of files ignored because of illegal filenames: %v\n", runResult.illegalFileNames)
 		color.Unset()
 	}
 
-	if emptyDatasets > 0 || tooLargeDatasets > 0 {
-		return fmt.Errorf("errors encountered with dataset layouts: %d empty, %d too large", emptyDatasets, tooLargeDatasets)
+	if runResult.emptyDatasets > 0 || runResult.tooLargeDatasets > 0 {
+		return fmt.Errorf("errors encountered with dataset layouts: %d empty, %d too large", runResult.emptyDatasets, runResult.tooLargeDatasets)
 	}
 
-	return submitAndPrintResults(ictx, firstUser, ownerGroup, allArchivable)
+	return submitAndPrintResults(ictx, runResult.user, runResult.ownerGroup, runResult.archivableDatasets)
+}
+
+func updateResultCounters(result *ingestionResult, res ingestionResult) {
+	result.archivableDatasets = append(result.archivableDatasets, res.archivableDatasets...)
+	result.skippedLinks += res.skippedLinks
+	result.illegalFileNames += res.illegalFileNames
+	result.emptyDatasets += res.emptyDatasets
+	result.tooLargeDatasets += res.tooLargeDatasets
+	if result.user == nil {
+		result.user = res.user
+	}
+	if result.ownerGroup == "" {
+		result.ownerGroup = res.ownerGroup
+	}
 }
 
 // runIngestionBeforeArchive is the per-dataset core. It operates entirely

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -770,6 +771,82 @@ func TestRunIngestionPipelineReturnsErrorWhenReadMetadataFails(t *testing.T) {
 	err := runIngestionPipeline(ctx, dArgsList, "v1.0.0")
 	if !errors.Is(err, metaErr) {
 		t.Fatalf("expected metadata error to propagate, got: %v", err)
+	}
+}
+
+func TestRunIngestionPipelineParallelSucceeds(t *testing.T) {
+	prevFlags := datasetUtils.TestFlags
+	prevArgs := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlags
+		datasetUtils.TestArgs = prevArgs
+	}()
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+
+	tmp := t.TempDir()
+	var ingested []string
+	var mu sync.Mutex
+
+	ctx := noopCtx()
+	ctx.Cfg = IngestConfig{
+		IngestFlag:        true,
+		NoninteractiveFlag: true,
+		NocopyFlag:        true,
+		NocopyFlagChanged: true,
+	}
+	ctx.ReadAndCheckMetadata = func(_ *http.Client, _, metaFile string, _ map[string]string, _ []string) (map[string]interface{}, string, bool, error) {
+		dir := filepath.Join(tmp, strings.TrimSuffix(filepath.Base(metaFile), ".json"))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, "", false, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "data.dat"), []byte("x"), 0o600); err != nil {
+			return nil, "", false, err
+		}
+		return map[string]interface{}{"type": "raw", "ownerGroup": "grp"}, dir, false, nil
+	}
+	ctx.IngestDataset = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
+		id := "pid-" + filepath.Base(meta["sourceFolder"].(string))
+		mu.Lock()
+		ingested = append(ingested, id)
+		mu.Unlock()
+		return id, nil
+	}
+
+	dArgsList, err := ParseAndValidateAllArgs([]string{"a.json", "b.json", "c.json"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if err := runIngestionPipeline(ctx, dArgsList, "v1.0.0"); err != nil {
+		t.Fatalf("unexpected pipeline error: %v", err)
+	}
+
+	if len(ingested) != 3 {
+		t.Fatalf("expected 3 ingested datasets, got %d: %v", len(ingested), ingested)
+	}
+}
+
+func TestRunIngestionPipelineParallelReturnsErrorWhenAnyFails(t *testing.T) {
+	prevFlags := datasetUtils.TestFlags
+	prevArgs := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlags
+		datasetUtils.TestArgs = prevArgs
+	}()
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+
+	metaErr := errors.New("bad metadata")
+	ctx := noopCtx()
+	ctx.Cfg = IngestConfig{IngestFlag: true, NoninteractiveFlag: true}
+	ctx.ReadAndCheckMetadata = func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
+		return nil, "", false, metaErr
+	}
+
+	dArgsList, _ := ParseAndValidateAllArgs([]string{"a.json", "b.json"})
+	err := runIngestionPipeline(ctx, dArgsList, "v1.0.0")
+	if err == nil {
+		t.Fatal("expected error when a parallel ingestion fails, got nil")
 	}
 }
 
