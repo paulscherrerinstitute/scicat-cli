@@ -9,8 +9,12 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
+
+// chdirMu serializes os.Chdir calls, which are process-wide and not goroutine-safe.
+var chdirMu sync.Mutex
 
 type Datafile struct {
 	Path      string `json:"path"`
@@ -88,13 +92,16 @@ func GetLocalFileList(sourceFolder string, filelistingPath string, symlinkCallba
 	// TODO verify that filelisting have no overlap, e.g. no lines X/ and X/Y,
 	// because the latter is already contained in X/
 
-	// restore oldWorkDir after function
+	// os.Chdir is process-wide; serialize so concurrent goroutines don't race on CWD.
+	chdirMu.Lock()
+	defer chdirMu.Unlock()        // runs 2nd: release lock after CWD is restored
+
 	oldWorkDir, err := os.Getwd()
 	if err != nil {
 		return []Datafile{}, time.Time{}, time.Time{}, "", 0, 0, err
 	}
 
-	defer os.Chdir(oldWorkDir)
+	defer os.Chdir(oldWorkDir)    // runs 1st: restore CWD before releasing lock
 	// for windows source path add colon in the leading drive character
 	// windowsSource := strings.Replace(sourceFolder, "/C/", "C:/", 1)
 	if runtime.GOOS == windows {
