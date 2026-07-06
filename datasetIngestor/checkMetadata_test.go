@@ -234,6 +234,64 @@ func TestCheckMetadata_ValidFalse(t *testing.T) {
 	}
 }
 
+func TestCheckUserAndOwnerGroup(t *testing.T) {
+	tests := []struct {
+		name             string
+		user             map[string]string
+		accessGroups     []string
+		metaDataMap      map[string]interface{}
+		wantBeamline     bool
+		wantErr          bool
+		wantErrSubstring string
+	}{
+		{
+			name:         "ownerGroup is a valid string present in accessGroups",
+			user:         map[string]string{"displayName": "someuser"},
+			accessGroups: []string{"group1", "group2"},
+			metaDataMap:  map[string]interface{}{"ownerGroup": "group1"},
+			wantBeamline: false,
+			wantErr:      false,
+		},
+		{
+			name:             "ownerGroup key missing from metadata",
+			user:             map[string]string{"displayName": "someuser"},
+			accessGroups:     []string{"group1"},
+			metaDataMap:      map[string]interface{}{},
+			wantErr:          true,
+			wantErrSubstring: "attribute 'ownerGroup' is missing or invalid",
+		},
+		{
+			name:             "ownerGroup present but not a string does not panic",
+			user:             map[string]string{"displayName": "someuser"},
+			accessGroups:     []string{"group1"},
+			metaDataMap:      map[string]interface{}{"ownerGroup": nil},
+			wantErr:          true,
+			wantErrSubstring: "attribute 'ownerGroup' is missing or invalid",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			beamlineAccount, err := CheckUserAndOwnerGroup(tc.user, tc.accessGroups, tc.metaDataMap)
+
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected an error, got nil")
+				}
+				if !strings.Contains(err.Error(), tc.wantErrSubstring) {
+					t.Errorf("expected error to contain %q, got %q", tc.wantErrSubstring, err.Error())
+				}
+			} else if err != nil {
+				t.Fatalf("expected no error, got %q", err.Error())
+			}
+
+			if beamlineAccount != tc.wantBeamline {
+				t.Errorf("expected beamlineAccount=%v, got %v", tc.wantBeamline, beamlineAccount)
+			}
+		})
+	}
+}
+
 func TestCheckMetadata_BeamlineAccount(t *testing.T) {
 	var metadatafile2 = "testdata/metadata-short.json"
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
