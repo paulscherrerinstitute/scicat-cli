@@ -131,13 +131,13 @@ func CheckUserAndOwnerGroup(user map[string]string, accessGroups []string, metaD
 	}
 
 	// Check if the metadata contains the "ownerGroup" key.
-	ownerGroup, ok := metaDataMap["ownerGroup"]
+	ownerGroup, ok := metaDataMap["ownerGroup"].(string)
 	if !ok {
 		// NOTE: so if there's no ownergroup, we can pass this check?
-		return false, fmt.Errorf("no OwnerGroup attribute present in metadata")
+		return false, fmt.Errorf("attribute 'ownerGroup' is missing or invalid (expected string) in metadata")
 	}
 	// Iterate over accessGroups to validate the owner group.
-	if slices.Contains(accessGroups, ownerGroup.(string)) {
+	if slices.Contains(accessGroups, ownerGroup) {
 		return false, nil
 	}
 
