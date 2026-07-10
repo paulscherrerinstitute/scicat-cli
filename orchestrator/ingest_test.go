@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -634,7 +635,7 @@ func TestGatherFilesSuccess(t *testing.T) {
 	skip := ""
 	var skipped uint
 	var illegal uint
-	ctx, err := GatherFiles(tmp, "", &skip, &skipped, &illegal)
+	ctx, err := GatherFiles(tmp, "", &skip, &skipped, &illegal, false)
 	if err != nil {
 		t.Fatalf("unexpected gather error: %v", err)
 	}
@@ -646,6 +647,42 @@ func TestGatherFilesSuccess(t *testing.T) {
 	}
 	if ctx.StartTime == (time.Time{}) || ctx.EndTime == (time.Time{}) {
 		t.Fatalf("expected non-zero time bounds")
+	}
+}
+
+func TestCreateLocalSymlinkCallbackForFileListerNoninteractiveDefaultsWithoutPrompting(t *testing.T) {
+	tmp := t.TempDir()
+	sourceFolder := filepath.Join(tmp, "src")
+	outside := filepath.Join(tmp, "outside")
+	if err := os.MkdirAll(sourceFolder, 0o755); err != nil {
+		t.Fatalf("mkdir source: %v", err)
+	}
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatalf("mkdir outside: %v", err)
+	}
+
+	target := filepath.Join(outside, "target.txt")
+	if err := os.WriteFile(target, []byte("x"), 0o600); err != nil {
+		t.Fatalf("write target: %v", err)
+	}
+	linkPath := filepath.Join(sourceFolder, "link")
+	if err := os.Symlink(target, linkPath); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	skipSymlinks := ""
+	var skipped uint
+	cb := CreateLocalSymlinkCallbackForFileLister(&skipSymlinks, &skipped, true)
+
+	keep, err := cb(linkPath, sourceFolder)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if keep {
+		t.Fatal("expected external symlink to be dropped by the noninteractive default")
+	}
+	if skipped != 1 {
+		t.Fatalf("expected skippedLinks to be incremented, got %d", skipped)
 	}
 }
 
@@ -670,7 +707,7 @@ func TestGuardExistingSourceFolders(t *testing.T) {
 
 	t.Run("no conflicts returns nil", func(t *testing.T) {
 		scanner := bufio.NewScanner(strings.NewReader(""))
-		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", false, false, noConflict)
+		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", false, false, false, noConflict)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -678,7 +715,7 @@ func TestGuardExistingSourceFolders(t *testing.T) {
 
 	t.Run("lookup error propagates", func(t *testing.T) {
 		scanner := bufio.NewScanner(strings.NewReader(""))
-		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", false, false, failFn)
+		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", false, false, false, failFn)
 		if !errors.Is(err, testErr) {
 			t.Fatalf("expected lookup error, got: %v", err)
 		}
@@ -686,7 +723,7 @@ func TestGuardExistingSourceFolders(t *testing.T) {
 
 	t.Run("conflict + flagChanged returns error", func(t *testing.T) {
 		scanner := bufio.NewScanner(strings.NewReader(""))
-		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", false, true, oneConflict)
+		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", false, true, false, oneConflict)
 		if err == nil {
 			t.Fatal("expected error when flagChanged is true and conflicts exist")
 		}
@@ -694,7 +731,7 @@ func TestGuardExistingSourceFolders(t *testing.T) {
 
 	t.Run("conflict + allowExisting returns nil", func(t *testing.T) {
 		scanner := bufio.NewScanner(strings.NewReader(""))
-		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", true, false, oneConflict)
+		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", true, false, false, oneConflict)
 		if err != nil {
 			t.Fatalf("unexpected error when allowExisting is true: %v", err)
 		}
@@ -702,7 +739,7 @@ func TestGuardExistingSourceFolders(t *testing.T) {
 
 	t.Run("conflict + user declines returns error", func(t *testing.T) {
 		scanner := bufio.NewScanner(strings.NewReader("n\n"))
-		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", false, false, oneConflict)
+		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", false, false, false, oneConflict)
 		if err == nil {
 			t.Fatal("expected error when user declines")
 		}
@@ -710,9 +747,17 @@ func TestGuardExistingSourceFolders(t *testing.T) {
 
 	t.Run("conflict + user accepts returns nil", func(t *testing.T) {
 		scanner := bufio.NewScanner(strings.NewReader("y\n"))
-		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", false, false, oneConflict)
+		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", false, false, false, oneConflict)
 		if err != nil {
 			t.Fatalf("unexpected error when user accepts: %v", err)
+		}
+	})
+
+	t.Run("conflict + noninteractive returns error without touching scanner", func(t *testing.T) {
+		scanner := bufio.NewScanner(strings.NewReader(""))
+		err := GuardExistingSourceFolders(scanner, []string{"/data/run1"}, &http.Client{}, "https://api", "token", false, false, true, oneConflict)
+		if err == nil {
+			t.Fatal("expected error when noninteractive and conflicts exist")
 		}
 	})
 }
@@ -891,6 +936,222 @@ func TestRunIngestionPipelineAuthenticatesOnceAcrossMultipleDatasetArgs(t *testi
 	}
 	if authCalls != 1 {
 		t.Fatalf("expected exactly 1 shared Authenticate call across the dataset batch, got %d", authCalls)
+	}
+}
+
+func TestRunIngestionPipelineParallelSucceeds(t *testing.T) {
+	prevFlags := datasetUtils.TestFlags
+	prevArgs := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlags
+		datasetUtils.TestArgs = prevArgs
+	}()
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+
+	tmp := t.TempDir()
+	var ingested []string
+	var mu sync.Mutex
+	var authCalls int
+
+	ctx := noopCtx()
+	ctx.Cfg = IngestConfig{
+		IngestFlag:         true,
+		NoninteractiveFlag: true,
+		NocopyFlag:         true,
+		NocopyFlagChanged:  true,
+	}
+	ctx.Authenticate = func(_ cliutils.Authenticator, _ *http.Client, _, _, _ string, _ bool, _ ...func(...any)) (map[string]string, []string, error) {
+		mu.Lock()
+		authCalls++
+		mu.Unlock()
+		return map[string]string{"accessToken": "test-token", "username": "alice"}, []string{"group-a"}, nil
+	}
+	ctx.ReadAndCheckMetadata = func(_ *http.Client, _, metaFile string, _ map[string]string, _ []string) (map[string]interface{}, string, bool, error) {
+		dir := filepath.Join(tmp, strings.TrimSuffix(filepath.Base(metaFile), ".json"))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, "", false, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "data.dat"), []byte("x"), 0o600); err != nil {
+			return nil, "", false, err
+		}
+		return map[string]interface{}{"type": "raw", "ownerGroup": "grp"}, dir, false, nil
+	}
+	ctx.IngestDataset = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
+		id := "pid-" + filepath.Base(meta["sourceFolder"].(string))
+		mu.Lock()
+		ingested = append(ingested, id)
+		mu.Unlock()
+		return id, nil
+	}
+
+	dArgsList, err := ParseAndValidateAllArgs([]string{"a.json", "b.json", "c.json"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if err := runIngestionPipeline(ctx, dArgsList, "v1.0.0"); err != nil {
+		t.Fatalf("unexpected pipeline error: %v", err)
+	}
+
+	if len(ingested) != 3 {
+		t.Fatalf("expected 3 ingested datasets, got %d: %v", len(ingested), ingested)
+	}
+	if authCalls != 1 {
+		t.Fatalf("expected exactly 1 shared Authenticate call across the parallel batch, got %d", authCalls)
+	}
+}
+
+func TestRunIngestionPipelineParallelReturnsErrorWhenAnyFails(t *testing.T) {
+	prevFlags := datasetUtils.TestFlags
+	prevArgs := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlags
+		datasetUtils.TestArgs = prevArgs
+	}()
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+
+	metaErr := errors.New("bad metadata")
+	ctx := noopCtx()
+	ctx.Cfg = IngestConfig{IngestFlag: true, NoninteractiveFlag: true}
+	ctx.ReadAndCheckMetadata = func(*http.Client, string, string, map[string]string, []string) (map[string]interface{}, string, bool, error) {
+		return nil, "", false, metaErr
+	}
+
+	dArgsList, _ := ParseAndValidateAllArgs([]string{"a.json", "b.json"})
+	err := runIngestionPipeline(ctx, dArgsList, "v1.0.0")
+	if !errors.Is(err, metaErr) {
+		t.Fatalf("expected the underlying metadata error to be preserved via errors.Is, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "a.json") || !strings.Contains(err.Error(), "b.json") {
+		t.Fatalf("expected the error to name both failing datasets, got: %v", err)
+	}
+}
+
+// TestRunIngestionPipelineParallelKeepsSuccessesWhenOneDatasetFails is the
+// parallel-path counterpart of TestRunIngestionPipelineKeepsSuccessesWhenOneDatasetFails:
+// runParallelIngestionPipeline already drains every goroutine's result before
+// reporting failure, but runIngestionPipeline used to throw that array away
+// by returning as soon as runParallelIngestionPipeline reported an error.
+func TestRunIngestionPipelineParallelKeepsSuccessesWhenOneDatasetFails(t *testing.T) {
+	prevFlags := datasetUtils.TestFlags
+	prevArgs := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlags
+		datasetUtils.TestArgs = prevArgs
+	}()
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+
+	tmp := t.TempDir()
+	metaErr := errors.New("bad metadata for b")
+
+	ctx := noopCtx()
+	ctx.Cfg = IngestConfig{
+		IngestFlag:         true,
+		AutoarchiveFlag:    true,
+		NoninteractiveFlag: true,
+		NocopyFlag:         true,
+		NocopyFlagChanged:  true,
+	}
+	ctx.ReadAndCheckMetadata = func(_ *http.Client, _, metaFile string, _ map[string]string, _ []string) (map[string]interface{}, string, bool, error) {
+		if filepath.Base(metaFile) == "b.json" {
+			return nil, "", false, metaErr
+		}
+		dir := filepath.Join(tmp, strings.TrimSuffix(filepath.Base(metaFile), ".json"))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, "", false, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "data.dat"), []byte("x"), 0o600); err != nil {
+			return nil, "", false, err
+		}
+		return map[string]interface{}{"type": "raw", "ownerGroup": "grp"}, dir, false, nil
+	}
+	ctx.IngestDataset = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
+		return "pid-" + filepath.Base(meta["sourceFolder"].(string)), nil
+	}
+	var mu sync.Mutex
+	var gotDatasets []string
+	ctx.CreateArchivalJob = func(_ *http.Client, _ string, _ map[string]string, _ string, datasets []string, _ *int, _ *time.Time) (string, error) {
+		mu.Lock()
+		gotDatasets = append([]string{}, datasets...)
+		mu.Unlock()
+		return "job-abc", nil
+	}
+
+	dArgsList, err := ParseAndValidateAllArgs([]string{"a.json", "b.json", "c.json"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+
+	out := captureStdout(t, func() {
+		err = runIngestionPipeline(ctx, dArgsList, "v1.0.0")
+	})
+
+	if err == nil {
+		t.Fatal("expected the b.json failure to be reported")
+	}
+	if !strings.Contains(out, "pid-a") || !strings.Contains(out, "pid-c") {
+		t.Fatalf("expected successful datasets a and c to still be printed, got: %q", out)
+	}
+	want := []string{"pid-a", "pid-c"}
+	sort.Strings(want)
+	sort.Strings(gotDatasets)
+	if strings.Join(gotDatasets, ",") != strings.Join(want, ",") {
+		t.Fatalf("expected archival job to still include the successful datasets, got=%v want=%v", gotDatasets, want)
+	}
+}
+
+func TestRunIngestionPipelineAllowsDifferentOwnerGroupsAcrossDatasets(t *testing.T) {
+	prevFlags := datasetUtils.TestFlags
+	prevArgs := datasetUtils.TestArgs
+	defer func() {
+		datasetUtils.TestFlags = prevFlags
+		datasetUtils.TestArgs = prevArgs
+	}()
+	datasetUtils.TestFlags = nil
+	datasetUtils.TestArgs = nil
+
+	tmp := t.TempDir()
+	ctx := noopCtx()
+	ctx.Cfg = IngestConfig{
+		IngestFlag:        true,
+		AutoarchiveFlag:   true,
+		NocopyFlag:        true,
+		NocopyFlagChanged: true,
+	}
+	ctx.ReadAndCheckMetadata = func(_ *http.Client, _, metaFile string, _ map[string]string, _ []string) (map[string]interface{}, string, bool, error) {
+		dir := filepath.Join(tmp, strings.TrimSuffix(filepath.Base(metaFile), ".json"))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, "", false, err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "data.dat"), []byte("x"), 0o600); err != nil {
+			return nil, "", false, err
+		}
+		ownerGroup := "grp-b"
+		if filepath.Base(metaFile) == "a.json" {
+			ownerGroup = "grp-a"
+		}
+		return map[string]interface{}{"type": "raw", "ownerGroup": ownerGroup}, dir, false, nil
+	}
+	ctx.IngestDataset = func(_ *http.Client, _ string, meta map[string]interface{}, _ []datasetIngestor.Datafile, _ map[string]string) (string, error) {
+		return "pid-" + filepath.Base(meta["sourceFolder"].(string)), nil
+	}
+	var gotOwnerGroup string
+	ctx.CreateArchivalJob = func(_ *http.Client, _ string, _ map[string]string, ownerGroup string, _ []string, _ *int, _ *time.Time) (string, error) {
+		gotOwnerGroup = ownerGroup
+		return "job-abc", nil
+	}
+
+	dArgsList, err := ParseAndValidateAllArgs([]string{"a.json", "b.json"})
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if err := runIngestionPipeline(ctx, dArgsList, "v1.0.0"); err != nil {
+		t.Fatalf("expected different ownerGroups across datasets to be allowed, got: %v", err)
+	}
+	if gotOwnerGroup != "grp-a" {
+		t.Fatalf("expected archival job to use the first-seen ownerGroup %q, got %q", "grp-a", gotOwnerGroup)
 	}
 }
 

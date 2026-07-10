@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/SwissOpenEM/globus"
@@ -313,7 +314,7 @@ func GuardExistingSourceFolders(
 	datasetPaths []string,
 	client *http.Client,
 	apiServer, token string,
-	allowExisting, flagChanged bool,
+	allowExisting, flagChanged, noninteractive bool,
 	testFn SourceFolderTester,
 ) error {
 	log.Println("Testing for existing source folders...")
@@ -340,6 +341,9 @@ func GuardExistingSourceFolders(
 	if flagChanged {
 		return errors.New("existing source folders are not allowed")
 	}
+	if noninteractive {
+		return errors.New("existing source folders found; rerun with --allowexistingsource to ingest anyway in noninteractive mode")
+	}
 	log.Printf("Do you want to ingest the corresponding new datasets nevertheless (y/N) ? ")
 	scanner.Scan()
 	if scanner.Text() != "y" {
@@ -348,12 +352,12 @@ func GuardExistingSourceFolders(
 	return nil
 }
 
-func GatherFiles(datasetSourceFolder, datasetFileListTxt string, skipSymlinks *string, skippedLinks, illegalFileNames *uint) (FileContext, error) {
+func GatherFiles(datasetSourceFolder, datasetFileListTxt string, skipSymlinks *string, skippedLinks, illegalFileNames *uint, noninteractive bool) (FileContext, error) {
 	if !(*skipSymlinks == "sA" || *skipSymlinks == "kA" || *skipSymlinks == "dA") {
 		*skipSymlinks = ""
 	}
 
-	localSymlinkCallback := CreateLocalSymlinkCallbackForFileLister(skipSymlinks, skippedLinks)
+	localSymlinkCallback := CreateLocalSymlinkCallbackForFileLister(skipSymlinks, skippedLinks, noninteractive)
 	localFilepathFilterCallback := CreateLocalFilenameFilterCallback(illegalFileNames)
 
 	log.Printf("Scanning files in dataset %s", datasetSourceFolder)
@@ -626,34 +630,35 @@ func runIngestionPipeline(ictx IngestContext, dArgs []DatasetArgs, version strin
 		return err
 	}
 
-	var allArchivable []string
-	var ownerGroup string
-	var skippedLinks, illegalFileNames uint
-	var emptyDatasets, tooLargeDatasets int
+	runResult := ingestionResult{
+		archivableDatasets: []string{},
+	}
 
-	// datasetErrs accumulates failures without short-circuiting: datasets that
+	if !ictx.Cfg.NoninteractiveFlag && len(dArgs) > 1 {
+		log.Println("Note: running ingestions sequentially because --noninteractive is not set. Pass --noninteractive to run them in parallel.")
+	}
+
+	// pipelineErr accumulates failures without short-circuiting: datasets that
 	// succeeded must still be printed and (if requested) submitted for archival
 	// even when a sibling dataset in the same run failed.
-	var datasetErrs []error
+	var pipelineErr error
 
-	for _, dArg := range dArgs {
-		res, err := runIngestionBeforeArchive(ictx, dArg, user, accessGroups)
-		if err != nil {
-			wrapped := fmt.Errorf("error ingesting dataset with metadata %q: %w", dArg.MetadataFile, err)
-			log.Println(wrapped)
-			datasetErrs = append(datasetErrs, wrapped)
-			continue
+	if ictx.Cfg.NoninteractiveFlag && len(dArgs) > 1 {
+		pipelineErr = runParallelIngestionPipeline(ictx, dArgs, user, accessGroups, &runResult)
+	} else {
+		var datasetErrs []error
+		for _, dArg := range dArgs {
+			res, err := runIngestionBeforeArchive(ictx, dArg, user, accessGroups)
+			if err != nil {
+				wrapped := fmt.Errorf("error ingesting dataset with metadata %q: %w", dArg.MetadataFile, err)
+				log.Println(wrapped)
+				datasetErrs = append(datasetErrs, wrapped)
+				continue
+			}
+			updateResultCounters(&runResult, res)
 		}
-		allArchivable = append(allArchivable, res.archivableDatasets...)
-		skippedLinks += res.skippedLinks
-		illegalFileNames += res.illegalFileNames
-		emptyDatasets += res.emptyDatasets
-		tooLargeDatasets += res.tooLargeDatasets
-		if ownerGroup == "" {
-			ownerGroup = res.ownerGroup
-		}
+		pipelineErr = errors.Join(datasetErrs...)
 	}
-	pipelineErr := errors.Join(datasetErrs...)
 
 	if !ictx.Cfg.IngestFlag {
 		color.Set(color.FgRed)
@@ -661,26 +666,75 @@ func runIngestionPipeline(ictx IngestContext, dArgs []DatasetArgs, version strin
 		color.Unset()
 	}
 
-	if skippedLinks > 0 {
+	if runResult.skippedLinks > 0 {
 		color.Set(color.FgYellow)
-		log.Printf("Total number of link files skipped: %v\n", skippedLinks)
+		log.Printf("Total number of link files skipped: %v\n", runResult.skippedLinks)
 		color.Unset()
 	}
-	if illegalFileNames > 0 {
+	if runResult.illegalFileNames > 0 {
 		color.Set(color.FgRed)
-		log.Printf("Number of files ignored because of illegal filenames: %v\n", illegalFileNames)
+		log.Printf("Number of files ignored because of illegal filenames: %v\n", runResult.illegalFileNames)
 		color.Unset()
 	}
 
-	if emptyDatasets > 0 || tooLargeDatasets > 0 {
-		pipelineErr = errors.Join(pipelineErr, fmt.Errorf("errors encountered with dataset layouts: %d empty, %d too large", emptyDatasets, tooLargeDatasets))
+	if runResult.emptyDatasets > 0 || runResult.tooLargeDatasets > 0 {
+		pipelineErr = errors.Join(pipelineErr, fmt.Errorf("errors encountered with dataset layouts: %d empty, %d too large", runResult.emptyDatasets, runResult.tooLargeDatasets))
 	}
 
-	if err := submitAndPrintResults(ictx, user, ownerGroup, allArchivable); err != nil {
+	if err := submitAndPrintResults(ictx, user, runResult.ownerGroup, runResult.archivableDatasets); err != nil {
 		return errors.Join(pipelineErr, err)
 	}
 
 	return pipelineErr
+}
+
+// runParallelIngestionPipeline runs one goroutine per dataset arg. Results are
+// collected over a channel in whatever order the goroutines finish - that's
+// fine here since updateResultCounters just takes the first non-empty
+// ownerGroup it sees, and different datasets are allowed to have different
+// ownerGroups (the archival job simply gets whichever ownerGroup arrives first).
+func runParallelIngestionPipeline(ictx IngestContext, dArgs []DatasetArgs, user map[string]string, accessGroups []string, runResult *ingestionResult) error {
+	type singleRunResult struct {
+		metadataFile string
+		res          ingestionResult
+		err          error
+	}
+
+	resultCh := make(chan singleRunResult, len(dArgs))
+	var wg sync.WaitGroup
+	for _, dArg := range dArgs {
+		wg.Add(1)
+		go func(d DatasetArgs) {
+			defer wg.Done()
+			res, err := runIngestionBeforeArchive(ictx, d, user, accessGroups)
+			resultCh <- singleRunResult{metadataFile: d.MetadataFile, res: res, err: err}
+		}(dArg)
+	}
+	wg.Wait()
+	close(resultCh)
+
+	var datasetErrs []error
+	for r := range resultCh {
+		if r.err != nil {
+			wrapped := fmt.Errorf("error ingesting dataset with metadata %q: %w", r.metadataFile, r.err)
+			log.Println(wrapped)
+			datasetErrs = append(datasetErrs, wrapped)
+			continue
+		}
+		updateResultCounters(runResult, r.res)
+	}
+	return errors.Join(datasetErrs...)
+}
+
+func updateResultCounters(result *ingestionResult, res ingestionResult) {
+	result.archivableDatasets = append(result.archivableDatasets, res.archivableDatasets...)
+	result.skippedLinks += res.skippedLinks
+	result.illegalFileNames += res.illegalFileNames
+	result.emptyDatasets += res.emptyDatasets
+	result.tooLargeDatasets += res.tooLargeDatasets
+	if result.ownerGroup == "" {
+		result.ownerGroup = res.ownerGroup
+	}
 }
 
 // runIngestionBeforeArchive is the per-dataset core. It operates entirely
@@ -703,7 +757,7 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, user map[s
 
 	if err := GuardExistingSourceFolders(
 		ictx.Scanner, datasetPaths, ictx.Client, ictx.APIServer, user["accessToken"],
-		ictx.Cfg.AllowExistingSourceFolder, ictx.Cfg.AllowExistingSourceFolderChanged,
+		ictx.Cfg.AllowExistingSourceFolder, ictx.Cfg.AllowExistingSourceFolderChanged, ictx.Cfg.NoninteractiveFlag,
 		ictx.TestForExistingSourceFolder,
 	); err != nil {
 		return ingestionResult{}, err
@@ -742,7 +796,7 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, user map[s
 		log.Printf("===== Ingesting: \"%s\" =====\n", datasetSourceFolder)
 		metaDataMap["sourceFolder"] = datasetSourceFolder
 
-		fileCtx, err := GatherFiles(datasetSourceFolder, dArgs.DatasetFileListTxt, &skipSymlinks, &skippedLinks, &illegalFileNames)
+		fileCtx, err := GatherFiles(datasetSourceFolder, dArgs.DatasetFileListTxt, &skipSymlinks, &skippedLinks, &illegalFileNames, ictx.Cfg.NoninteractiveFlag)
 		if err != nil {
 			return ingestionResult{}, fmt.Errorf("can't gather filelist of %q: %w", datasetSourceFolder, err)
 		}
@@ -816,8 +870,11 @@ func runIngestionBeforeArchive(ictx IngestContext, dArgs DatasetArgs, user map[s
 	}, nil
 }
 
-func CreateLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {
-	scanner := bufio.NewScanner(os.Stdin)
+func CreateLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks *uint, noninteractive bool) func(symlinkPath string, sourceFolder string) (bool, error) {
+	var scanner *bufio.Scanner
+	if !noninteractive {
+		scanner = bufio.NewScanner(os.Stdin)
+	}
 	return func(symlinkPath string, sourceFolder string) (bool, error) {
 		keep := true
 		pointee, err := os.Readlink(symlinkPath)
@@ -847,6 +904,11 @@ func CreateLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks 
 			color.Set(color.FgYellow)
 			log.Printf("Warning: the file %s is a link pointing to %v.", symlinkPath, pointee)
 			color.Unset()
+			if noninteractive {
+				keep = strings.HasPrefix(pointee, sourceFolder)
+				log.Printf("Running --noninteractive without an explicit --linkfiles choice; defaulting to keep only internal links within the source folder %s.\n", sourceFolder)
+				break
+			}
 			log.Printf(`
 Please test if this link is meaningful and not pointing
 outside the sourceFolder %s. The default behaviour is to
