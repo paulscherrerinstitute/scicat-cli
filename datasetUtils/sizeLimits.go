@@ -9,7 +9,7 @@ type IngestSizeLimits struct {
 }
 
 var DefaultIngestSizeLimits = IngestSizeLimits{
-	TotalMaxFiles: 400000,
+	TotalMaxFiles: 1000000,
 	BlockMaxFiles: 20000,        // 20 for testing the logic
 	BlockMaxBytes: 200000000000, // 700000 for testing the logic
 }
