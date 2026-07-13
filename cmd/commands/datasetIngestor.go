@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -282,8 +283,8 @@ For Windows you need instead to specify -user username:password on the command l
 
 		var skippedLinks uint = 0
 		var illegalFileNames uint = 0
-		localSymlinkCallback := CreateLocalSymlinkCallbackForFileLister(&skipSymlinks, &skippedLinks)
-		localFilepathFilterCallback := CreateLocalFilenameFilterCallback(&illegalFileNames)
+		localSymlinkCallback := datasetIngestor.CreateLocalSymlinkCallbackForFileLister(&skipSymlinks, &skippedLinks)
+		localFilepathFilterCallback := datasetIngestor.CreateLocalFilenameFilterCallback(&illegalFileNames)
 
 		// now everything is prepared, prepare to loop over all folders
 		var archivableDatasetList []string
@@ -309,29 +310,26 @@ For Windows you need instead to specify -user username:password on the command l
 			// === get filelist of dataset ===
 			log.Printf("Getting filelist for \"%s\"...\n", datasetSourceFolder)
 			fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
-				datasetIngestor.GetLocalFileList(datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback)
+				datasetIngestor.GetValidatedLocalFileList(datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback)
 			if err != nil {
-				log.Fatalf("Can't gather the filelist of \"%s\"", datasetSourceFolder)
+				var emptyDatasetErr *datasetIngestor.EmptyDatasetError
+				var tooManyFilesErr *datasetIngestor.TooManyFilesError
+				switch {
+				case errors.As(err, &emptyDatasetErr):
+					emptyDatasets++
+				case errors.As(err, &tooManyFilesErr):
+					tooLargeDatasets++
+				default:
+					log.Fatalf("Can't gather the filelist of \"%s\": %v", datasetSourceFolder, err)
+				}
+				color.Set(color.FgRed)
+				log.Println(err)
+				color.Unset()
+				continue
 			}
 			log.Println("File list collected.")
 			//log.Printf("full fileListing: %v\n Start and end time: %s %s\n ", fullFileArray, startTime, endTime)
 			log.Printf("The dataset contains %v files with a total size of %v bytes.\n", numFiles, totalSize)
-
-			// filecount checks
-			if totalSize == 0 {
-				emptyDatasets++
-				color.Set(color.FgRed)
-				log.Printf("\"%s\" dataset cannot be ingested - contains no files\n", datasetSourceFolder)
-				color.Unset()
-				continue
-			}
-			if numFiles > cliutils.TOTAL_MAXFILES {
-				tooLargeDatasets++
-				color.Set(color.FgRed)
-				log.Printf("\"%s\" dataset cannot be ingested - too many files: has %d, max. %d\n", datasetSourceFolder, numFiles, cliutils.TOTAL_MAXFILES)
-				color.Unset()
-				continue
-			}
 
 			// NOTE: only tapecopies=1 or 2 does something if set.
 			if tapecopies == 2 {
@@ -485,11 +483,11 @@ For Windows you need instead to specify -user username:password on the command l
 		// print file statistics
 		if skippedLinks > 0 {
 			color.Set(color.FgYellow)
-			log.Printf("Total number of link files skipped:%v\n", skippedLinks)
+			log.Print(&datasetIngestor.SkippedLinksWarning{Count: skippedLinks})
 		}
 		if illegalFileNames > 0 {
 			color.Set(color.FgRed)
-			log.Printf("Number of files ignored because of illegal filenames:%v\n", illegalFileNames)
+			log.Print(&datasetIngestor.IllegalFileNamesWarning{Count: illegalFileNames})
 		}
 		color.Unset()
 
@@ -545,92 +543,4 @@ func init() {
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
-}
-
-func CreateLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {
-	scanner := bufio.NewScanner(os.Stdin)
-	return func(symlinkPath string, sourceFolder string) (bool, error) {
-		keep := true
-		pointee, _ := os.Readlink(symlinkPath) // just pass the file name
-		if !filepath.IsAbs(pointee) {
-			symlinkAbs, err := filepath.Abs(filepath.Dir(symlinkPath))
-			if err != nil {
-				return false, err
-			}
-			pointeeAbs := filepath.Join(symlinkAbs, pointee)
-			pointee, err = filepath.EvalSymlinks(pointeeAbs)
-			if err != nil {
-				log.Printf("Could not follow symlink for file:%v %v", pointeeAbs, err)
-				keep = false
-				log.Printf("keep variable set to %v", keep)
-			}
-		}
-		if *skipSymlinks == "ka" || *skipSymlinks == "kA" {
-			keep = true
-		} else if *skipSymlinks == "sa" || *skipSymlinks == "sA" {
-			keep = false
-		} else if *skipSymlinks == "da" || *skipSymlinks == "dA" {
-			keep = strings.HasPrefix(pointee, sourceFolder)
-		} else {
-			color.Set(color.FgYellow)
-			log.Printf("Warning: the file %s is a link pointing to %v.", symlinkPath, pointee)
-			color.Unset()
-			log.Printf(`
-	Please test if this link is meaningful and not pointing
-	outside the sourceFolder %s. The default behaviour is to
-	keep only internal links within a source folder.
-	You can also specify that you want to apply the same answer to ALL
-	subsequent links within the current dataset, by appending an a (dA,ka,sa).
-	If you want to give the same answer even to all subsequent datasets
-	in this command then specify a capital 'A', e.g. (dA,kA,sA)
-	Do you want to keep the link in dataset or skip it (D(efault)/k(eep)/s(kip) ?`, sourceFolder)
-			scanner.Scan()
-			*skipSymlinks = scanner.Text()
-			if *skipSymlinks == "" {
-				*skipSymlinks = "d"
-			}
-			if *skipSymlinks == "d" || *skipSymlinks == "dA" {
-				keep = strings.HasPrefix(pointee, sourceFolder)
-			} else {
-				keep = (*skipSymlinks != "s" && *skipSymlinks != "sa" && *skipSymlinks != "sA")
-			}
-		}
-		if keep {
-			color.Set(color.FgGreen)
-			log.Printf("You chose to keep the link %v -> %v.\n\n", symlinkPath, pointee)
-		} else {
-			color.Set(color.FgRed)
-			*skippedLinks++
-			log.Printf("You chose to remove the link %v -> %v.\n\n", symlinkPath, pointee)
-		}
-		color.Unset()
-		return keep, nil
-	}
-}
-
-func CreateLocalFilenameFilterCallback(illegalFileNamesCounter *uint) func(filepath string) bool {
-	return func(filepath string) (keep bool) {
-		keep = true
-		// make sure that filenames do not contain characters like "\" or "*"
-		if strings.ContainsAny(filepath, "*\\") {
-			color.Set(color.FgRed)
-			log.Printf("Warning: the file %s contains illegal characters like *,\\ and will not be archived.", filepath)
-			color.Unset()
-			if illegalFileNamesCounter != nil {
-				*illegalFileNamesCounter++
-			}
-			keep = false
-		}
-		// and check for triple blanks, they are used to separate columns in messages
-		if keep && strings.Contains(filepath, "   ") {
-			color.Set(color.FgRed)
-			log.Printf("Warning: the file %s contains 3 consecutive blanks which is not allowed. The file not be archived.", filepath)
-			color.Unset()
-			if illegalFileNamesCounter != nil {
-				*illegalFileNamesCounter++
-			}
-			keep = false
-		}
-		return keep
-	}
 }

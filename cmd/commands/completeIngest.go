@@ -11,6 +11,7 @@ import (
 	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/orchestrator"
 	"github.com/spf13/cobra"
 )
 
@@ -78,73 +79,20 @@ For further help see "` + cliutils.MANUAL + `"`,
 		if err != nil {
 			log.Fatal(err)
 		}
-		if user["username"] != "archiveManager" {
-			log.Fatalf("You must be archiveManager to be allowed to delete datasets\n")
-		}
 
-		dataset, missing, err := datasetUtils.GetDatasetDetails(client, APIServer, user["accessToken"], []string{pid}, "")
+		err = orchestrator.CompleteIngest(client, APIServer, user, pid)
 		if err != nil {
-			log.Fatal(err)
-		}
-		if len(missing) > 0 {
-			log.Fatalf("Dataset with PID %s not found\n", pid)
-		}
-		if len(dataset) != 1 {
-			log.Fatalf("Dataset with PID %s not found\n", pid)
-		}
-		if dataset[0].NumberOfFiles != 0 {
-			log.Fatalf("Dataset with PID %s already contains files\n", pid)
-		}
-
-		sourceFolder := dataset[0].SourceFolder
-		if sourceFolder == "" {
-			log.Fatalf("Dataset with PID %s has no sourceFolder defined\n", pid)
-		}
-
-		log.Printf("Dataset with PID %s has sourceFolder %s\n", pid, sourceFolder)
-
-		skipSymlinks := "dA"
-
-		var skippedLinks uint = 0
-		var illegalFileNames uint = 0
-		localSymlinkCallback := CreateLocalSymlinkCallbackForFileLister(&skipSymlinks, &skippedLinks)
-		localFilepathFilterCallback := CreateLocalFilenameFilterCallback(&illegalFileNames)
-
-		fullFileArray, _, _, _, numFiles, totalSize, err :=
-			datasetIngestor.GetLocalFileList(sourceFolder, "", localSymlinkCallback, localFilepathFilterCallback)
-		if err != nil {
-			log.Fatalf("Can't gather the filelist of \"%s\"", sourceFolder)
-		}
-
-		// filecount checks
-		if totalSize == 0 || numFiles == 0 {
-			color.Set(color.FgRed)
-			log.Fatalf("\"%s\" dataset cannot be ingested - contains no files\n", sourceFolder)
-			color.Unset()
-		}
-		if numFiles > cliutils.TOTAL_MAXFILES {
-			color.Set(color.FgRed)
-			log.Fatalf("\"%s\" dataset cannot be ingested - too many files: has %d, max. %d\n", sourceFolder, numFiles, cliutils.TOTAL_MAXFILES)
-			color.Unset()
-		}
-		// print file statistics
-		if skippedLinks > 0 {
-			color.Set(color.FgYellow)
-			log.Printf("Total number of link files skipped:%v\n", skippedLinks)
+			switch err.(type) {
+			case *datasetIngestor.SkippedLinksWarning, *datasetIngestor.IllegalFileNamesWarning:
+				color.Set(color.FgYellow)
+				log.Print(err)
+			default:
+				color.Set(color.FgRed)
+				log.Fatal(err)
+			}
 			color.Unset()
 		}
 
-		if illegalFileNames > 0 {
-			color.Set(color.FgYellow)
-			log.Printf("Total number of illegal file names skipped:%v\n", illegalFileNames)
-			color.Unset()
-		}
-
-		err = datasetIngestor.CreateOrigDatablocks(client, APIServer, fullFileArray, pid, user)
-
-		if err != nil {
-			log.Fatalf("Error creating original data blocks for dataset %s: %v", pid, err)
-		}
 	},
 }
 
