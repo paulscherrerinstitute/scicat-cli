@@ -73,7 +73,7 @@ func IngestDataset(client *http.Client, APIServer string, metaDataMap map[string
 	if err != nil {
 		return datasetId, err
 	}
-	err = createOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
+	err = CreateOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
 
 	return datasetId, err
 }
@@ -148,7 +148,7 @@ If a request receives a response with a status code other than 200, the function
 
 The function logs a message for each created data block, including the start and end file, the total size, and the number of files in the block.
 */
-func createOrigDatablocks(client *http.Client, APIServer string, fullFileArray []Datafile, datasetId string, user map[string]string) error {
+func CreateOrigDatablocks(client *http.Client, APIServer string, fullFileArray []Datafile, datasetId string, user map[string]string) error {
 	totalFiles := len(fullFileArray)
 
 	if totalFiles > TOTAL_MAXFILES {

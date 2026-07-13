@@ -282,8 +282,8 @@ For Windows you need instead to specify -user username:password on the command l
 
 		var skippedLinks uint = 0
 		var illegalFileNames uint = 0
-		localSymlinkCallback := createLocalSymlinkCallbackForFileLister(&skipSymlinks, &skippedLinks)
-		localFilepathFilterCallback := createLocalFilenameFilterCallback(&illegalFileNames)
+		localSymlinkCallback := CreateLocalSymlinkCallbackForFileLister(&skipSymlinks, &skippedLinks)
+		localFilepathFilterCallback := CreateLocalFilenameFilterCallback(&illegalFileNames)
 
 		// now everything is prepared, prepare to loop over all folders
 		var archivableDatasetList []string
@@ -547,7 +547,7 @@ func init() {
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
 }
 
-func createLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {
+func CreateLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks *uint) func(symlinkPath string, sourceFolder string) (bool, error) {
 	scanner := bufio.NewScanner(os.Stdin)
 	return func(symlinkPath string, sourceFolder string) (bool, error) {
 		keep := true
@@ -608,7 +608,7 @@ func createLocalSymlinkCallbackForFileLister(skipSymlinks *string, skippedLinks 
 	}
 }
 
-func createLocalFilenameFilterCallback(illegalFileNamesCounter *uint) func(filepath string) bool {
+func CreateLocalFilenameFilterCallback(illegalFileNamesCounter *uint) func(filepath string) bool {
 	return func(filepath string) (keep bool) {
 		keep = true
 		// make sure that filenames do not contain characters like "\" or "*"
