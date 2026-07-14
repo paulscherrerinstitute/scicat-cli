@@ -104,12 +104,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 			log.Fatal(err)
 		}
 
-		ownerGroupList := []string{ownerGroup}
-		if ownerGroup == "" {
-			ownerGroupList = accessGroups
-		}
-		if len(ownerGroupList) == 0 {
-			log.Fatalf("Could not determine an ownerGroup to submit the archive job for: specify --ownergroup or ensure your account has at least one access group")
+		ownerGroupList, err := orchestrator.ResolveOwnerGroupList(ownerGroup, accessGroups)
+		if err != nil {
+			log.Fatal(err)
 		}
 		archivableDatasets, err := orchestrator.ResolveArchivableDatasets(client, APIServer, user["accessToken"], ownerGroupList, inputdatasetList)
 		if err != nil {

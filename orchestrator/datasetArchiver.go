@@ -49,3 +49,13 @@ func ParseExecutionTime(s string) (*time.Time, error) {
 	}
 	return &t, nil
 }
+
+func ResolveOwnerGroupList(ownerGroup string, accessGroups []string) ([]string, error) {
+	if ownerGroup != "" {
+		return []string{ownerGroup}, nil
+	}
+	if len(accessGroups) == 0 {
+		return nil, fmt.Errorf("Could not determine an ownerGroup to submit the archive job for: specify --ownergroup or ensure your account has at least one access group")
+	}
+	return accessGroups, nil
+}

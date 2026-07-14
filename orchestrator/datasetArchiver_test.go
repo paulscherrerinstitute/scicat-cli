@@ -71,6 +71,35 @@ func TestResolveArchivableDatasets(t *testing.T) {
 	})
 }
 
+func TestResolveOwnerGroupList(t *testing.T) {
+	t.Run("uses the explicit ownerGroup when set", func(t *testing.T) {
+		groups, err := ResolveOwnerGroupList("testGroup", []string{"group1", "group2"})
+		if err != nil {
+			t.Fatalf("expected no error, got: %v", err)
+		}
+		if len(groups) != 1 || groups[0] != "testGroup" {
+			t.Errorf("expected [\"testGroup\"], got %v", groups)
+		}
+	})
+
+	t.Run("falls back to accessGroups when ownerGroup is empty", func(t *testing.T) {
+		groups, err := ResolveOwnerGroupList("", []string{"group1", "group2"})
+		if err != nil {
+			t.Fatalf("expected no error, got: %v", err)
+		}
+		if len(groups) != 2 || groups[0] != "group1" || groups[1] != "group2" {
+			t.Errorf("expected [\"group1\" \"group2\"], got %v", groups)
+		}
+	})
+
+	t.Run("fails when ownerGroup is empty and there are no accessGroups", func(t *testing.T) {
+		_, err := ResolveOwnerGroupList("", nil)
+		if err == nil {
+			t.Fatal("expected an error, got nil")
+		}
+	})
+}
+
 func TestParseExecutionTime(t *testing.T) {
 	t.Run("empty string returns nil", func(t *testing.T) {
 		parsed, err := ParseExecutionTime("")
