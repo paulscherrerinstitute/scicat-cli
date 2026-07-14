@@ -11,6 +11,7 @@ import (
 
 	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/orchestrator"
 	"github.com/spf13/cobra"
 )
 
@@ -19,10 +20,11 @@ var datasetArchiverCmd = &cobra.Command{
 	Short: "Archives all datasets in state datasetCreated from a given ownerGroup",
 	Long: `Tool to archive datasets to the data catalog.
 
-You must choose either an ownerGroup, in which case all archivable datasets
-of this ownerGroup not yet archived will be archived.
-Or you choose a (list of) datasetIds, in which case all archivable datasets
-of this list not yet archived will be archived. 
+The ownerGroup is optional. If given, all archivable datasets of this
+ownerGroup not yet archived will be archived, optionally narrowed down to
+the (list of) datasetIds passed as arguments.
+If ownerGroup is not given, a (list of) datasetIds must be passed as
+arguments instead; all of them must exist and be archivable.
 
 For further help see "` + cliutils.MANUAL + `"`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -39,13 +41,13 @@ For further help see "` + cliutils.MANUAL + `"`,
 		token, _ := cmd.Flags().GetString("token")
 		oidc, _ := cmd.Flags().GetBool("oidc")
 		tapecopies, _ := cmd.Flags().GetInt("tapecopies")
-		executionTimeStr, _ := cmd.Flags().GetString("executionTime")
+		executionTimeStr, _ := cmd.Flags().GetString("execution-time")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
 		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
 		nonInteractiveFlag, _ := cmd.Flags().GetBool("noninteractive")
-		ownergroupFlag, _ := cmd.Flags().GetString("ownergroup")
+		ownerGroup, _ := cmd.Flags().GetString("ownergroup")
 		showVersion, _ := cmd.Flags().GetBool("version")
 
 		if datasetUtils.TestFlags != nil {
@@ -59,8 +61,8 @@ For further help see "` + cliutils.MANUAL + `"`,
 				"scicat-url":     scicatUrl,
 				"noninteractive": nonInteractiveFlag,
 				"version":        showVersion,
-				"ownergroup":     ownergroupFlag,
-			})
+				"ownergroup":     ownerGroup,
+				"execution-time": executionTimeStr})
 			return
 		}
 
@@ -82,34 +84,36 @@ For further help see "` + cliutils.MANUAL + `"`,
 		}
 		APIServer := config.ResolveAPIServer()
 
-		var executionTime *time.Time = nil
-		if executionTimeStr != "" {
-			parsedTime, err := time.Parse(time.RFC3339, executionTimeStr)
-			if err != nil {
-				log.Fatalf("Execution time is invalid: %s", err.Error())
-			}
-			executionTime = &parsedTime
-		}
-
-		ownerGroup := ownergroupFlag
-
-		// optional list of dataset id's, if not specified, the full list of datasets of the ownergroup will be archived
-		var inputdatasetList []string
-		if len(args) > 0 {
-			inputdatasetList = args[0:]
-		}
-
-		user, _, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
+		executionTime, err := orchestrator.ParseExecutionTime(executionTimeStr)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		archivableDatasets, err := datasetUtils.GetArchivableDatasets(client, APIServer, ownerGroup, inputdatasetList, user["accessToken"])
-		if err != nil {
-			log.Fatalf("GetArchivableDatasets: %s\n", err.Error())
+		// optional list of dataset id's, if not specified, the full list of datasets of the ownergroup will be archived
+		var inputdatasetList []string
+		if len(ownerGroup) == 0 && len(args) == 0 {
+			log.Fatalf("You must specify either an ownerGroup or a list of datasetIds to archive")
 		}
-		if len(archivableDatasets) <= 0 {
-			log.Fatalln("No archivable datasets remaining")
+
+		if len(args) > 0 {
+			inputdatasetList = args[0:]
+		}
+
+		user, accessGroups, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		ownerGroupList := []string{ownerGroup}
+		if ownerGroup == "" {
+			ownerGroupList = accessGroups
+		}
+		if len(ownerGroupList) == 0 {
+			log.Fatalf("Could not determine an ownerGroup to submit the archive job for: specify --ownergroup or ensure your account has at least one access group")
+		}
+		archivableDatasets, err := orchestrator.ResolveArchivableDatasets(client, APIServer, user["accessToken"], ownerGroupList, inputdatasetList)
+		if err != nil {
+			log.Fatal(err)
 		}
 
 		archive := ""
@@ -127,7 +131,7 @@ For further help see "` + cliutils.MANUAL + `"`,
 
 		log.Printf("You chose to archive the new datasets\n")
 		log.Printf("Submitting Archive Job for the ingested datasets.\n")
-		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, ownerGroup, archivableDatasets, &tapecopies, executionTime)
+		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, ownerGroupList[0], archivableDatasets, &tapecopies, executionTime)
 		if err != nil {
 			log.Fatalf("Couldn't create a job: %s\n", err.Error())
 		}
@@ -144,8 +148,7 @@ func init() {
 	datasetArchiverCmd.Flags().Bool("localenv", false, "Use local environment (local) instead or production")
 	datasetArchiverCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
 	datasetArchiverCmd.Flags().Bool("noninteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
-	datasetArchiverCmd.Flags().String("ownergroup", "", "Specifies to which owner group should the archival job belong. If no datasets id's are passed, all datasets belonging to this ownergroup that can also be marked as archivable will be included")
+	datasetArchiverCmd.Flags().String("ownergroup", "", "Specifies to which owner group should the archival job belong. If no dataset id's are passed, all datasets belonging to this ownergroup that can also be marked as archivable will be included. If not specified, a list of dataset id's must be passed as arguments instead")
 
 	datasetArchiverCmd.MarkFlagsMutuallyExclusive("testenv", "localenv", "devenv")
-	datasetArchiverCmd.MarkFlagRequired("ownergroup")
 }
