@@ -26,14 +26,14 @@ func CompleteIngest(client *http.Client, APIServer string, user map[string]strin
 		return err
 	}
 
-	sourceFolder, err := resolveEmptyDatasetSourceFolder(client, APIServer, user, pid)
+	dataset, err := resolveEmptyDatasetSourceFolder(client, APIServer, user, pid)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Dataset with PID %s has sourceFolder %s\n", pid, sourceFolder)
+	log.Printf("Dataset with PID %s has sourceFolder %s\n", pid, dataset.SourceFolder)
 
-	fullFileArray, startTime, endTime, skippedLinks, illegalFileNames, err := gatherCompletionFileList(sourceFolder)
+	fullFileArray, startTime, endTime, skippedLinks, illegalFileNames, err := gatherCompletionFileList(dataset.SourceFolder)
 	if err != nil {
 		return err
 	}
@@ -71,21 +71,21 @@ func requireArchiveManager(user map[string]string) error {
 // resolveEmptyDatasetSourceFolder fetches the dataset identified by pid and validates that it is
 // in the expected pre-completion state: it exists, has no files yet, and has a sourceFolder to
 // scan. Returns that sourceFolder on success.
-func resolveEmptyDatasetSourceFolder(client *http.Client, APIServer string, user map[string]string, pid string) (string, error) {
+func resolveEmptyDatasetSourceFolder(client *http.Client, APIServer string, user map[string]string, pid string) (datasetUtils.Dataset, error) {
 	dataset, missing, err := datasetUtils.GetDatasetDetails(client, APIServer, user["accessToken"], []string{pid}, "")
 	if err != nil {
-		return "", err
+		return datasetUtils.Dataset{}, err
 	}
 	if len(missing) > 0 || len(dataset) != 1 {
-		return "", fmt.Errorf("dataset with PID %s not found", pid)
+		return datasetUtils.Dataset{}, fmt.Errorf("dataset with PID %s not found", pid)
 	}
 	if dataset[0].NumberOfFiles != 0 {
-		return "", fmt.Errorf("dataset with PID %s already contains files", pid)
+		return datasetUtils.Dataset{}, fmt.Errorf("dataset with PID %s already contains files", pid)
 	}
 	if dataset[0].SourceFolder == "" {
-		return "", fmt.Errorf("dataset with PID %s has no sourceFolder defined", pid)
+		return datasetUtils.Dataset{}, fmt.Errorf("dataset with PID %s has no sourceFolder defined", pid)
 	}
-	return dataset[0].SourceFolder, nil
+	return dataset[0], nil
 }
 
 // gatherCompletionFileList scans sourceFolder and returns the resulting file list along with

@@ -10,17 +10,20 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// goos is a variable that points to runtime.GOOS, allowing it to be replaced in tests.
-var goos = runtime.GOOS
+// Goos is a variable that points to runtime.GOOS, allowing it to be replaced in tests
+// (including from other packages, e.g. orchestrator).
+var Goos = runtime.GOOS
 
 // execCommand is a variable that points to exec.Command, allowing it to be replaced in tests.
 var execCommand = exec.Command
 
-// newDumbClient is a variable that points to NewDumbClient, allowing it to be replaced in tests.
-var newDumbClient = NewDumbClient
+// NewDumbClientFunc is a variable that points to NewDumbClient, allowing it to be replaced in tests
+// (including from other packages, e.g. orchestrator).
+var NewDumbClientFunc = NewDumbClient
 
-// checkRemoteDirectory is a variable that points to Client.CheckRemoteDirectory, allowing it to be replaced in tests.
-var checkRemoteDirectory = func(c *Client, sourceFolder string, sshOutput io.Writer) error {
+// CheckRemoteDirectoryFunc is a variable that points to Client.CheckRemoteDirectory, allowing it to be
+// replaced in tests (including from other packages, e.g. orchestrator).
+var CheckRemoteDirectoryFunc = func(c *Client, sourceFolder string, sshOutput io.Writer) error {
 	return c.CheckRemoteDirectory(sourceFolder, sshOutput)
 }
 
@@ -34,9 +37,10 @@ var isRemoteDirectoryNotFoundExec = func(err error) bool {
 	return false
 }
 
-// isRemoteDirectoryNotFoundSsh classifies pure-Go SSH client errors where remote "test -d"
+// IsRemoteDirectoryNotFound classifies pure-Go SSH client errors where remote "test -d"
 // evaluated to false (exit status 1), as opposed to a connection/authentication failure or another error.
-var isRemoteDirectoryNotFoundSsh = func(err error) bool {
+// (exported so it can be replaced in tests from other packages, e.g. orchestrator).
+var IsRemoteDirectoryNotFound = func(err error) bool {
 	var exitErr *ssh.ExitError
 	if errors.As(err, &exitErr) {
 		return exitErr.ExitStatus() == 1
@@ -61,9 +65,9 @@ Returned values:
   - otherErr - other error that prevents the check from being executed
 */
 func CheckDataCentrallyAvailableSsh(username string, ARCHIVEServer string, sourceFolder string, sshOutput io.Writer) (sshErr error, otherErr error) {
-	switch goos {
+	switch Goos {
 	case "windows":
-		client, err := newDumbClient(username, "", ARCHIVEServer)
+		client, err := NewDumbClientFunc(username, "", ARCHIVEServer)
 		if err != nil {
 			return nil, err
 		}
@@ -71,11 +75,11 @@ func CheckDataCentrallyAvailableSsh(username string, ARCHIVEServer string, sourc
 			defer client.SshClient.Close()
 		}
 
-		err = checkRemoteDirectory(client, sourceFolder, sshOutput)
+		err = CheckRemoteDirectoryFunc(client, sourceFolder, sshOutput)
 		if err == nil {
 			return nil, nil
 		}
-		if isRemoteDirectoryNotFoundSsh(err) {
+		if IsRemoteDirectoryNotFound(err) {
 			return err, nil
 		}
 		return nil, err
