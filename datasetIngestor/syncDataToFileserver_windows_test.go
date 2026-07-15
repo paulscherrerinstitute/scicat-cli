@@ -82,25 +82,3 @@ func TestWindowsDriveLetterRegexp(t *testing.T) {
 		}
 	}
 }
-
-func TestServerPortAppend(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"myserver", "myserver:22"},
-		{"myserver:2222", "myserver:2222"},
-		{"192.168.1.1", "192.168.1.1:22"},
-		{"192.168.1.1:22", "192.168.1.1:22"},
-	}
-
-	for _, tt := range tests {
-		full := tt.input
-		if !strings.Contains(tt.input, ":") {
-			full = tt.input + ":22"
-		}
-		if full != tt.want {
-			t.Errorf("port append for %q = %q, want %q", tt.input, full, tt.want)
-		}
-	}
-}

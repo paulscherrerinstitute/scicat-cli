@@ -235,8 +235,18 @@ func (c *Client) walkAndSend(w io.Writer, src string) error {
 	return nil
 }
 
+// defaultSshPort appends the standard ssh port (22) to server if it doesn't already specify one.
+func defaultSshPort(server string) string {
+	if _, _, err := net.SplitHostPort(server); err != nil {
+		return server + ":22"
+	}
+	return server
+}
+
 // Creates a new SCP client.  It enables preserve time stamps
 func NewDumbClient(username, password, server string) (*Client, error) {
+	server = defaultSshPort(server)
+
 	// Extract host for GSSAPI (e.g., server "name:22" -> "name")
 	host, _, err := net.SplitHostPort(server)
 	if err != nil {

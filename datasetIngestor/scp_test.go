@@ -216,3 +216,21 @@ func TestNewDumbClientEmptyPassword(t *testing.T) {
 		t.Errorf("expected nil client on error, got %v", client)
 	}
 }
+
+func TestDefaultSshPort(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"myserver", "myserver:22"},
+		{"myserver:2222", "myserver:2222"},
+		{"192.168.1.1", "192.168.1.1:22"},
+		{"192.168.1.1:22", "192.168.1.1:22"},
+	}
+
+	for _, tt := range tests {
+		if got := defaultSshPort(tt.input); got != tt.want {
+			t.Errorf("defaultSshPort(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
