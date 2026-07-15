@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
@@ -31,13 +32,21 @@ func CompleteIngest(client *http.Client, APIServer string, user map[string]strin
 
 	log.Printf("Dataset with PID %s has sourceFolder %s\n", pid, sourceFolder)
 
-	fullFileArray, skippedLinks, illegalFileNames, err := gatherCompletionFileList(sourceFolder)
+	fullFileArray, startTime, endTime, skippedLinks, illegalFileNames, err := gatherCompletionFileList(sourceFolder)
 	if err != nil {
 		return err
 	}
 
 	if err := datasetIngestor.CreateOrigDatablocks(client, APIServer, fullFileArray, pid, user); err != nil {
 		return fmt.Errorf("failed to create origdatablocks for dataset %s: %w", pid, err)
+	}
+
+	if err := updateDatasetTimes(client, APIServer, user, pid, startTime, endTime); err != nil {
+		return err
+	}
+
+	if err := datasetIngestor.MarkFilesReady(client, APIServer, pid, user); err != nil {
+		return err
 	}
 
 	if skippedLinks > 0 {
@@ -82,16 +91,24 @@ func resolveEmptyDatasetSourceFolder(client *http.Client, APIServer string, user
 // counts of symlinks skipped and files excluded for illegal filenames. Symlinks are kept only
 // when they resolve to a path internal to sourceFolder ("dA" policy); this path never prompts,
 // since dataset completion is meant to run unattended.
-func gatherCompletionFileList(sourceFolder string) ([]datasetIngestor.Datafile, uint, uint, error) {
+func gatherCompletionFileList(sourceFolder string) ([]datasetIngestor.Datafile, time.Time, time.Time, uint, uint, error) {
 	skipSymlinks := "dA"
 	var skippedLinks, illegalFileNames uint
 	symlinkCallback := datasetIngestor.CreateLocalSymlinkCallbackForFileLister(&skipSymlinks, &skippedLinks)
 	filenameFilterCallback := datasetIngestor.CreateLocalFilenameFilterCallback(&illegalFileNames)
 
-	fullFileArray, _, _, _, _, _, err :=
+	fullFileArray, startTime, endTime, _, _, _, err :=
 		datasetIngestor.GetValidatedLocalFileList(sourceFolder, "", symlinkCallback, filenameFilterCallback)
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, time.Time{}, time.Time{}, 0, 0, err
 	}
-	return fullFileArray, skippedLinks, illegalFileNames, nil
+	return fullFileArray, startTime, endTime, skippedLinks, illegalFileNames, nil
+}
+
+func updateDatasetTimes(client *http.Client, APIServer string, user map[string]string, pid string, startTime time.Time, endTime time.Time) error {
+	meta := map[string]interface{}{
+		"creationTime": startTime.Format(time.RFC3339),
+		"endTime":      endTime.Format(time.RFC3339),
+	}
+	return datasetUtils.PatchDataset(client, APIServer, user["accessToken"], pid, meta)
 }
