@@ -67,11 +67,10 @@ For further help see "` + cliutils.MANUAL + `"`,
 			return
 		}
 
-		if len(args) != 1 {
-			log.Println("invalid number of args")
-			return
+		pid, err := orchestrator.ExtractPidFromArgs(args)
+		if err != nil {
+			log.Fatal(err)
 		}
-		pid := args[0]
 
 		// === check for program version ===
 		datasetUtils.CheckForNewVersion(client, CMD, VERSION)

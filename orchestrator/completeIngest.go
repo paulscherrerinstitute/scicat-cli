@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
@@ -111,4 +112,15 @@ func updateDatasetTimes(client *http.Client, APIServer string, user map[string]s
 		"endTime":      endTime.Format(time.RFC3339),
 	}
 	return datasetUtils.PatchDataset(client, APIServer, user["accessToken"], pid, meta)
+}
+
+func ExtractPidFromArgs(args []string) (string, error) {
+	if len(args) != 1 {
+		return "", fmt.Errorf("invalid number of args")
+	}
+	pid := args[0]
+	if !strings.HasPrefix(pid, "20.500.11935/") {
+		return "", fmt.Errorf("invalid pid, must start with 20.500.11935/")
+	}
+	return pid, nil
 }

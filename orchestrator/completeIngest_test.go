@@ -347,6 +347,39 @@ func TestCompleteIngest(t *testing.T) {
 	})
 }
 
+func TestExtractPidFromArgs(t *testing.T) {
+	t.Run("returns the pid when a single valid arg is given", func(t *testing.T) {
+		pid, err := ExtractPidFromArgs([]string{"20.500.11935/testPid"})
+		if err != nil {
+			t.Fatalf("expected no error, got: %v", err)
+		}
+		if pid != "20.500.11935/testPid" {
+			t.Errorf("expected pid %q, got %q", "20.500.11935/testPid", pid)
+		}
+	})
+
+	t.Run("fails when no args are given", func(t *testing.T) {
+		_, err := ExtractPidFromArgs([]string{})
+		if err == nil {
+			t.Fatal("expected an error, got nil")
+		}
+	})
+
+	t.Run("fails when more than one arg is given", func(t *testing.T) {
+		_, err := ExtractPidFromArgs([]string{"20.500.11935/testPid", "extra"})
+		if err == nil {
+			t.Fatal("expected an error, got nil")
+		}
+	})
+
+	t.Run("fails when the pid does not have the expected prefix", func(t *testing.T) {
+		_, err := ExtractPidFromArgs([]string{"someOtherPid"})
+		if err == nil {
+			t.Fatal("expected an error, got nil")
+		}
+	})
+}
+
 func newDatasetDetailsServerWithOrigDatablockTracking(t *testing.T, sourceFolder string, createdOrigDatablock *bool) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
