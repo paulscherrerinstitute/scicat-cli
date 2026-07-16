@@ -125,6 +125,8 @@ For Windows you need instead to specify -user username:password on the command l
 			if autoarchiveFlag {
 				log.Fatalln("Cannot autoarchive when transferring via Globus due to the transfer happening asynchronously. Use the \"globusCheckTransfer\" command to archive them")
 			}
+		case cliutils.S3:
+			transferFiles = cliutils.S3Transfer
 		}
 
 		if datasetUtils.TestFlags != nil {
@@ -195,6 +197,7 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 
 		/* TODO Add info about policy settings and that autoarchive will take place or not */
+		// omkar: beamlineAccount only used to switch checkCentralAvailability
 		metaDataMap, metadataSourceFolder, beamlineAccount, err := datasetIngestor.ReadAndCheckMetadata(client, APIServer, metadatafile, user, accessGroups)
 		if err != nil {
 			log.Fatal("Error in CheckMetadata function: ", err)
@@ -515,7 +518,7 @@ func init() {
 	datasetIngestorCmd.Flags().Bool("noninteractive", false, "If set no questions will be asked and the default settings for all undefined flags will be assumed")
 	datasetIngestorCmd.Flags().Bool("copy", false, "Defines if files should be copied from your local system to a central server before ingest (i.e. your data is not centrally available and therefore needs to be copied ='decentral' case). copyFlag has higher priority than nocopyFlag. If neither flag is defined the tool will try to make the best guess.")
 	datasetIngestorCmd.Flags().Bool("nocopy", false, "Defines if files should *not* be copied from your local system to a central server before ingest (i.e. your data is centrally available and therefore does not need to be copied ='central' case).")
-	datasetIngestorCmd.Flags().String("transfer-type", "ssh", "Selects the transfer type to be used for transferring files. Available options: \"ssh\", \"globus\"")
+	datasetIngestorCmd.Flags().String("transfer-type", "ssh", "Selects the transfer type to be used for transferring files. Available options: \"ssh\", \"globus\", \"s3\"")
 	datasetIngestorCmd.Flags().Int("tapecopies", 0, "Number of tapecopies to be used for archiving")
 	datasetIngestorCmd.Flags().Bool("autoarchive", false, "Option to create archive job automatically after ingestion")
 	datasetIngestorCmd.Flags().String("linkfiles", "keepInternalOnly", "Define what to do with symbolic links: (keep|delete|keepInternalOnly)")

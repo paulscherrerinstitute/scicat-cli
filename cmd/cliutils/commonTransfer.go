@@ -24,6 +24,9 @@ type GlobusParams struct {
 	IsSymlinkList  []bool
 }
 
+type S3Params struct {
+}
+
 type TransferParams struct {
 	SshParams
 	GlobusParams
