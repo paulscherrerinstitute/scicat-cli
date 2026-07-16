@@ -131,6 +131,7 @@ func CreateArchivalJobs(client *http.Client, APIServer string, user map[string]s
 	i := 0
 	for group := range groupedDatasetLists {
 		jobIds[i], errs[i] = CreateArchivalJob(client, APIServer, user, group, groupedDatasetLists[group], tapecopies, nil)
+		i++
 	}
 	return jobIds, errs
 }
