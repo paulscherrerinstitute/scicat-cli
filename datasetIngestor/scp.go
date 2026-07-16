@@ -238,7 +238,7 @@ func (c *Client) walkAndSend(w io.Writer, src string) error {
 // defaultSshPort appends the standard ssh port (22) to server if it doesn't already specify one.
 func defaultSshPort(server string) string {
 	if _, _, err := net.SplitHostPort(server); err != nil {
-		return server + ":22"
+		return net.JoinHostPort(server, "22")
 	}
 	return server
 }
