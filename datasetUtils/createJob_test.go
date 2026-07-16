@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -220,14 +221,14 @@ func TestGroupDatasetsByOwnerGroup(t *testing.T) {
 		if len(groupedDatasets["group1"]) != 2 {
 			t.Errorf("Expected 2 datasets in group1, got %d", len(groupedDatasets["group1"]))
 		}
-		if !contains(groupedDatasets["group1"], "ds1") || !contains(groupedDatasets["group1"], "ds3") {
+		if !slices.Contains(groupedDatasets["group1"], "ds1") || !slices.Contains(groupedDatasets["group1"], "ds3") {
 			t.Errorf("group1 has incorrect datasets: %v", groupedDatasets["group1"])
 		}
 
 		if len(groupedDatasets["group2"]) != 2 {
 			t.Errorf("Expected 2 datasets in group2, got %d", len(groupedDatasets["group2"]))
 		}
-		if !contains(groupedDatasets["group2"], "ds2") || !contains(groupedDatasets["group2"], "ds4") {
+		if !slices.Contains(groupedDatasets["group2"], "ds2") || !slices.Contains(groupedDatasets["group2"], "ds4") {
 			t.Errorf("group2 has incorrect datasets: %v", groupedDatasets["group2"])
 		}
 	})
@@ -361,13 +362,4 @@ func TestCreateArchivalJobs(t *testing.T) {
 			t.Error("Expected at least one non-nil error")
 		}
 	})
-}
-
-func contains(slice []string, item string) bool {
-	for _, v := range slice {
-		if v == item {
-			return true
-		}
-	}
-	return false
 }
