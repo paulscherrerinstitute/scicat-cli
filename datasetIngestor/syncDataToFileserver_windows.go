@@ -27,13 +27,7 @@ func SyncLocalDataToFileserver(datasetId string, user map[string]string, RSYNCSe
 	destFolder := "archive/" + shortDatasetId + strings.Join(destparts[0:len(destparts)-1], "/")
 	destFolder2 := "archive/" + shortDatasetId + strings.Join(destparts[0:len(destparts)], "/")
 
-	// add port number if missing
-	FullRSYNCServer := RSYNCServer
-	if !strings.Contains(RSYNCServer, ":") {
-		FullRSYNCServer = RSYNCServer + ":22"
-	}
-
-	c, err := NewDumbClient(username, password, FullRSYNCServer)
+	c, err := NewDumbClient(username, password, RSYNCServer)
 
 	if err != nil {
 		return err
