@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/fatih/color"
@@ -86,11 +87,13 @@ For further help see "` + cliutils.MANUAL + `"`,
 			case *datasetIngestor.SkippedLinksWarning, *datasetIngestor.IllegalFileNamesWarning:
 				color.Set(color.FgYellow)
 				log.Print(err)
+				color.Unset()
 			default:
 				color.Set(color.FgRed)
-				log.Fatal(err)
+				log.Print(err)
+				color.Unset()
+				os.Exit(1)
 			}
-			color.Unset()
 		}
 
 	},
@@ -99,7 +102,6 @@ For further help see "` + cliutils.MANUAL + `"`,
 func init() {
 	rootCmd.AddCommand(completeIngestCmd)
 
-	completeIngestCmd.Flags().Bool("nonInteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
 	completeIngestCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead of production environment")
 	completeIngestCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
 
