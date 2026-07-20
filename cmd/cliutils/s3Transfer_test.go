@@ -13,14 +13,16 @@ func TestS3TransferManual(t *testing.T) {
 
 	datasetId := os.Getenv("S3_BROKER_DATASET_ID")
 	if datasetId == "" {
-		datasetId = "20.500.11935/d6ed9958-5930-4b0e-aed9-90d294201280"
+		datasetId = "20.500.11935/514086cf-7ca5-422d-9e7b-32e6720b9ca4"
 	}
 
 	params := TransferParams{
 		SshParams: SshParams{
-			User: map[string]string{"accessToken": accessToken},
+			User:      map[string]string{"accessToken": accessToken},
+			ApiServer: DEV_API_SERVER,
 		},
-		DatasetId: datasetId,
+		DatasetId:           datasetId,
+		DatasetSourceFolder: "/home/zade_o/Downloads/test-dataset-12",
 	}
 
 	archivable, err := S3Transfer(params)

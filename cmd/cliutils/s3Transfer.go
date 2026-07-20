@@ -11,8 +11,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	smithyendpoints "github.com/aws/smithy-go/endpoints"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
 )
 
 type S3Creds struct {
@@ -22,7 +24,7 @@ type S3Creds struct {
 	ExpiryTime   string `json:"expiry_time"`
 }
 
-type SciCatS3CredsProvider struct {
+type S3BrokerCredsProvider struct {
 	client       *http.Client
 	brokerServer string
 	datasetId    string
@@ -43,7 +45,7 @@ func (c *CephEndpointResolver) ResolveEndpoint(ctx context.Context, params s3.En
 	return s3.NewDefaultEndpointResolverV2().ResolveEndpoint(ctx, params)
 }
 
-func (s *SciCatS3CredsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
+func (s *S3BrokerCredsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 	s3Creds, err := getShortTermCreds(s.client, s.brokerServer, s.datasetId, s.operation, s.accessToken)
 	expires, _ := time.Parse(time.RFC3339, s3Creds.ExpiryTime)
 	return aws.Credentials{
@@ -56,27 +58,56 @@ func (s *SciCatS3CredsProvider) Retrieve(ctx context.Context) (aws.Credentials, 
 
 func S3Transfer(params TransferParams) (archivable bool, err error) {
 	ctx := context.TODO()
-	s := &SciCatS3CredsProvider{
+	s := &S3BrokerCredsProvider{
 		client:       http.DefaultClient,
 		brokerServer: "https://s3-broker.development.psi.ch",
 		datasetId:    params.DatasetId,
 		operation:    "write",
-		accessToken:  params.SshParams.User["accessToken"],
+		accessToken:  params.User["accessToken"],
 	}
 	if s.accessToken == "" {
 		log.Fatalln("No access token")
 	}
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithBaseEndpoint("https://rgw.cscs.ch"), config.WithRegion("us-east-1"), config.WithCredentialsProvider(s), config.WithClientLogMode(aws.LogResponseWithBody))
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithBaseEndpoint("https://rgw.cscs.ch"), config.WithRegion("us-east-1"), config.WithCredentialsProvider(s))
 	bucket := "psi-upload-dev"
 	c := &CephEndpointResolver{bucket: bucket}
 	s3Client := s3.NewFromConfig(cfg, s3.WithEndpointResolverV2(c))
-	prefix := params.DatasetId + "/"
+	prefix := params.DatasetId
+	testPermisssions(ctx, s3Client, bucket, prefix)
+
+	err = transferDirectory(ctx, s3Client, params.DatasetSourceFolder, bucket, prefix)
+	if err == nil {
+		log.Println("Marking fiels ready")
+		err = datasetIngestor.MarkFilesReady(s.client, params.ApiServer, params.DatasetId, params.User)
+		if err != nil {
+			log.Println("Failed to mark files ready i.e. dataset as archivable: ", err)
+		}
+	}
+	return true, nil
+}
+
+// tries to list objects in bucket/prefix to check s3Client has (at least read) access on the correct resource
+func testPermisssions(ctx context.Context, s3Client *s3.Client, bucket string, prefix string) {
+	prefix = prefix + "/"
 	resp, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{Bucket: &bucket, Prefix: &prefix})
 	if err != nil {
 		log.Fatalln("Error calling list obj v2", err)
 	}
 	log.Printf("%v keys in the bucket", *resp.KeyCount)
-	return true, nil
+}
+
+func transferDirectory(ctx context.Context, s3apiClient *s3.Client, sourceFolder, bucket, prefix string) error {
+	client := transfermanager.New(s3apiClient)
+	input := &transfermanager.UploadDirectoryInput{
+		Source:    &sourceFolder,
+		Bucket:    &bucket,
+		KeyPrefix: &prefix,
+	}
+	output, err := client.UploadDirectory(ctx, input)
+	if err == nil {
+		log.Printf("Uploaded %v objects, failed %v objects\n", output.ObjectsUploaded, output.ObjectsFailed)
+	}
+	return err
 }
 
 func getShortTermCreds(client *http.Client, brokerServer string, datasetId string, operation string, accessToken string) (S3Creds, error) {
