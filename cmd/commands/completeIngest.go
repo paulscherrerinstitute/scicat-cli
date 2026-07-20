@@ -41,7 +41,6 @@ For further help see "` + cliutils.MANUAL + `"`,
 		envConfig := cliutils.InputEnvironmentConfig{
 			TestenvFlag:  cliutils.GetCobraBoolFlag(cmd, "testenv"),
 			DevenvFlag:   cliutils.GetCobraBoolFlag(cmd, "devenv"),
-			LocalenvFlag: cliutils.GetCobraBoolFlag(cmd, "localenv"),
 			ScicatUrl:    cliutils.GetCobraStringFlag(cmd, "scicat-url"),
 		}
 
