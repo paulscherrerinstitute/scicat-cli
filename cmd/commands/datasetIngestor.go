@@ -64,6 +64,8 @@ For Windows you need instead to specify -user username:password on the command l
 		// configure environment
 		APIServer := envConfig.ResolveAPIServer()
 		RSYNCServer := envConfig.ResolveRSYNCServer()
+		S3UploadBucket := envConfig.ResolveS3UploadBucket()
+		S3BrokerServer := envConfig.ResolveS3BrokerServer()
 
 		ingestFlag := cliutils.GetCobraBoolFlag(cmd, "ingest")
 		noninteractiveFlag := cliutils.GetCobraBoolFlag(cmd, "noninteractive")
@@ -423,6 +425,10 @@ For Windows you need instead to specify -user username:password on the command l
 							DestPrefixPath: gConfig.DestinationPrefixPath,
 							Filelist:       filePathList,
 							IsSymlinkList:  isSymlinkList,
+						},
+						S3Params: cliutils.S3Params{
+							UploadBucket: S3UploadBucket,
+							BrokerServer: S3BrokerServer,
 						},
 						DatasetId:           datasetId,
 						DatasetSourceFolder: datasetSourceFolder,

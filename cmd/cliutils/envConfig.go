@@ -74,6 +74,26 @@ func (c *InputEnvironmentConfig) ResolveRSYNCServer() string {
 	return PROD_RSYNC_ARCHIVE_SERVER
 }
 
+func (c *InputEnvironmentConfig) ResolveS3UploadBucket() string {
+	if c.TestenvFlag {
+		return TEST_S3_UPLOAD_BUCKET
+	}
+	if c.DevenvFlag {
+		return DEV_S3_UPLOAD_BUCKET
+	}
+	return PROD_S3_UPLOAD_BUCKET
+}
+
+func (c *InputEnvironmentConfig) ResolveS3BrokerServer() string {
+	if c.TestenvFlag {
+		return TEST_S3_BROKER_SERVER
+	}
+	if c.DevenvFlag {
+		return DEV_S3_BROKER_SERVER
+	}
+	return PROD_S3_BROKER_SERVER
+}
+
 // --- Cobra Helper Methods ---
 func GetCobraBoolFlag(cmd *cobra.Command, name string) bool {
 	val, _ := cmd.Flags().GetBool(name)

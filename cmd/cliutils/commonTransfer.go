@@ -25,11 +25,14 @@ type GlobusParams struct {
 }
 
 type S3Params struct {
+	UploadBucket string
+	BrokerServer string
 }
 
 type TransferParams struct {
 	SshParams
 	GlobusParams
+	S3Params
 	// other params
 	DatasetId           string
 	DatasetSourceFolder string

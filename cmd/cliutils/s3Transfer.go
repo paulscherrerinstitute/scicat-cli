@@ -60,7 +60,7 @@ func S3Transfer(params TransferParams) (archivable bool, err error) {
 	ctx := context.TODO()
 	s := &S3BrokerCredsProvider{
 		client:       http.DefaultClient,
-		brokerServer: "https://s3-broker.development.psi.ch",
+		brokerServer: params.BrokerServer,
 		datasetId:    params.DatasetId,
 		operation:    "write",
 		accessToken:  params.User["accessToken"],
@@ -69,7 +69,7 @@ func S3Transfer(params TransferParams) (archivable bool, err error) {
 		log.Fatalln("No access token")
 	}
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithBaseEndpoint("https://rgw.cscs.ch"), config.WithRegion("us-east-1"), config.WithCredentialsProvider(s))
-	bucket := "psi-upload-dev"
+	bucket := params.UploadBucket
 	c := &CephEndpointResolver{bucket: bucket}
 	s3Client := s3.NewFromConfig(cfg, s3.WithEndpointResolverV2(c))
 	prefix := params.DatasetId
@@ -98,6 +98,7 @@ func testPermisssions(ctx context.Context, s3Client *s3.Client, bucket string, p
 
 func transferDirectory(ctx context.Context, s3apiClient *s3.Client, sourceFolder, bucket, prefix string) error {
 	client := transfermanager.New(s3apiClient)
+	prefix = prefix + sourceFolder
 	input := &transfermanager.UploadDirectoryInput{
 		Source:    &sourceFolder,
 		Bucket:    &bucket,
