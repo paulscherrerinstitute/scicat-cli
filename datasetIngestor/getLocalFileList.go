@@ -41,6 +41,47 @@ func readLines(path string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
+// EmptyDatasetError indicates that a dataset's sourceFolder contains no files at all, so there is
+// nothing to ingest.
+type EmptyDatasetError struct {
+	SourceFolder string
+}
+
+func (e *EmptyDatasetError) Error() string {
+	return fmt.Sprintf("%q dataset cannot be ingested - contains no files", e.SourceFolder)
+}
+
+// TooManyFilesError indicates that a dataset's sourceFolder contains more files than the
+// archiving system can handle for a single dataset.
+type TooManyFilesError struct {
+	SourceFolder string
+	NumFiles     int64
+	MaxFiles     int
+}
+
+func (e *TooManyFilesError) Error() string {
+	return fmt.Sprintf("%q dataset cannot be ingested - too many files: has %d, max. %d", e.SourceFolder, e.NumFiles, e.MaxFiles)
+}
+
+// SkippedLinksWarning reports how many symlinks were skipped while gathering a local file list.
+type SkippedLinksWarning struct {
+	Count uint
+}
+
+func (w *SkippedLinksWarning) Error() string {
+	return fmt.Sprintf("Total number of link files skipped:%v", w.Count)
+}
+
+// IllegalFileNamesWarning reports how many files were excluded from a dataset because of an
+// illegal filename.
+type IllegalFileNamesWarning struct {
+	Count uint
+}
+
+func (w *IllegalFileNamesWarning) Error() string {
+	return fmt.Sprintf("Total number of illegal file names skipped:%v", w.Count)
+}
+
 /*
 GetLocalFileList scans a source folder and optionally a file listing, and returns a list of data files, the earliest and latest modification times, the owner, the number of files, and the total size of the files.
 
@@ -208,4 +249,32 @@ func handleSymlink(symlinkPath string, sourceFolder string) (bool, error) {
 	// keep symlink if it points to somewhere *within* the sourceFolder
 	keep = strings.HasPrefix(pointee, sourceFolder)
 	return keep, nil
+}
+
+/*
+GetValidatedLocalFileList gathers the local file list for sourceFolder exactly like
+GetLocalFileList, additionally validating that the resulting dataset is neither empty nor larger
+than TOTAL_MAXFILES. It returns an *EmptyDatasetError or *TooManyFilesError when one of those
+conditions is met, so callers share the same validation rules and error types.
+*/
+func GetValidatedLocalFileList(sourceFolder string, filelistingPath string,
+	symlinkCallback func(symlinkPath string, sourceFolder string) (bool, error),
+	filenameFilterCallback func(filepath string) bool,
+) (fullFileArray []Datafile, startTime time.Time, endTime time.Time, owner string, numFiles int64, totalSize int64, err error) {
+	fullFileArray, startTime, endTime, owner, numFiles, totalSize, err =
+		GetLocalFileList(sourceFolder, filelistingPath, symlinkCallback, filenameFilterCallback)
+	if err != nil {
+		return fullFileArray, startTime, endTime, owner, numFiles, totalSize,
+			fmt.Errorf("can't gather the filelist of %q: %w", sourceFolder, err)
+	}
+
+	if totalSize == 0 || numFiles == 0 {
+		return fullFileArray, startTime, endTime, owner, numFiles, totalSize, &EmptyDatasetError{SourceFolder: sourceFolder}
+	}
+	if numFiles > TOTAL_MAXFILES {
+		return fullFileArray, startTime, endTime, owner, numFiles, totalSize,
+			&TooManyFilesError{SourceFolder: sourceFolder, NumFiles: numFiles, MaxFiles: TOTAL_MAXFILES}
+	}
+
+	return fullFileArray, startTime, endTime, owner, numFiles, totalSize, nil
 }
