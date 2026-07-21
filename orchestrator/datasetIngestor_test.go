@@ -5,142 +5,115 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
 )
 
-func newTestDatasetFolder(t *testing.T, files map[string]string) string {
-	t.Helper()
-	tempDir, err := os.MkdirTemp("", "prepareDataset")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %s", err)
-	}
-	t.Cleanup(func() { os.RemoveAll(tempDir) })
-
-	for name, content := range files {
-		if err := os.WriteFile(filepath.Join(tempDir, name), []byte(content), 0644); err != nil {
-			t.Fatalf("Failed to create test file %s: %s", name, err)
-		}
-	}
-	return tempDir
-}
-
 // --- PrepareDataset ---
 
-func TestPrepareDataset_EmptyDataset(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[]`))
-	}))
-	defer ts.Close()
+func TestPrepareDataset(t *testing.T) {
+	tests := []struct {
+		name              string
+		fileListErr       error
+		checkErr          func(t *testing.T, err error)
+		wantEmptyDatasets int
+		wantTooLarge      int
+	}{
+		{
+			name: "success updates metadata and returns the file list",
+			checkErr: func(t *testing.T, err error) {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			},
+		},
+		{
+			name:        "empty dataset increments emptyDatasets",
+			fileListErr: &datasetIngestor.EmptyDatasetError{SourceFolder: "/some/folder"},
+			checkErr: func(t *testing.T, err error) {
+				var emptyErr *datasetIngestor.EmptyDatasetError
+				if !errors.As(err, &emptyErr) {
+					t.Fatalf("expected *EmptyDatasetError, got %v", err)
+				}
+			},
+			wantEmptyDatasets: 1,
+		},
+		{
+			name:        "too many files increments tooLargeDatasets",
+			fileListErr: &datasetIngestor.TooManyFilesError{SourceFolder: "/some/folder", NumFiles: 500000, MaxFiles: 400000},
+			checkErr: func(t *testing.T, err error) {
+				var tooManyErr *datasetIngestor.TooManyFilesError
+				if !errors.As(err, &tooManyErr) {
+					t.Fatalf("expected *TooManyFilesError, got %v", err)
+				}
+			},
+			wantTooLarge: 1,
+		},
+		{
+			name:        "other error is not categorized as empty or too-large",
+			fileListErr: errors.New("something else went wrong"),
+			checkErr: func(t *testing.T, err error) {
+				if err == nil {
+					t.Fatal("expected an error, got nil")
+				}
+				var emptyErr *datasetIngestor.EmptyDatasetError
+				var tooManyErr *datasetIngestor.TooManyFilesError
+				if errors.As(err, &emptyErr) || errors.As(err, &tooManyErr) {
+					t.Fatalf("did not expect a categorized error, got %v (%T)", err, err)
+				}
+			},
+		},
+	}
 
-	folder := newTestDatasetFolder(t, nil)
-	var emptyDatasets, tooLargeDatasets int
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oldList := getValidatedLocalFileListFunc
+			oldUpdate := updateMetadataFunc
+			t.Cleanup(func() {
+				getValidatedLocalFileListFunc = oldList
+				updateMetadataFunc = oldUpdate
+			})
 
-	_, err := PrepareDatasetAndUpdateCounts(ts.Client(), ts.URL, map[string]string{"accessToken": "testToken"},
-		map[string]string{}, map[string]interface{}{"ownerGroup": datasetIngestor.DUMMY_OWNER}, 1,
-		folder, "", nil, nil, &emptyDatasets, &tooLargeDatasets)
+			wantFiles := []datasetIngestor.Datafile{{Path: "a"}}
+			getValidatedLocalFileListFunc = func(sourceFolder string, filelistingPath string,
+				symlinkCallback func(symlinkPath string, sourceFolder string) (bool, error),
+				filenameFilterCallback func(filepath string) bool,
+			) ([]datasetIngestor.Datafile, time.Time, time.Time, string, int64, int64, error) {
+				if tt.fileListErr != nil {
+					return nil, time.Time{}, time.Time{}, "", 0, 0, tt.fileListErr
+				}
+				return wantFiles, time.Now(), time.Now(), "abc", 1, 10, nil
+			}
 
-	var emptyErr *datasetIngestor.EmptyDatasetError
-	if !errors.As(err, &emptyErr) {
-		t.Fatalf("expected *EmptyDatasetError, got %v", err)
-	}
-	if emptyDatasets != 1 {
-		t.Errorf("emptyDatasets = %d, want 1", emptyDatasets)
-	}
-	if tooLargeDatasets != 0 {
-		t.Errorf("tooLargeDatasets = %d, want 0", tooLargeDatasets)
-	}
-}
+			updateMetadataCalled := false
+			updateMetadataFunc = func(client *http.Client, APIServer string, user map[string]string,
+				originalMap map[string]string, metaDataMap map[string]interface{}, startTime time.Time, endTime time.Time, owner string, tapecopies int) {
+				updateMetadataCalled = true
+			}
 
-func TestPrepareDataset_NormalDatasetUpdatesMetadata(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[]`))
-	}))
-	defer ts.Close()
+			var emptyDatasets, tooLargeDatasets int
+			fullFileArray, err := PrepareDatasetAndUpdateCounts(nil, "", map[string]string{"accessToken": "testToken"},
+				map[string]string{}, map[string]interface{}{"ownerGroup": datasetIngestor.DUMMY_OWNER}, 1,
+				"/some/folder", "", nil, nil, &emptyDatasets, &tooLargeDatasets)
 
-	folder := newTestDatasetFolder(t, map[string]string{"a": "hello"})
-	metaDataMap := map[string]interface{}{"ownerGroup": datasetIngestor.DUMMY_OWNER}
-	var emptyDatasets, tooLargeDatasets int
+			tt.checkErr(t, err)
 
-	fullFileArray, err := PrepareDatasetAndUpdateCounts(ts.Client(), ts.URL, map[string]string{"accessToken": "testToken"},
-		map[string]string{}, metaDataMap, 1, folder, "", nil, nil, &emptyDatasets, &tooLargeDatasets)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(fullFileArray) != 1 {
-		t.Errorf("expected 1 file, got %d", len(fullFileArray))
-	}
-	if _, ok := metaDataMap["license"]; !ok {
-		t.Errorf("expected metadata to be updated with a license field")
-	}
-	if metaDataMap["ownerGroup"] == datasetIngestor.DUMMY_OWNER {
-		t.Errorf("expected ownerGroup to no longer be the dummy value")
-	}
-	if emptyDatasets != 0 || tooLargeDatasets != 0 {
-		t.Errorf("did not expect any dataset to be skipped")
-	}
-}
-
-func TestPrepareDataset_TooManyFiles(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[]`))
-	}))
-	defer ts.Close()
-
-	folder := newTestDatasetFolder(t, map[string]string{"a": "hello"})
-
-	// GetLocalFileList walks each line of the file listing independently, so listing the same
-	// real file more times than TOTAL_MAXFILES allows drives numFiles past the limit without
-	// creating hundreds of thousands of files on disk (which is prohibitively slow, especially
-	// on Windows with real-time antivirus scanning).
-	var listing strings.Builder
-	for i := 0; i < datasetIngestor.TOTAL_MAXFILES+1; i++ {
-		listing.WriteString("a\n")
-	}
-	listingPath := filepath.Join(folder, "filelisting.txt")
-	if err := os.WriteFile(listingPath, []byte(listing.String()), 0644); err != nil {
-		t.Fatalf("failed to write file listing: %s", err)
-	}
-	var emptyDatasets, tooLargeDatasets int
-
-	_, err := PrepareDatasetAndUpdateCounts(ts.Client(), ts.URL, map[string]string{"accessToken": "testToken"},
-		map[string]string{}, map[string]interface{}{"ownerGroup": datasetIngestor.DUMMY_OWNER}, 1,
-		folder, listingPath, nil, nil, &emptyDatasets, &tooLargeDatasets)
-
-	var tooManyErr *datasetIngestor.TooManyFilesError
-	if !errors.As(err, &tooManyErr) {
-		t.Fatalf("expected *TooManyFilesError, got %v", err)
-	}
-	if tooLargeDatasets != 1 {
-		t.Errorf("tooLargeDatasets = %d, want 1", tooLargeDatasets)
-	}
-	if emptyDatasets != 0 {
-		t.Errorf("emptyDatasets = %d, want 0", emptyDatasets)
-	}
-}
-
-func TestPrepareDataset_GetLocalFileListError(t *testing.T) {
-	var emptyDatasets, tooLargeDatasets int
-
-	_, err := PrepareDatasetAndUpdateCounts(http.DefaultClient, "", map[string]string{}, map[string]string{}, map[string]interface{}{}, 1,
-		filepath.Join(os.TempDir(), "does-not-exist-prepareDataset"), "", nil, nil, &emptyDatasets, &tooLargeDatasets)
-	if err == nil {
-		t.Fatal("expected an error for a nonexistent source folder, got nil")
-	}
-	var emptyErr *datasetIngestor.EmptyDatasetError
-	if errors.As(err, &emptyErr) {
-		t.Errorf("did not expect an *EmptyDatasetError for a scan failure, got %v", err)
-	}
-	if emptyDatasets != 0 || tooLargeDatasets != 0 {
-		t.Errorf("did not expect any counter to be incremented for a scan failure")
+			wantCalled := tt.fileListErr == nil
+			if updateMetadataCalled != wantCalled {
+				t.Errorf("updateMetadataFunc called = %v, want %v", updateMetadataCalled, wantCalled)
+			}
+			if wantCalled && len(fullFileArray) != len(wantFiles) {
+				t.Errorf("expected %d file(s), got %d", len(wantFiles), len(fullFileArray))
+			}
+			if emptyDatasets != tt.wantEmptyDatasets {
+				t.Errorf("emptyDatasets = %d, want %d", emptyDatasets, tt.wantEmptyDatasets)
+			}
+			if tooLargeDatasets != tt.wantTooLarge {
+				t.Errorf("tooLargeDatasets = %d, want %d", tooLargeDatasets, tt.wantTooLarge)
+			}
+		})
 	}
 }
 
