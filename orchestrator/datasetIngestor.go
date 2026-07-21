@@ -12,6 +12,11 @@ import (
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
 )
 
+// The dependencies are assigned to module level vars so they can be swapped by mocks in tests
+var getValidatedLocalFileListFunc = datasetIngestor.GetValidatedLocalFileList
+var updateMetadataFunc = datasetIngestor.UpdateMetaData
+var checkDataCentrallyAvailableSsh = datasetIngestor.CheckDataCentrallyAvailableSsh
+
 // PrepareDataset scans a dataset's local files via datasetIngestor.GetValidatedLocalFileList and,
 // if the dataset survives the empty/too-many-files checks, updates and logs its metadata.
 //
@@ -56,7 +61,7 @@ func prepareDataset(client *http.Client, APIServer string, user map[string]strin
 	symlinkCallback func(symlinkPath string, sourceFolder string) (bool, error),
 	filenameCheckCallback func(filepath string) bool) (fullFileArray []datasetIngestor.Datafile, err error) {
 	fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
-		datasetIngestor.GetValidatedLocalFileList(datasetSourceFolder, datasetFileListTxt, symlinkCallback, filenameCheckCallback)
+		getValidatedLocalFileListFunc(datasetSourceFolder, datasetFileListTxt, symlinkCallback, filenameCheckCallback)
 	if err != nil {
 		return fullFileArray, err
 	}
@@ -71,7 +76,7 @@ func prepareDataset(client *http.Client, APIServer string, user map[string]strin
 // scanned file list and logs the resulting metadata object.
 func updateAndLogMetaData(client *http.Client, APIServer string, user map[string]string,
 	originalMap map[string]string, metaDataMap map[string]interface{}, startTime time.Time, endTime time.Time, owner string, tapecopies int) {
-	datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
+	updateMetadataFunc(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
 	pretty, _ := json.MarshalIndent(metaDataMap, "", "    ")
 	log.Printf("Updated metadata object:\n%s\n", pretty)
 }
