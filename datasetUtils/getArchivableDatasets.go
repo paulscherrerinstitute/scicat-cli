@@ -100,24 +100,24 @@ GetArchivableDatasets retrieves a list of datasets that are eligible for archivi
 Parameters:
 - client: An instance of http.Client used to send the request.
 - APIServer: The URL of the API server.
-- ownerGroup: A list of owner groups to restrict the search to. This is used only if inputdatasetList is empty.
-- inputdatasetList: A list of dataset IDs. If this is not empty, the function will fetch datasets based on these IDs instead of ownerGroup.
+- ownerGroup: The owner group of the datasets. If this is not empty, the function will fetch datasets belonging to this owner group. If it is empty, the function will fetch datasets based on the inputdatasetList.
+- inputdatasetList: A list of dataset IDs. This is used only if ownerGroup is empty.
 - accessToken: The access token used for authentication.
 
-The function first checks if inputdatasetList is empty. If it is, it constructs a filter query to fetch datasets belonging to any of the given owner groups that are archivable. It then calls the addResult function to send the request and process the response.
+The function first checks if the ownerGroup is not empty. If it is not, it constructs a filter query to fetch datasets belonging to this owner group that are archivable. It then calls the addResult function to send the request and process the response.
 
-If inputdatasetList is not empty, the function splits it into chunks and for each chunk, it constructs a filter query to fetch datasets with IDs in the chunk that are archivable, regardless of owner group. It then calls the addResult function for each chunk.
+If the ownerGroup is empty, the function splits the inputdatasetList into chunks and for each chunk, it constructs a filter query to fetch datasets with IDs in the chunk that are archivable. It then calls the addResult function for each chunk.
 
 The function returns a list of dataset IDs that are archivable.
 
 Note: A dataset is considered archivable if its size is greater than 0.
 */
-func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup []string, inputdatasetList []string, accessToken string) (datasetList []string, err error) {
+func GetArchivableDatasets(client *http.Client, APIServer string, ownerGroup string, inputdatasetList []string, accessToken string) (datasetList []string, err error) {
 	datasetList = make([]string, 0)
 
 	filter := ""
 	if len(inputdatasetList) == 0 {
-		filter = `{"where":{"ownerGroup":{"inq":["` + strings.Join(ownerGroup, "\",\"") + `"]},"datasetlifecycle.archivable":true},"fields": {"pid":1,"size":1,"sourceFolder":1}}`
+		filter = `{"where":{"ownerGroup":"` + ownerGroup + `","datasetlifecycle.archivable":true},"fields": {"pid":1,"size":1,"sourceFolder":1}}`
 		var err error
 		datasetList, err = addResult(client, APIServer, filter, accessToken, datasetList)
 		if err != nil {

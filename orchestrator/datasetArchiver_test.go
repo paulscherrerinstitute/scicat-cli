@@ -15,7 +15,7 @@ func TestResolveArchivableDatasets(t *testing.T) {
 		}))
 		defer server.Close()
 
-		datasets, err := ResolveArchivableDatasets(server.Client(), server.URL, "testToken", []string{"testGroup"}, nil)
+		datasets, err := ResolveArchivableDatasets(server.Client(), server.URL, "testToken", "testGroup", nil)
 		if err != nil {
 			t.Fatalf("expected no error, got: %v", err)
 		}
@@ -30,7 +30,7 @@ func TestResolveArchivableDatasets(t *testing.T) {
 		}))
 		defer server.Close()
 
-		datasets, err := ResolveArchivableDatasets(server.Client(), server.URL, "testToken", nil, []string{"1", "2"})
+		datasets, err := ResolveArchivableDatasets(server.Client(), server.URL, "testToken", "", []string{"1", "2"})
 		if err != nil {
 			t.Fatalf("expected no error, got: %v", err)
 		}
@@ -45,14 +45,14 @@ func TestResolveArchivableDatasets(t *testing.T) {
 		}))
 		defer server.Close()
 
-		_, err := ResolveArchivableDatasets(server.Client(), server.URL, "testToken", nil, []string{"1", "2"})
+		_, err := ResolveArchivableDatasets(server.Client(), server.URL, "testToken", "", []string{"1", "2"})
 		if err == nil {
 			t.Fatal("expected an error, got nil")
 		}
 	})
 
 	t.Run("fails when neither ownerGroup nor datasetIds are set", func(t *testing.T) {
-		_, err := ResolveArchivableDatasets(http.DefaultClient, "", "testToken", nil, nil)
+		_, err := ResolveArchivableDatasets(http.DefaultClient, "", "testToken", "", nil)
 		if err == nil {
 			t.Fatal("expected an error, got nil")
 		}
@@ -64,36 +64,36 @@ func TestResolveArchivableDatasets(t *testing.T) {
 		}))
 		defer server.Close()
 
-		_, err := ResolveArchivableDatasets(server.Client(), server.URL, "testToken", []string{"testGroup"}, nil)
+		_, err := ResolveArchivableDatasets(server.Client(), server.URL, "testToken", "testGroup", nil)
 		if err == nil {
 			t.Fatal("expected an error, got nil")
 		}
 	})
 }
 
-func TestResolveOwnerGroupList(t *testing.T) {
+func TestResolveOwnerGroup(t *testing.T) {
 	t.Run("uses the explicit ownerGroup when set", func(t *testing.T) {
-		groups, err := ResolveOwnerGroupList("testGroup", []string{"group1", "group2"})
+		group, err := ResolveOwnerGroup("testGroup", []string{"group1", "group2"})
 		if err != nil {
 			t.Fatalf("expected no error, got: %v", err)
 		}
-		if len(groups) != 1 || groups[0] != "testGroup" {
-			t.Errorf("expected [\"testGroup\"], got %v", groups)
+		if group != "testGroup" {
+			t.Errorf("expected \"testGroup\", got %v", group)
 		}
 	})
 
-	t.Run("falls back to accessGroups when ownerGroup is empty", func(t *testing.T) {
-		groups, err := ResolveOwnerGroupList("", []string{"group1", "group2"})
+	t.Run("falls back to the first accessGroup when ownerGroup is empty", func(t *testing.T) {
+		group, err := ResolveOwnerGroup("", []string{"group1", "group2"})
 		if err != nil {
 			t.Fatalf("expected no error, got: %v", err)
 		}
-		if len(groups) != 2 || groups[0] != "group1" || groups[1] != "group2" {
-			t.Errorf("expected [\"group1\" \"group2\"], got %v", groups)
+		if group != "group1" {
+			t.Errorf("expected \"group1\", got %v", group)
 		}
 	})
 
 	t.Run("fails when ownerGroup is empty and there are no accessGroups", func(t *testing.T) {
-		_, err := ResolveOwnerGroupList("", nil)
+		_, err := ResolveOwnerGroup("", nil)
 		if err == nil {
 			t.Fatal("expected an error, got nil")
 		}

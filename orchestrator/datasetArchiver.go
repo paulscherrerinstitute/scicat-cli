@@ -10,19 +10,19 @@ import (
 
 /*
 ResolveArchivableDatasets returns the list of dataset PIDs to submit for archiving: the archivable
-datasets of ownerGroupList, optionally narrowed down to inputDatasetList. ownerGroupList is
+datasets of ownerGroup, optionally narrowed down to inputDatasetList. ownerGroup is
 optional, but if it is empty, inputDatasetList must be set, and every one of its datasetIds must
 resolve to an existing, archivable dataset (an error is returned otherwise). Callers typically
 enforce beforehand (e.g. via a CLI flag/positional-args check) that at least one of
-ownerGroupList/inputDatasetList is set; this function still reports a descriptive error if neither
+ownerGroup/inputDatasetList is set; this function still reports a descriptive error if neither
 is set.
 */
-func ResolveArchivableDatasets(client *http.Client, APIServer string, accessToken string, ownerGroupList []string, inputDatasetList []string) ([]string, error) {
-	if len(ownerGroupList) == 0 && len(inputDatasetList) == 0 {
+func ResolveArchivableDatasets(client *http.Client, APIServer string, accessToken string, ownerGroup string, inputDatasetList []string) ([]string, error) {
+	if ownerGroup == "" && len(inputDatasetList) == 0 {
 		return nil, fmt.Errorf("either ownergroup or datasetId(s) must be specified")
 	}
 
-	archivableDatasets, err := datasetUtils.GetArchivableDatasets(client, APIServer, ownerGroupList, inputDatasetList, accessToken)
+	archivableDatasets, err := datasetUtils.GetArchivableDatasets(client, APIServer, ownerGroup, inputDatasetList, accessToken)
 	if err != nil {
 		return nil, fmt.Errorf("GetArchivableDatasets: %w", err)
 	}
@@ -50,12 +50,12 @@ func ParseExecutionTime(s string) (*time.Time, error) {
 	return &t, nil
 }
 
-func ResolveOwnerGroupList(ownerGroup string, accessGroups []string) ([]string, error) {
+func ResolveOwnerGroup(ownerGroup string, accessGroups []string) (string, error) {
 	if ownerGroup != "" {
-		return []string{ownerGroup}, nil
+		return ownerGroup, nil
 	}
 	if len(accessGroups) == 0 {
-		return nil, fmt.Errorf("Could not determine an ownerGroup to submit the archive job for: specify --ownergroup or ensure your account has at least one access group")
+		return "", fmt.Errorf("Could not determine an ownerGroup to submit the archive job for: specify --ownergroup or ensure your account has at least one access group")
 	}
-	return accessGroups, nil
+	return accessGroups[0], nil
 }

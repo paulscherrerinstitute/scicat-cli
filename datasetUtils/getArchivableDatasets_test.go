@@ -11,28 +11,21 @@ func TestGetArchivableDatasets(t *testing.T) {
 	tests := []struct {
 		name             string
 		serverResponse   string
-		ownerGroup       []string
+		ownerGroup       string
 		inputdatasetList []string
 		expected         []string
 	}{
 		{
 			name:             "Test with ownerGroup",
 			serverResponse:   `[{"pid":"1","sourceFolder":"folder1","size":10},{"pid":"2","sourceFolder":"folder2","size":0},{"pid":"3","sourceFolder":"folder3","size":20}]`,
-			ownerGroup:       []string{"testGroup"},
-			inputdatasetList: []string{},
-			expected:         []string{"1", "3"},
-		},
-		{
-			name:             "Test with multiple ownerGroups",
-			serverResponse:   `[{"pid":"1","sourceFolder":"folder1","size":10},{"pid":"2","sourceFolder":"folder2","size":0},{"pid":"3","sourceFolder":"folder3","size":20}]`,
-			ownerGroup:       []string{"testGroup", "otherGroup"},
+			ownerGroup:       "testGroup",
 			inputdatasetList: []string{},
 			expected:         []string{"1", "3"},
 		},
 		{
 			name:             "Test without ownerGroup",
 			serverResponse:   `[{"pid":"1","sourceFolder":"folder1","size":10},{"pid":"2","sourceFolder":"folder2","size":0},{"pid":"3","sourceFolder":"folder3","size":20}]`,
-			ownerGroup:       []string{},
+			ownerGroup:       "",
 			inputdatasetList: []string{"1", "2", "3"},
 			expected:         []string{"1", "3"},
 		},

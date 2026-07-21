@@ -104,11 +104,11 @@ For further help see "` + cliutils.MANUAL + `"`,
 			log.Fatal(err)
 		}
 
-		ownerGroupList, err := orchestrator.ResolveOwnerGroupList(ownerGroup, accessGroups)
+		resolvedOwnerGroup, err := orchestrator.ResolveOwnerGroup(ownerGroup, accessGroups)
 		if err != nil {
 			log.Fatal(err)
 		}
-		archivableDatasets, err := orchestrator.ResolveArchivableDatasets(client, APIServer, user["accessToken"], ownerGroupList, inputdatasetList)
+		archivableDatasets, err := orchestrator.ResolveArchivableDatasets(client, APIServer, user["accessToken"], resolvedOwnerGroup, inputdatasetList)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -128,7 +128,7 @@ For further help see "` + cliutils.MANUAL + `"`,
 
 		log.Printf("You chose to archive the new datasets\n")
 		log.Printf("Submitting Archive Job for the ingested datasets.\n")
-		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, ownerGroupList[0], archivableDatasets, &tapecopies, executionTime)
+		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, resolvedOwnerGroup, archivableDatasets, &tapecopies, executionTime)
 		if err != nil {
 			log.Fatalf("Couldn't create a job: %s\n", err.Error())
 		}
