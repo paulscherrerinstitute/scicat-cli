@@ -9,13 +9,14 @@ import (
 )
 
 /*
-ResolveArchivableDatasets returns the list of dataset PIDs to submit for archiving: the archivable
-datasets of ownerGroup, optionally narrowed down to inputDatasetList. ownerGroup is
-optional, but if it is empty, inputDatasetList must be set, and every one of its datasetIds must
-resolve to an existing, archivable dataset (an error is returned otherwise). Callers typically
-enforce beforehand (e.g. via a CLI flag/positional-args check) that at least one of
-ownerGroup/inputDatasetList is set; this function still reports a descriptive error if neither
-is set.
+ResolveArchivableDatasets returns the list of dataset PIDs to submit for archiving.
+
+If inputDatasetList is non-empty, it returns the archivable datasets matching those
+PIDs that the user's accessToken can access (ownerGroup is ignored); if any PID is
+missing, not archivable, or not accessible, it returns an error.
+
+Otherwise, it returns the archivable datasets belonging to ownerGroup. If neither
+ownerGroup nor inputDatasetList is set, it returns an error.
 */
 func ResolveArchivableDatasets(client *http.Client, APIServer string, accessToken string, ownerGroup string, inputDatasetList []string) ([]string, error) {
 	if ownerGroup == "" && len(inputDatasetList) == 0 {

@@ -20,11 +20,10 @@ var datasetArchiverCmd = &cobra.Command{
 	Short: "Archives all datasets in state datasetCreated from a given ownerGroup",
 	Long: `Tool to archive datasets to the data catalog.
 
-The ownerGroup is optional. If given, all archivable datasets of this
-ownerGroup not yet archived will be archived, optionally narrowed down to
-the (list of) datasetIds passed as arguments.
-If ownerGroup is not given, a (list of) datasetIds must be passed as
-arguments instead; all of them must exist and be archivable.
+You must choose either an ownerGroup, in which case all archivable datasets
+of this ownerGroup not yet archived will be archived.
+Or you choose a (list of) datasetIds, in which case all archivable datasets
+of this list not yet archived will be archived. 
 
 For further help see "` + cliutils.MANUAL + `"`,
 	Run: func(cmd *cobra.Command, args []string) {
