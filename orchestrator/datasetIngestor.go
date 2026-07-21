@@ -55,6 +55,43 @@ func UpdateAndLogMetaData(client *http.Client, APIServer string, user map[string
 	log.Printf("Updated metadata object:\n%s\n", pretty)
 }
 
+// PrepareRemoteDataset updates and logs metadata for a dataset whose files are accessed remotely and
+// therefore can't be scanned locally: startTime/endTime default to now (there is no file list to derive
+// them from) and owner is read directly from metaDataMap's "owner" field.
+func PrepareRemoteDataset(client *http.Client, APIServer string, user map[string]string,
+	originalMap map[string]string, metaDataMap map[string]interface{}, tapecopies int) {
+	now := time.Now().UTC()
+	owner := metaDataMap["owner"].(string)
+	UpdateAndLogMetaData(client, APIServer, user, originalMap, metaDataMap, now, now, owner, tapecopies)
+}
+
+// DetermineDatasetLifecycle computes the datasetlifecycle fields for a dataset about to be ingested.
+//
+// copyFlag means the files still need to be copied, so the dataset isn't archivable yet.
+//
+// remoteFilesFlag means the files are accessed remotely: their origin datablocks aren't registered yet,
+// so metaArchivable (the value to store in the dataset's metadata) is forced to false. archivable (the
+// value the CLI itself should use to decide whether to queue an archive job) is unaffected by
+// remoteFilesFlag: the job is still queued since, unlike the copyFlag case, no further CLI-driven step
+// will flip it to archivable later.
+func DetermineDatasetLifecycle(copyFlag bool, remoteFilesFlag bool) (archivable bool, metaArchivable bool, isOnCentralDisk bool, archiveStatusMessage string) {
+	if copyFlag {
+		archivable = false
+		isOnCentralDisk = false
+		archiveStatusMessage = "filesNotYetAvailable"
+	} else {
+		archivable = true
+		isOnCentralDisk = true
+		archiveStatusMessage = "datasetCreated"
+	}
+	metaArchivable = archivable
+	if remoteFilesFlag {
+		metaArchivable = false
+		archiveStatusMessage = "origDatablocksNotYetAvailable"
+	}
+	return archivable, metaArchivable, isOnCentralDisk, archiveStatusMessage
+}
+
 // ErrCopyRequiresPersonalAccount is returned when the data is not centrally
 // available (and therefore needs to be copied) but no access group was
 // provided, i.e. a beamline account is used instead of a personal one.

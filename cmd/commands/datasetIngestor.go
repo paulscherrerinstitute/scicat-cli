@@ -323,7 +323,7 @@ For Windows you need instead to specify -user username:password on the command l
 			}
 			fullFileArray := make([]datasetIngestor.Datafile, 0)
 			if remoteFilesFlag {
-				datasetIngestor.UpdateStaticMetadataFields(client, APIServer, user, metaDataMap, tapecopies)
+				orchestrator.PrepareRemoteDataset(client, APIServer, user, originalMap, metaDataMap, tapecopies)
 			} else {
 				var err error
 				fullFileArray, err = orchestrator.PrepareDataset(client, APIServer, user, originalMap, metaDataMap, tapecopies,
@@ -372,24 +372,13 @@ For Windows you need instead to specify -user username:password on the command l
 			// === ingest dataset ===
 			if ingestFlag {
 				// create ingest . For decentral case delay setting status to archivable until data is copied
-				archivable := false
 				if _, ok := metaDataMap["datasetlifecycle"]; !ok {
 					metaDataMap["datasetlifecycle"] = map[string]interface{}{}
 				}
-				if copyFlag { // IDEA: maybe add a flag to indicate that we want to copy later?
-					// do not override existing fields
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = false
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "filesNotYetAvailable"
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = false
-				} else {
-					archivable = true
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = true
-				}
-				if remoteFilesFlag {
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "origDatablocksNotYetAvailable"
-				}
+				archivable, metaArchivable, isOnCentralDisk, archiveStatusMessage := orchestrator.DetermineDatasetLifecycle(copyFlag, remoteFilesFlag)
+				metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = isOnCentralDisk
+				metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = archiveStatusMessage
+				metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = metaArchivable
 				log.Println("Ingesting dataset...")
 				datasetId, err := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user)
 				if err != nil {
