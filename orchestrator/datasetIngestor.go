@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
@@ -20,14 +20,14 @@ import (
 // must be skipped (not fatal, no os.Exit); anything else is a hard failure gathering the local
 // file list. emptyDatasets/tooLargeDatasets are incremented to match whichever of those two
 // errors is returned.
-func PrepareDataset(client *http.Client, APIServer string, user map[string]string,
+func PrepareDatasetAndUpdateCounts(client *http.Client, APIServer string, user map[string]string,
 	originalMap map[string]string, metaDataMap map[string]interface{}, tapecopies int,
 	datasetSourceFolder string, datasetFileListTxt string,
 	symlinkCallback func(symlinkPath string, sourceFolder string) (bool, error),
 	filenameCheckCallback func(filepath string) bool,
 	emptyDatasets *int, tooLargeDatasets *int) (fullFileArray []datasetIngestor.Datafile, err error) {
-	fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
-		datasetIngestor.GetValidatedLocalFileList(datasetSourceFolder, datasetFileListTxt, symlinkCallback, filenameCheckCallback)
+	fullFileArray, err = prepareDataset(client, APIServer, user, originalMap, metaDataMap, tapecopies,
+		datasetSourceFolder, datasetFileListTxt, symlinkCallback, filenameCheckCallback)
 	if err != nil {
 		var emptyDatasetErr *datasetIngestor.EmptyDatasetError
 		var tooManyFilesErr *datasetIngestor.TooManyFilesError
@@ -39,16 +39,37 @@ func PrepareDataset(client *http.Client, APIServer string, user map[string]strin
 		}
 		return fullFileArray, err
 	}
-	log.Println("File list collected.")
-	log.Printf("The dataset contains %v files with a total size of %v bytes.\n", numFiles, totalSize)
-
-	UpdateAndLogMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
 	return fullFileArray, nil
 }
 
-// UpdateAndLogMetaData updates the dataset's metadata fields from the
+// prepareDataset scans a dataset's local files via datasetIngestor.GetValidatedLocalFileList and,
+// if the dataset survives the empty/too-many-files checks, updates and logs its metadata.
+//
+// The returned error follows the same errors.As pattern as ResolveCentralAvailability:
+// *datasetIngestor.EmptyDatasetError or *datasetIngestor.TooManyFilesError just mean this dataset
+// must be skipped (not fatal, no os.Exit); anything else is a hard failure gathering the local
+// file list. emptyDatasets/tooLargeDatasets are incremented to match whichever of those two
+// errors is returned.
+func prepareDataset(client *http.Client, APIServer string, user map[string]string,
+	originalMap map[string]string, metaDataMap map[string]interface{}, tapecopies int,
+	datasetSourceFolder string, datasetFileListTxt string,
+	symlinkCallback func(symlinkPath string, sourceFolder string) (bool, error),
+	filenameCheckCallback func(filepath string) bool) (fullFileArray []datasetIngestor.Datafile, err error) {
+	fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
+		datasetIngestor.GetValidatedLocalFileList(datasetSourceFolder, datasetFileListTxt, symlinkCallback, filenameCheckCallback)
+	if err != nil {
+		return fullFileArray, err
+	}
+	log.Println("File list collected.")
+	log.Printf("The dataset contains %v files with a total size of %v bytes.\n", numFiles, totalSize)
+
+	updateAndLogMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
+	return fullFileArray, nil
+}
+
+// updateAndLogMetaData updates the dataset's metadata fields from the
 // scanned file list and logs the resulting metadata object.
-func UpdateAndLogMetaData(client *http.Client, APIServer string, user map[string]string,
+func updateAndLogMetaData(client *http.Client, APIServer string, user map[string]string,
 	originalMap map[string]string, metaDataMap map[string]interface{}, startTime time.Time, endTime time.Time, owner string, tapecopies int) {
 	datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
 	pretty, _ := json.MarshalIndent(metaDataMap, "", "    ")
@@ -62,7 +83,7 @@ func PrepareRemoteDataset(client *http.Client, APIServer string, user map[string
 	originalMap map[string]string, metaDataMap map[string]interface{}, tapecopies int) {
 	now := time.Now().UTC()
 	owner := metaDataMap["owner"].(string)
-	UpdateAndLogMetaData(client, APIServer, user, originalMap, metaDataMap, now, now, owner, tapecopies)
+	updateAndLogMetaData(client, APIServer, user, originalMap, metaDataMap, now, now, owner, tapecopies)
 }
 
 // DetermineDatasetLifecycle computes the datasetlifecycle fields for a dataset about to be ingested.
@@ -120,10 +141,13 @@ func (w *NotCentrallyAvailableWarning) Error() string {
 // *NotCentrallyAvailableWarning - not a failure, just something the caller should report. It
 // returns ErrCopyRequiresPersonalAccount if no personal account (access group) is available, and
 // ErrIngestAborted if the user declines to continue.
-func ResolveCentralAvailability(username string, rsyncServer string, datasetSourceFolder string, sshOutput io.Writer,
+func ResolveCentralAvailability(username string, rsyncServer string, datasetSourceFolder string,
 	currentCopyFlag bool, accessGroups []string, noninteractive bool, confirmContinue func() bool) (copyFlag bool, err error) {
+	if len(accessGroups) == 0 {
+		return false, ErrCopyRequiresPersonalAccount
+	}
 	log.Println("Checking if data is centrally available...")
-	sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(username, rsyncServer, datasetSourceFolder, sshOutput)
+	sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(username, rsyncServer, datasetSourceFolder, os.Stdout)
 	if otherErr != nil {
 		return currentCopyFlag, fmt.Errorf("cannot check if data is centrally available: %w", otherErr)
 	}
@@ -132,9 +156,6 @@ func ResolveCentralAvailability(username string, rsyncServer string, datasetSour
 		return currentCopyFlag, nil
 	}
 
-	if len(accessGroups) == 0 {
-		return false, ErrCopyRequiresPersonalAccount
-	}
 	if !noninteractive && confirmContinue != nil && !confirmContinue() {
 		return false, ErrIngestAborted
 	}

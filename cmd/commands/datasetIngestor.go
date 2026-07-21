@@ -326,7 +326,7 @@ For Windows you need instead to specify -user username:password on the command l
 				orchestrator.PrepareRemoteDataset(client, APIServer, user, originalMap, metaDataMap, tapecopies)
 			} else {
 				var err error
-				fullFileArray, err = orchestrator.PrepareDataset(client, APIServer, user, originalMap, metaDataMap, tapecopies,
+				fullFileArray, err = orchestrator.PrepareDatasetAndUpdateCounts(client, APIServer, user, originalMap, metaDataMap, tapecopies,
 					datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback,
 					&emptyDatasets, &tooLargeDatasets)
 				if err != nil {
@@ -347,7 +347,7 @@ For Windows you need instead to specify -user username:password on the command l
 				// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
 				// and unless (no)copy flag defined via command line
 				if checkCentralAvailability {
-					newCopyFlag, err := orchestrator.ResolveCentralAvailability(user["username"], RSYNCServer, datasetSourceFolder, os.Stdout,
+					newCopyFlag, err := orchestrator.ResolveCentralAvailability(user["username"], RSYNCServer, datasetSourceFolder,
 						copyFlag, accessGroups, noninteractiveFlag, func() bool {
 							log.Printf("Do you want to continue (Y/n)? ")
 							scanner.Scan()

@@ -42,7 +42,7 @@ func TestPrepareDataset_EmptyDataset(t *testing.T) {
 	folder := newTestDatasetFolder(t, nil)
 	var emptyDatasets, tooLargeDatasets int
 
-	_, err := PrepareDataset(ts.Client(), ts.URL, map[string]string{"accessToken": "testToken"},
+	_, err := PrepareDatasetAndUpdateCounts(ts.Client(), ts.URL, map[string]string{"accessToken": "testToken"},
 		map[string]string{}, map[string]interface{}{"ownerGroup": datasetIngestor.DUMMY_OWNER}, 1,
 		folder, "", nil, nil, &emptyDatasets, &tooLargeDatasets)
 
@@ -69,7 +69,7 @@ func TestPrepareDataset_NormalDatasetUpdatesMetadata(t *testing.T) {
 	metaDataMap := map[string]interface{}{"ownerGroup": datasetIngestor.DUMMY_OWNER}
 	var emptyDatasets, tooLargeDatasets int
 
-	fullFileArray, err := PrepareDataset(ts.Client(), ts.URL, map[string]string{"accessToken": "testToken"},
+	fullFileArray, err := PrepareDatasetAndUpdateCounts(ts.Client(), ts.URL, map[string]string{"accessToken": "testToken"},
 		map[string]string{}, metaDataMap, 1, folder, "", nil, nil, &emptyDatasets, &tooLargeDatasets)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -111,7 +111,7 @@ func TestPrepareDataset_TooManyFiles(t *testing.T) {
 	}
 	var emptyDatasets, tooLargeDatasets int
 
-	_, err := PrepareDataset(ts.Client(), ts.URL, map[string]string{"accessToken": "testToken"},
+	_, err := PrepareDatasetAndUpdateCounts(ts.Client(), ts.URL, map[string]string{"accessToken": "testToken"},
 		map[string]string{}, map[string]interface{}{"ownerGroup": datasetIngestor.DUMMY_OWNER}, 1,
 		folder, listingPath, nil, nil, &emptyDatasets, &tooLargeDatasets)
 
@@ -130,7 +130,7 @@ func TestPrepareDataset_TooManyFiles(t *testing.T) {
 func TestPrepareDataset_GetLocalFileListError(t *testing.T) {
 	var emptyDatasets, tooLargeDatasets int
 
-	_, err := PrepareDataset(http.DefaultClient, "", map[string]string{}, map[string]string{}, map[string]interface{}{}, 1,
+	_, err := PrepareDatasetAndUpdateCounts(http.DefaultClient, "", map[string]string{}, map[string]string{}, map[string]interface{}{}, 1,
 		filepath.Join(os.TempDir(), "does-not-exist-prepareDataset"), "", nil, nil, &emptyDatasets, &tooLargeDatasets)
 	if err == nil {
 		t.Fatal("expected an error for a nonexistent source folder, got nil")
@@ -141,32 +141,6 @@ func TestPrepareDataset_GetLocalFileListError(t *testing.T) {
 	}
 	if emptyDatasets != 0 || tooLargeDatasets != 0 {
 		t.Errorf("did not expect any counter to be incremented for a scan failure")
-	}
-}
-
-// --- UpdateAndLogMetaData ---
-
-func TestUpdateAndLogMetaData(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[]`))
-	}))
-	defer ts.Close()
-
-	client := ts.Client()
-	user := map[string]string{"accessToken": "testToken"}
-	originalMap := map[string]string{}
-	metaDataMap := map[string]interface{}{"ownerGroup": datasetIngestor.DUMMY_OWNER}
-
-	startTime := time.Now()
-	endTime := startTime.Add(time.Hour)
-	UpdateAndLogMetaData(client, ts.URL, user, originalMap, metaDataMap, startTime, endTime, "testOwner", 1)
-
-	if _, ok := metaDataMap["license"]; !ok {
-		t.Errorf("expected metadata to be updated with a license field")
-	}
-	if metaDataMap["ownerGroup"] != "testOwner" {
-		t.Errorf("expected ownerGroup to be updated to 'testOwner', got %v", metaDataMap["ownerGroup"])
 	}
 }
 
@@ -275,7 +249,7 @@ func withSshMocks(t *testing.T, checkErr error, notFound bool) {
 func TestResolveCentralAvailability_Available(t *testing.T) {
 	withSshMocks(t, nil, false)
 
-	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", nil, false, []string{"group1"}, false, nil)
+	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", false, []string{"group1"}, false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -287,7 +261,7 @@ func TestResolveCentralAvailability_Available(t *testing.T) {
 func TestResolveCentralAvailability_Available_PreservesCurrentCopyFlag(t *testing.T) {
 	withSshMocks(t, nil, false)
 
-	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", nil, true, []string{"group1"}, false, nil)
+	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", true, []string{"group1"}, false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -299,7 +273,7 @@ func TestResolveCentralAvailability_Available_PreservesCurrentCopyFlag(t *testin
 func TestResolveCentralAvailability_NotAvailable_Noninteractive(t *testing.T) {
 	withSshMocks(t, errors.New("not found"), true)
 
-	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", nil, false, []string{"group1"}, true, nil)
+	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", false, []string{"group1"}, true, nil)
 	var warning *NotCentrallyAvailableWarning
 	if !errors.As(err, &warning) {
 		t.Fatalf("expected a *NotCentrallyAvailableWarning, got %v", err)
@@ -312,7 +286,7 @@ func TestResolveCentralAvailability_NotAvailable_Noninteractive(t *testing.T) {
 func TestResolveCentralAvailability_NoAccessGroups(t *testing.T) {
 	withSshMocks(t, errors.New("not found"), true)
 
-	_, err := ResolveCentralAvailability("user", "server", "/some/folder", nil, false, nil, false, func() bool { return true })
+	_, err := ResolveCentralAvailability("user", "server", "/some/folder", false, nil, false, func() bool { return true })
 	if !errors.Is(err, ErrCopyRequiresPersonalAccount) {
 		t.Fatalf("expected ErrCopyRequiresPersonalAccount, got %v", err)
 	}
@@ -321,7 +295,7 @@ func TestResolveCentralAvailability_NoAccessGroups(t *testing.T) {
 func TestResolveCentralAvailability_UserAborts(t *testing.T) {
 	withSshMocks(t, errors.New("not found"), true)
 
-	_, err := ResolveCentralAvailability("user", "server", "/some/folder", nil, false, []string{"group1"}, false, func() bool { return false })
+	_, err := ResolveCentralAvailability("user", "server", "/some/folder", false, []string{"group1"}, false, func() bool { return false })
 	if !errors.Is(err, ErrIngestAborted) {
 		t.Fatalf("expected ErrIngestAborted, got %v", err)
 	}
@@ -330,7 +304,7 @@ func TestResolveCentralAvailability_UserAborts(t *testing.T) {
 func TestResolveCentralAvailability_UserConfirms(t *testing.T) {
 	withSshMocks(t, errors.New("not found"), true)
 
-	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", nil, false, []string{"group1"}, false, func() bool { return true })
+	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", false, []string{"group1"}, false, func() bool { return true })
 	var warning *NotCentrallyAvailableWarning
 	if !errors.As(err, &warning) {
 		t.Fatalf("expected a *NotCentrallyAvailableWarning, got %v", err)
@@ -352,7 +326,7 @@ func TestResolveCentralAvailability_OtherError(t *testing.T) {
 		return nil, errors.New("connection refused")
 	}
 
-	_, err := ResolveCentralAvailability("user", "server", "/some/folder", nil, false, []string{"group1"}, false, nil)
+	_, err := ResolveCentralAvailability("user", "server", "/some/folder", false, []string{"group1"}, false, nil)
 	var warning *NotCentrallyAvailableWarning
 	if err == nil || errors.As(err, &warning) {
 		t.Fatalf("expected a plain error, got %v", err)
