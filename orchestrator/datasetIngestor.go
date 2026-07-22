@@ -152,7 +152,7 @@ func ResolveCentralAvailability(username string, rsyncServer string, datasetSour
 		return false, ErrCopyRequiresPersonalAccount
 	}
 	log.Println("Checking if data is centrally available...")
-	sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(username, rsyncServer, datasetSourceFolder, os.Stdout)
+	sshErr, otherErr := checkDataCentrallyAvailableSsh(username, rsyncServer, datasetSourceFolder, os.Stdout)
 	if otherErr != nil {
 		return currentCopyFlag, fmt.Errorf("cannot check if data is centrally available: %w", otherErr)
 	}

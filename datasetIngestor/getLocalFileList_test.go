@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -141,6 +142,44 @@ func TestGetValidatedLocalFileList(t *testing.T) {
 		var emptyDatasetErr *EmptyDatasetError
 		if errors.As(err, &emptyDatasetErr) {
 			t.Fatalf("expected a plain gathering error, not an *EmptyDatasetError: %v", err)
+		}
+	})
+
+	t.Run("returns a TooManyFilesError when the dataset exceeds TOTAL_MAXFILES", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("./", "test")
+		if err != nil {
+			t.Fatalf("Failed to create temp directory: %s", err)
+		}
+		defer os.RemoveAll(tempDir)
+
+		filePath := filepath.Join(tempDir, "testfile")
+		if err := os.WriteFile(filePath, []byte("test"), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %s", err)
+		}
+
+		// GetLocalFileList walks each line of the file listing independently, so listing the
+		// same real file more times than TOTAL_MAXFILES allows drives numFiles past the limit
+		// without creating hundreds of thousands of files on disk (which is prohibitively slow,
+		// especially on Windows with real-time antivirus scanning).
+		var listing strings.Builder
+		for i := 0; i < TOTAL_MAXFILES+1; i++ {
+			listing.WriteString("testfile\n")
+		}
+		listingPath := filepath.Join(tempDir, "filelisting.txt")
+		if err := os.WriteFile(listingPath, []byte(listing.String()), 0644); err != nil {
+			t.Fatalf("failed to write file listing: %s", err)
+		}
+
+		_, _, _, _, numFiles, _, err := GetValidatedLocalFileList(tempDir, listingPath, nil, nil)
+		var tooManyErr *TooManyFilesError
+		if !errors.As(err, &tooManyErr) {
+			t.Fatalf("expected a *TooManyFilesError, got: %v (%T)", err, err)
+		}
+		if tooManyErr.MaxFiles != TOTAL_MAXFILES {
+			t.Errorf("MaxFiles = %d, want %d", tooManyErr.MaxFiles, TOTAL_MAXFILES)
+		}
+		if numFiles != TOTAL_MAXFILES+1 {
+			t.Errorf("numFiles = %d, want %d", numFiles, TOTAL_MAXFILES+1)
 		}
 	})
 }

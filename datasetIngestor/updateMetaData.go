@@ -108,7 +108,7 @@ The function does not return a value.
 func UpdateMetaData(client *http.Client, APIServer string, user map[string]string,
 	originalMap map[string]string, metaDataMap map[string]interface{}, startTime time.Time, endTime time.Time, owner string, tapecopies int) {
 	updateMetadataFromFileFields(originalMap, metaDataMap, startTime, endTime, owner)
-	UpdateStaticMetadataFields(client, APIServer, user, metaDataMap, tapecopies)
+	updateStaticMetadataFields(client, APIServer, user, metaDataMap, tapecopies)
 }
 
 func updateMetadataFromFileFields(originalMap map[string]string, metaDataMap map[string]interface{}, startTime time.Time, endTime time.Time, owner string) {
@@ -120,7 +120,7 @@ func updateMetadataFromFileFields(originalMap map[string]string, metaDataMap map
 	}
 }
 
-func UpdateStaticMetadataFields(client *http.Client, APIServer string, user map[string]string, metaDataMap map[string]interface{}, tapecopies int) {
+func updateStaticMetadataFields(client *http.Client, APIServer string, user map[string]string, metaDataMap map[string]interface{}, tapecopies int) {
 	addFieldIfNotExists(metaDataMap, "license", "CC BY-SA 4.0")
 	addFieldIfNotExists(metaDataMap, "isPublished", false)
 	updateClassificationField(client, APIServer, user, metaDataMap, tapecopies)

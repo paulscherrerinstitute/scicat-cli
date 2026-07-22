@@ -92,9 +92,9 @@ func TestCheckDataCentrallyAvailable(t *testing.T) {
 		},
 	}
 
-	oldGoos := Goos
-	t.Cleanup(func() { Goos = oldGoos })
-	Goos = "linux"
+	oldGoos := goos
+	t.Cleanup(func() { goos = oldGoos })
+	goos = "linux"
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -114,9 +114,9 @@ func TestCheckDataCentrallyAvailable(t *testing.T) {
 }
 
 func TestCheckDataCentrallyAvailable_NoSshBinary(t *testing.T) {
-	oldGoos := Goos
-	t.Cleanup(func() { Goos = oldGoos })
-	Goos = "linux"
+	oldGoos := goos
+	t.Cleanup(func() { goos = oldGoos })
+	goos = "linux"
 
 	oldPath := os.Getenv("PATH")
 	t.Cleanup(func() { os.Setenv("PATH", oldPath) })
@@ -155,18 +155,18 @@ func TestCheckDataCentrallyAvailable_Windows(t *testing.T) {
 		},
 	}
 
-	oldGoos := Goos
-	oldNewDumbClient := NewDumbClientFunc
-	oldCheckRemoteDirectory := CheckRemoteDirectoryFunc
-	oldIsRemoteDirectoryNotFound := IsRemoteDirectoryNotFound
+	oldGoos := goos
+	oldNewDumbClient := newDumbClient
+	oldCheckRemoteDirectory := checkRemoteDirectory
+	oldIsRemoteDirectoryNotFound := isRemoteDirectoryNotFoundSsh
 	t.Cleanup(func() {
-		Goos = oldGoos
-		NewDumbClientFunc = oldNewDumbClient
-		CheckRemoteDirectoryFunc = oldCheckRemoteDirectory
-		IsRemoteDirectoryNotFound = oldIsRemoteDirectoryNotFound
+		goos = oldGoos
+		newDumbClient = oldNewDumbClient
+		checkRemoteDirectory = oldCheckRemoteDirectory
+		isRemoteDirectoryNotFoundSsh = oldIsRemoteDirectoryNotFound
 	})
-	Goos = "windows"
-	NewDumbClientFunc = func(username, password, server string) (*Client, error) {
+	goos = "windows"
+	newDumbClient = func(username, password, server string) (*Client, error) {
 		return &Client{}, nil
 	}
 
@@ -177,10 +177,10 @@ func TestCheckDataCentrallyAvailable_Windows(t *testing.T) {
 				returnError = errors.New(tt.errMsg)
 			}
 
-			CheckRemoteDirectoryFunc = func(c *Client, sourceFolder string, sshOutput io.Writer) error {
+			checkRemoteDirectory = func(c *Client, sourceFolder string, sshOutput io.Writer) error {
 				return returnError
 			}
-			IsRemoteDirectoryNotFound = func(err error) bool {
+			isRemoteDirectoryNotFoundSsh = func(err error) bool {
 				return tt.isNotFoundErr
 			}
 
@@ -196,14 +196,14 @@ func TestCheckDataCentrallyAvailable_Windows(t *testing.T) {
 }
 
 func TestCheckDataCentrallyAvailable_Windows_NewDumbClientError(t *testing.T) {
-	oldGoos := Goos
-	oldNewDumbClient := NewDumbClientFunc
+	oldGoos := goos
+	oldNewDumbClient := newDumbClient
 	t.Cleanup(func() {
-		Goos = oldGoos
-		NewDumbClientFunc = oldNewDumbClient
+		goos = oldGoos
+		newDumbClient = oldNewDumbClient
 	})
-	Goos = "windows"
-	NewDumbClientFunc = func(username, password, server string) (*Client, error) {
+	goos = "windows"
+	newDumbClient = func(username, password, server string) (*Client, error) {
 		return nil, errors.New("dial failure")
 	}
 

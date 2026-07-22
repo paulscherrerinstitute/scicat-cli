@@ -195,32 +195,17 @@ func TestDetermineDatasetLifecycle(t *testing.T) {
 
 // --- ResolveCentralAvailability ---
 
-func withSshMocks(t *testing.T, checkErr error, notFound bool) {
+func withSshMock(t *testing.T, sshErr error, otherErr error) {
 	t.Helper()
-	oldGoos := datasetIngestor.Goos
-	oldNewDumbClient := datasetIngestor.NewDumbClientFunc
-	oldCheckRemoteDirectory := datasetIngestor.CheckRemoteDirectoryFunc
-	oldIsNotFound := datasetIngestor.IsRemoteDirectoryNotFound
-	t.Cleanup(func() {
-		datasetIngestor.Goos = oldGoos
-		datasetIngestor.NewDumbClientFunc = oldNewDumbClient
-		datasetIngestor.CheckRemoteDirectoryFunc = oldCheckRemoteDirectory
-		datasetIngestor.IsRemoteDirectoryNotFound = oldIsNotFound
-	})
-	// Force the pure-Go SSH client path (normally Windows-only) so the mocks below take effect
-	// regardless of the OS running the tests.
-	datasetIngestor.Goos = "windows"
-	datasetIngestor.NewDumbClientFunc = func(username, password, server string) (*datasetIngestor.Client, error) {
-		return &datasetIngestor.Client{}, nil
+	old := checkDataCentrallyAvailableSsh
+	t.Cleanup(func() { checkDataCentrallyAvailableSsh = old })
+	checkDataCentrallyAvailableSsh = func(username, ARCHIVEServer, sourceFolder string, sshOutput io.Writer) (error, error) {
+		return sshErr, otherErr
 	}
-	datasetIngestor.CheckRemoteDirectoryFunc = func(c *datasetIngestor.Client, sourceFolder string, sshOutput io.Writer) error {
-		return checkErr
-	}
-	datasetIngestor.IsRemoteDirectoryNotFound = func(err error) bool { return notFound }
 }
 
 func TestResolveCentralAvailability_Available(t *testing.T) {
-	withSshMocks(t, nil, false)
+	withSshMock(t, nil, nil)
 
 	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", false, []string{"group1"}, false, nil)
 	if err != nil {
@@ -232,7 +217,7 @@ func TestResolveCentralAvailability_Available(t *testing.T) {
 }
 
 func TestResolveCentralAvailability_Available_PreservesCurrentCopyFlag(t *testing.T) {
-	withSshMocks(t, nil, false)
+	withSshMock(t, nil, nil)
 
 	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", true, []string{"group1"}, false, nil)
 	if err != nil {
@@ -244,7 +229,7 @@ func TestResolveCentralAvailability_Available_PreservesCurrentCopyFlag(t *testin
 }
 
 func TestResolveCentralAvailability_NotAvailable_Noninteractive(t *testing.T) {
-	withSshMocks(t, errors.New("not found"), true)
+	withSshMock(t, errors.New("not found"), nil)
 
 	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", false, []string{"group1"}, true, nil)
 	var warning *NotCentrallyAvailableWarning
@@ -257,8 +242,8 @@ func TestResolveCentralAvailability_NotAvailable_Noninteractive(t *testing.T) {
 }
 
 func TestResolveCentralAvailability_NoAccessGroups(t *testing.T) {
-	withSshMocks(t, errors.New("not found"), true)
-
+	// ResolveCentralAvailability returns before ever checking central availability when there's
+	// no access group, so no ssh mock is needed here.
 	_, err := ResolveCentralAvailability("user", "server", "/some/folder", false, nil, false, func() bool { return true })
 	if !errors.Is(err, ErrCopyRequiresPersonalAccount) {
 		t.Fatalf("expected ErrCopyRequiresPersonalAccount, got %v", err)
@@ -266,7 +251,7 @@ func TestResolveCentralAvailability_NoAccessGroups(t *testing.T) {
 }
 
 func TestResolveCentralAvailability_UserAborts(t *testing.T) {
-	withSshMocks(t, errors.New("not found"), true)
+	withSshMock(t, errors.New("not found"), nil)
 
 	_, err := ResolveCentralAvailability("user", "server", "/some/folder", false, []string{"group1"}, false, func() bool { return false })
 	if !errors.Is(err, ErrIngestAborted) {
@@ -275,7 +260,7 @@ func TestResolveCentralAvailability_UserAborts(t *testing.T) {
 }
 
 func TestResolveCentralAvailability_UserConfirms(t *testing.T) {
-	withSshMocks(t, errors.New("not found"), true)
+	withSshMock(t, errors.New("not found"), nil)
 
 	copyFlag, err := ResolveCentralAvailability("user", "server", "/some/folder", false, []string{"group1"}, false, func() bool { return true })
 	var warning *NotCentrallyAvailableWarning
@@ -288,16 +273,7 @@ func TestResolveCentralAvailability_UserConfirms(t *testing.T) {
 }
 
 func TestResolveCentralAvailability_OtherError(t *testing.T) {
-	oldGoos := datasetIngestor.Goos
-	oldNewDumbClient := datasetIngestor.NewDumbClientFunc
-	t.Cleanup(func() {
-		datasetIngestor.Goos = oldGoos
-		datasetIngestor.NewDumbClientFunc = oldNewDumbClient
-	})
-	datasetIngestor.Goos = "windows"
-	datasetIngestor.NewDumbClientFunc = func(username, password, server string) (*datasetIngestor.Client, error) {
-		return nil, errors.New("connection refused")
-	}
+	withSshMock(t, nil, errors.New("connection refused"))
 
 	_, err := ResolveCentralAvailability("user", "server", "/some/folder", false, []string{"group1"}, false, nil)
 	var warning *NotCentrallyAvailableWarning
