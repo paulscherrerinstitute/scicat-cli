@@ -158,12 +158,12 @@ func TestCheckDataCentrallyAvailable_Windows(t *testing.T) {
 	oldGoos := goos
 	oldNewDumbClient := newDumbClient
 	oldCheckRemoteDirectory := checkRemoteDirectory
-	oldIsRemoteDirectoryNotFoundSsh := isRemoteDirectoryNotFoundSsh
+	oldIsRemoteDirectoryNotFound := isRemoteDirectoryNotFoundSsh
 	t.Cleanup(func() {
 		goos = oldGoos
 		newDumbClient = oldNewDumbClient
 		checkRemoteDirectory = oldCheckRemoteDirectory
-		isRemoteDirectoryNotFoundSsh = oldIsRemoteDirectoryNotFoundSsh
+		isRemoteDirectoryNotFoundSsh = oldIsRemoteDirectoryNotFound
 	})
 	goos = "windows"
 	newDumbClient = func(username, password, server string) (*Client, error) {

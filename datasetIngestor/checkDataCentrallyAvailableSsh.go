@@ -19,7 +19,8 @@ var execCommand = exec.Command
 // newDumbClient is a variable that points to NewDumbClient, allowing it to be replaced in tests.
 var newDumbClient = NewDumbClient
 
-// checkRemoteDirectory is a variable that points to Client.CheckRemoteDirectory, allowing it to be replaced in tests.
+// checkRemoteDirectory is a variable that points to Client.CheckRemoteDirectory, allowing it to be
+// replaced in tests.
 var checkRemoteDirectory = func(c *Client, sourceFolder string, sshOutput io.Writer) error {
 	return c.CheckRemoteDirectory(sourceFolder, sshOutput)
 }

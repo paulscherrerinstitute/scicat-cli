@@ -3,7 +3,6 @@ package cmd
 import (
 	"bufio"
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -18,6 +17,7 @@ import (
 	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetIngestor"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/orchestrator"
 	"github.com/spf13/cobra"
 )
 
@@ -81,6 +81,11 @@ For Windows you need instead to specify -user username:password on the command l
 		addCaption := cliutils.GetCobraStringFlag(cmd, "addcaption")
 		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
 		globusCfgFlag := cliutils.GetCobraStringFlag(cmd, "globus-cfg")
+		remoteFilesFlag := cliutils.GetCobraBoolFlag(cmd, "remote-files")
+
+		if remoteFilesFlag {
+			nocopyFlag = true
+		}
 
 		// TODO: read in CFG!
 
@@ -143,6 +148,7 @@ For Windows you need instead to specify -user username:password on the command l
 				"addattachment":       addAttachment,
 				"addcaption":          addCaption,
 				"version":             showVersion,
+				"remote-files":        remoteFilesFlag,
 			})
 			return
 		}
@@ -309,93 +315,70 @@ For Windows you need instead to specify -user username:password on the command l
 
 			// === get filelist of dataset ===
 			log.Printf("Getting filelist for \"%s\"...\n", datasetSourceFolder)
-			fullFileArray, startTime, endTime, owner, numFiles, totalSize, err :=
-				datasetIngestor.GetValidatedLocalFileList(datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback)
-			if err != nil {
-				var emptyDatasetErr *datasetIngestor.EmptyDatasetError
-				var tooManyFilesErr *datasetIngestor.TooManyFilesError
-				switch {
-				case errors.As(err, &emptyDatasetErr):
-					emptyDatasets++
-				case errors.As(err, &tooManyFilesErr):
-					tooLargeDatasets++
-				default:
-					log.Fatalf("Can't gather the filelist of \"%s\": %v", datasetSourceFolder, err)
-				}
-				color.Set(color.FgRed)
-				log.Println(err)
-				color.Unset()
-				continue
-			}
-			log.Println("File list collected.")
-			//log.Printf("full fileListing: %v\n Start and end time: %s %s\n ", fullFileArray, startTime, endTime)
-			log.Printf("The dataset contains %v files with a total size of %v bytes.\n", numFiles, totalSize)
-
 			// NOTE: only tapecopies=1 or 2 does something if set.
 			if tapecopies == 2 {
 				color.Set(color.FgYellow)
 				log.Printf("Note: this dataset, if archived, will be copied to two tape copies")
 				color.Unset()
 			}
-			// === update metadata ===
-			datasetIngestor.UpdateMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
-			pretty, _ := json.MarshalIndent(metaDataMap, "", "    ")
-
-			log.Printf("Updated metadata object:\n%s\n", pretty)
-
-			// === check central availability of data ===
-			// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
-			// and unless (no)copy flag defined via command line
-			if checkCentralAvailability {
-				log.Println("Checking if data is centrally available...")
-				sshErr, otherErr := datasetIngestor.CheckDataCentrallyAvailableSsh(user["username"], RSYNCServer, datasetSourceFolder, os.Stdout)
-				if otherErr != nil {
-					log.Fatalln("Cannot check if data is centrally available:", otherErr)
-				}
-				// if the ssh command's error is not nil, the dataset is *likely* to be not centrally available (maybe should check the error returned)
-				if sshErr != nil {
-					color.Set(color.FgYellow)
-					log.Printf("The source folder %v is not centrally available.\nThe data must first be copied.\n ", datasetSourceFolder)
-					color.Unset()
-					copyFlag = true
-					// check if user account
-					if len(accessGroups) == 0 {
+			fullFileArray := make([]datasetIngestor.Datafile, 0)
+			if remoteFilesFlag {
+				orchestrator.PrepareRemoteDataset(client, APIServer, user, originalMap, metaDataMap, tapecopies)
+			} else {
+				var err error
+				fullFileArray, err = orchestrator.PrepareDatasetAndUpdateCounts(client, APIServer, user, originalMap, metaDataMap, tapecopies,
+					datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback,
+					&emptyDatasets, &tooLargeDatasets)
+				if err != nil {
+					var emptyDatasetErr *datasetIngestor.EmptyDatasetError
+					var tooManyFilesErr *datasetIngestor.TooManyFilesError
+					if errors.As(err, &emptyDatasetErr) || errors.As(err, &tooManyFilesErr) {
 						color.Set(color.FgRed)
-						log.Println("For copying, you must use a personal account. Beamline accounts are not supported.")
+						log.Println(err)
 						color.Unset()
-						os.Exit(1)
+						continue
 					}
-					if !noninteractiveFlag {
-						log.Printf("Do you want to continue (Y/n)? ")
-						scanner.Scan()
-						continueFlag := scanner.Text()
-						if continueFlag == "n" {
-							log.Fatalln("Further ingests interrupted because copying is needed, but no copy wanted.")
+					color.Set(color.FgRed)
+					log.Print(err)
+					color.Unset()
+					os.Exit(1)
+				}
+
+				// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
+				// and unless (no)copy flag defined via command line
+				if checkCentralAvailability {
+					newCopyFlag, err := orchestrator.ResolveCentralAvailability(user["username"], RSYNCServer, datasetSourceFolder,
+						copyFlag, accessGroups, noninteractiveFlag, func() bool {
+							log.Printf("Do you want to continue (Y/n)? ")
+							scanner.Scan()
+							return scanner.Text() != "n"
+						})
+					if err != nil {
+						var notCentrallyAvailableWarning *orchestrator.NotCentrallyAvailableWarning
+						if errors.As(err, &notCentrallyAvailableWarning) {
+							color.Set(color.FgYellow)
+							log.Print(err)
+							color.Unset()
+						} else {
+							color.Set(color.FgRed)
+							log.Print(err)
+							color.Unset()
+							os.Exit(1)
 						}
 					}
-				} else {
-					log.Println("Data is present centrally.")
+					copyFlag = newCopyFlag
 				}
 			}
-
 			// === ingest dataset ===
 			if ingestFlag {
 				// create ingest . For decentral case delay setting status to archivable until data is copied
-				archivable := false
 				if _, ok := metaDataMap["datasetlifecycle"]; !ok {
 					metaDataMap["datasetlifecycle"] = map[string]interface{}{}
 				}
-				if copyFlag { // IDEA: maybe add a flag to indicate that we want to copy later?
-					// do not override existing fields
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = false
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "filesNotYetAvailable"
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = false
-				} else {
-					archivable = true
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = true
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = "datasetCreated"
-					metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = true
-				}
+				archivable, metaArchivable, isOnCentralDisk, archiveStatusMessage := orchestrator.DetermineDatasetLifecycle(copyFlag, remoteFilesFlag)
+				metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = isOnCentralDisk
+				metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = archiveStatusMessage
+				metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = metaArchivable
 				log.Println("Ingesting dataset...")
 				datasetId, err := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user)
 				if err != nil {
@@ -540,7 +523,9 @@ func init() {
 	datasetIngestorCmd.Flags().String("addattachment", "", "Filename of image to attach (single dataset case only)")
 	datasetIngestorCmd.Flags().String("addcaption", "", "Optional caption to be stored with attachment (single dataset case only)")
 	datasetIngestorCmd.Flags().String("globus-cfg", "", "Override globus transfer config file location [default: globus.yaml next to executable]")
+	datasetIngestorCmd.Flags().Bool("remote-files", false, "Defines if files should be accessed remotely instead of locally (i.e. your data is not locally available and therefore needs to be accessed remotely ='remote' case).")
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
+	datasetIngestorCmd.MarkFlagsMutuallyExclusive("remote-files", "copy")
 }
