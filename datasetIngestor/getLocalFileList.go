@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
 type Datafile struct {
@@ -56,7 +58,7 @@ func (e *EmptyDatasetError) Error() string {
 type TooManyFilesError struct {
 	SourceFolder string
 	NumFiles     int64
-	MaxFiles     int
+	MaxFiles     int64
 }
 
 func (e *TooManyFilesError) Error() string {
@@ -254,8 +256,9 @@ func handleSymlink(symlinkPath string, sourceFolder string) (bool, error) {
 /*
 GetValidatedLocalFileList gathers the local file list for sourceFolder exactly like
 GetLocalFileList, additionally validating that the resulting dataset is neither empty nor larger
-than TOTAL_MAXFILES. It returns an *EmptyDatasetError or *TooManyFilesError when one of those
-conditions is met, so callers share the same validation rules and error types.
+than datasetUtils.DefaultIngestSizeLimits.TotalMaxFiles. It returns an *EmptyDatasetError or
+*TooManyFilesError when one of those conditions is met, so callers share the same validation
+rules and error types.
 */
 func GetValidatedLocalFileList(sourceFolder string, filelistingPath string,
 	symlinkCallback func(symlinkPath string, sourceFolder string) (bool, error),
@@ -271,9 +274,9 @@ func GetValidatedLocalFileList(sourceFolder string, filelistingPath string,
 	if totalSize == 0 || numFiles == 0 {
 		return fullFileArray, startTime, endTime, owner, numFiles, totalSize, &EmptyDatasetError{SourceFolder: sourceFolder}
 	}
-	if numFiles > TOTAL_MAXFILES {
+	if numFiles > datasetUtils.DefaultIngestSizeLimits.TotalMaxFiles {
 		return fullFileArray, startTime, endTime, owner, numFiles, totalSize,
-			&TooManyFilesError{SourceFolder: sourceFolder, NumFiles: numFiles, MaxFiles: TOTAL_MAXFILES}
+			&TooManyFilesError{SourceFolder: sourceFolder, NumFiles: numFiles, MaxFiles: datasetUtils.DefaultIngestSizeLimits.TotalMaxFiles}
 	}
 
 	return fullFileArray, startTime, endTime, owner, numFiles, totalSize, nil
