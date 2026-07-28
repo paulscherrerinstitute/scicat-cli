@@ -168,10 +168,7 @@ func TestDetermineDatasetLifecycle(t *testing.T) {
 	}{
 		{"local, no copy needed", false, false, true, true, true, "datasetCreated"},
 		{"local, copy needed", true, false, false, false, false, "filesNotYetAvailable"},
-		// remoteFilesFlag forces the metadata's archivable field to false (the origin datablocks
-		// aren't registered yet), but the CLI still queues an archive job (archivable stays true)
-		// since there's no later CLI-driven step, unlike the copyFlag case, that would flip it.
-		{"remote files", false, true, true, false, true, "origDatablocksNotYetAvailable"},
+		{"remote files", false, true, true, true, true, "origDatablocksNotYetAvailable"},
 	}
 
 	for _, tt := range tests {

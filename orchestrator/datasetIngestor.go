@@ -112,7 +112,7 @@ func DetermineDatasetLifecycle(copyFlag bool, remoteFilesFlag bool) (archivable 
 	}
 	metaArchivable = archivable
 	if remoteFilesFlag {
-		metaArchivable = false
+		metaArchivable = true
 		archiveStatusMessage = "origDatablocksNotYetAvailable"
 	}
 	return archivable, metaArchivable, isOnCentralDisk, archiveStatusMessage
