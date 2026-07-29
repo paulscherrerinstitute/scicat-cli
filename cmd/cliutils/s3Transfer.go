@@ -34,7 +34,7 @@ func (s *s3Transfer) transferFiles(params TransferParams) (archivable bool, err 
 	ctx := context.Background()
 	err = s.upload(ctx, params.Client, params.BrokerServer, params.UploadBucket, params.DatasetId, params.User["accessToken"], params.Filelist, params.DatasetSourceFolder)
 	if err == nil {
-		log.Println("Marking fiels ready")
+		log.Println("Marking files ready")
 		err = s.markFilesReady(params.Client, params.ApiServer, params.DatasetId, params.User)
 		if err != nil {
 			log.Println("Failed to mark files ready i.e. dataset as archivable: ", err)
