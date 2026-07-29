@@ -206,7 +206,6 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 
 		/* TODO Add info about policy settings and that autoarchive will take place or not */
-		// omkar: beamlineAccount only used to switch checkCentralAvailability
 		metaDataMap, metadataSourceFolder, beamlineAccount, err := datasetIngestor.ReadAndCheckMetadata(client, APIServer, metadatafile, user, accessGroups)
 		if err != nil {
 			log.Fatal("Error in CheckMetadata function: ", err)

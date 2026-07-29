@@ -44,16 +44,12 @@ func SetOIDCTokenProvider(provider func(string) string) {
 }
 
 // Authenticate handles user authentication by prompting for credentials as needed.
-// it tries oidc (not supported), token, username:password, username prompt for password
-// omkar: why is the return type a map? could be a struct describing user attrs
-// omkar: userinfo and accessgroups are sourced from /users/my/identity or related endpoints
 func Authenticate(authenticator Authenticator, httpClient *http.Client, apiServer string, userpass string, token string, oidc bool, overrideFatalExit ...func(v ...any)) (map[string]string, []string, error) {
 	fatalExit := log.Fatal // by default, call log fatal
 	if len(overrideFatalExit) == 1 {
 		fatalExit = overrideFatalExit[0]
 	}
 
-	// omkar: not used / supported so far
 	if oidc {
 		if oidcTokenProvider == nil {
 			return map[string]string{}, []string{}, fmt.Errorf("oidc token provider is not configured")
