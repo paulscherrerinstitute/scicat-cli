@@ -102,6 +102,7 @@ For Windows you need instead to specify -user username:password on the command l
 		// globus specific vars (if needed)
 		var globusClient globus.GlobusClient
 		var gConfig cliutils.GlobusConfig
+		skipSymlinks := ""
 
 		switch transferType {
 		case cliutils.Ssh:
@@ -128,7 +129,13 @@ For Windows you need instead to specify -user username:password on the command l
 				log.Fatalln("Cannot autoarchive when transferring via Globus due to the transfer happening asynchronously. Use the \"globusCheckTransfer\" command to archive them")
 			}
 		case cliutils.S3:
-			transferFiles = cliutils.S3Transfer
+			transferFiles = cliutils.TransferFilesS3
+
+			if cmd.Flags().Changed("linkfiles") && linkfiles != "delete" {
+				log.Fatalln("Only --linkfiles=delete supported with transfer-type s3")
+			}
+			log.Println("WARNING: transfer-type is s3: symbolic links will be dropped from ingestion and copying")
+			skipSymlinks = "sA"
 		}
 
 		if datasetUtils.TestFlags != nil {
@@ -278,7 +285,6 @@ For Windows you need instead to specify -user username:password on the command l
 			copyFlag = false
 		}
 		checkCentralAvailability := !(cmd.Flags().Changed("copy") || cmd.Flags().Changed("nocopy") || beamlineAccount || copyFlag)
-		skipSymlinks := ""
 
 		// check if skip flag is globally defined via flags:
 		if cmd.Flags().Changed("linkfiles") {
