@@ -95,11 +95,9 @@ func PrepareRemoteDataset(client *http.Client, APIServer string, user map[string
 //
 // copyFlag means the files still need to be copied, so the dataset isn't archivable yet.
 //
-// remoteFilesFlag means the files are accessed remotely: their origin datablocks aren't registered yet,
-// so metaArchivable (the value to store in the dataset's metadata) is forced to false. archivable (the
-// value the CLI itself should use to decide whether to queue an archive job) is unaffected by
-// remoteFilesFlag: the job is still queued since, unlike the copyFlag case, no further CLI-driven step
-// will flip it to archivable later.
+// remoteFilesFlag means the files are accessed remotely: their origin datablocks aren't registered yet.
+// Nonetheless metaArchivable (the value to store in the dataset's metadata) is set to true and the archive
+// system picking up the request will check if origs exist, if not create and propagate success or error via email.
 func DetermineDatasetLifecycle(copyFlag bool, remoteFilesFlag bool) (archivable bool, metaArchivable bool, isOnCentralDisk bool, archiveStatusMessage string) {
 	if copyFlag {
 		archivable = false
