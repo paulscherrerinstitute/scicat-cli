@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
 type FileBlock struct {
@@ -12,10 +14,6 @@ type FileBlock struct {
 	DataFileList []Datafile `json:"dataFileList"`
 	DatasetId    string     `json:"datasetId"`
 }
-
-const TOTAL_MAXFILES = 400000
-const BLOCK_MAXBYTES = 200000000000 // 700000 for testing the logic
-const BLOCK_MAXFILES = 20000        // 20 for testing the logic
 
 /*
 	createOrigBlock generates a `FileBlock` from a subset of a given `filesArray`.
@@ -133,7 +131,7 @@ func decodePid(resp *http.Response) (string, error) {
 /*
 	createOrigDatablocks sends a series of POST requests to the server to create original data blocks.
 
-It divides the fullFileArray into blocks based on the BLOCK_MAXFILES and BLOCK_MAXBYTES constants, and sends a request for each block.
+It divides the fullFileArray into blocks based on the BlockMaxFiles and BlockMaxBytes limits, and sends a request for each block.
 
 Parameters:
 
@@ -143,18 +141,19 @@ fullFileArray: An array of Datafile objects representing the files in the datase
 datasetId: The ID of the dataset.
 user: A map containing user information. The "accessToken" key should contain the user's access token.
 
-If the total number of files exceeds TOTAL_MAXFILES, the function logs a fatal error.
+If the total number of files exceeds TotalMaxFiles, the function logs a fatal error.
 If a request receives a response with a status code other than 200, the function logs a fatal error.
 
 The function logs a message for each created data block, including the start and end file, the total size, and the number of files in the block.
 */
 func CreateOrigDatablocks(client *http.Client, APIServer string, fullFileArray []Datafile, datasetId string, user map[string]string) error {
+	limits := datasetUtils.DefaultIngestSizeLimits
 	totalFiles := len(fullFileArray)
 
-	if totalFiles > TOTAL_MAXFILES {
+	if int64(totalFiles) > limits.TotalMaxFiles {
 		return fmt.Errorf(
 			"dataset exceeds the maximum number of files that can be handled by the archiving system per dataset (dataset: %v, max: %v)",
-			totalFiles, TOTAL_MAXFILES)
+			totalFiles, limits.TotalMaxFiles)
 	}
 
 	end := 0
@@ -162,7 +161,7 @@ func CreateOrigDatablocks(client *http.Client, APIServer string, fullFileArray [
 	for start := 0; end < totalFiles; {
 		blockBytes = 0
 
-		for end = start; end-start < BLOCK_MAXFILES && blockBytes < BLOCK_MAXBYTES && end < totalFiles; {
+		for end = start; end-start < limits.BlockMaxFiles && blockBytes < limits.BlockMaxBytes && end < totalFiles; {
 			blockBytes += fullFileArray[end].Size
 			end++
 		}

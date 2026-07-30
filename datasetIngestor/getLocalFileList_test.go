@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
 func TestAssembleFilelisting(t *testing.T) {
@@ -145,7 +147,9 @@ func TestGetValidatedLocalFileList(t *testing.T) {
 		}
 	})
 
-	t.Run("returns a TooManyFilesError when the dataset exceeds TOTAL_MAXFILES", func(t *testing.T) {
+	t.Run("returns a TooManyFilesError when the dataset exceeds TotalMaxFiles", func(t *testing.T) {
+		maxFiles := datasetUtils.DefaultIngestSizeLimits.TotalMaxFiles
+
 		tempDir, err := os.MkdirTemp("./", "test")
 		if err != nil {
 			t.Fatalf("Failed to create temp directory: %s", err)
@@ -158,11 +162,11 @@ func TestGetValidatedLocalFileList(t *testing.T) {
 		}
 
 		// GetLocalFileList walks each line of the file listing independently, so listing the
-		// same real file more times than TOTAL_MAXFILES allows drives numFiles past the limit
+		// same real file more times than TotalMaxFiles allows drives numFiles past the limit
 		// without creating hundreds of thousands of files on disk (which is prohibitively slow,
 		// especially on Windows with real-time antivirus scanning).
 		var listing strings.Builder
-		for i := 0; i < TOTAL_MAXFILES+1; i++ {
+		for i := int64(0); i < maxFiles+1; i++ {
 			listing.WriteString("testfile\n")
 		}
 		listingPath := filepath.Join(tempDir, "filelisting.txt")
@@ -175,11 +179,11 @@ func TestGetValidatedLocalFileList(t *testing.T) {
 		if !errors.As(err, &tooManyErr) {
 			t.Fatalf("expected a *TooManyFilesError, got: %v (%T)", err, err)
 		}
-		if tooManyErr.MaxFiles != TOTAL_MAXFILES {
-			t.Errorf("MaxFiles = %d, want %d", tooManyErr.MaxFiles, TOTAL_MAXFILES)
+		if tooManyErr.MaxFiles != maxFiles {
+			t.Errorf("MaxFiles = %d, want %d", tooManyErr.MaxFiles, maxFiles)
 		}
-		if numFiles != TOTAL_MAXFILES+1 {
-			t.Errorf("numFiles = %d, want %d", numFiles, TOTAL_MAXFILES+1)
+		if numFiles != maxFiles+1 {
+			t.Errorf("numFiles = %d, want %d", numFiles, maxFiles+1)
 		}
 	})
 }

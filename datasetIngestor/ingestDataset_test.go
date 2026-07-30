@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
 func TestCreateOrigBlock(t *testing.T) {
@@ -150,18 +152,18 @@ func TestCreateOrigDatablocks(t *testing.T) {
 		expectedRequests int
 	}{
 		{
-			name:             "Case 1: BLOCK_MAXFILES > len(datafiles)",
-			datafiles:        makeDatafiles(10000, BLOCK_MAXBYTES/10000),
+			name:             "Case 1: BlockMaxFiles > len(datafiles)",
+			datafiles:        makeDatafiles(10000, int(datasetUtils.DefaultIngestSizeLimits.BlockMaxBytes/10000)),
 			expectedRequests: 1,
 		},
 		{
-			name:             "Case 2: BLOCK_MAXFILES < len(datafiles)",
-			datafiles:        makeDatafiles(40000, BLOCK_MAXBYTES/10000),
+			name:             "Case 2: BlockMaxFiles < len(datafiles)",
+			datafiles:        makeDatafiles(40000, int(datasetUtils.DefaultIngestSizeLimits.BlockMaxBytes/10000)),
 			expectedRequests: 4,
 		},
 		{
-			name:             "Case 3: BLOCK_MAXFILES = len(datafiles)",
-			datafiles:        makeDatafiles(20000, BLOCK_MAXBYTES/20000),
+			name:             "Case 3: BlockMaxFiles = len(datafiles)",
+			datafiles:        makeDatafiles(20000, int(datasetUtils.DefaultIngestSizeLimits.BlockMaxBytes/20000)),
 			expectedRequests: 1,
 		},
 	}
