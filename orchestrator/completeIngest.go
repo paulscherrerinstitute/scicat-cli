@@ -11,6 +11,13 @@ import (
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
+// The dependencies are assigned to module level vars so they can be swapped by mocks in tests
+var getDatasetDetailsFunc = datasetUtils.GetDatasetDetails
+var createOrigDatablocksFunc = datasetIngestor.CreateOrigDatablocks
+var patchDatasetFunc = datasetUtils.PatchDataset
+var markFilesReadyFunc = datasetIngestor.MarkFilesReady
+var gatherCompletionFileListFunc = gatherCompletionFileList
+
 /*
 CompleteIngest defines and adds a dataset to the SciCat catalog for a dataset entry that was
 previously created without any files attached (NumberOfFiles == 0).
@@ -33,12 +40,12 @@ func CompleteIngest(client *http.Client, APIServer string, user map[string]strin
 
 	log.Printf("Dataset with PID %s has sourceFolder %s\n", pid, dataset.SourceFolder)
 
-	fullFileArray, startTime, endTime, skippedLinks, illegalFileNames, err := gatherCompletionFileList(dataset.SourceFolder)
+	fullFileArray, startTime, endTime, skippedLinks, illegalFileNames, err := gatherCompletionFileListFunc(dataset.SourceFolder)
 	if err != nil {
 		return err
 	}
 
-	if err := datasetIngestor.CreateOrigDatablocks(client, APIServer, fullFileArray, pid, user); err != nil {
+	if err := createOrigDatablocksFunc(client, APIServer, fullFileArray, pid, user); err != nil {
 		return fmt.Errorf("failed to create origdatablocks for dataset %s: %w", pid, err)
 	}
 
@@ -46,7 +53,7 @@ func CompleteIngest(client *http.Client, APIServer string, user map[string]strin
 		return err
 	}
 
-	if err := datasetIngestor.MarkFilesReady(client, APIServer, pid, user); err != nil {
+	if err := markFilesReadyFunc(client, APIServer, pid, user); err != nil {
 		return err
 	}
 
@@ -72,7 +79,7 @@ func requireArchiveManager(user map[string]string) error {
 // in the expected pre-completion state: it exists, has no files yet, and has a sourceFolder to
 // scan. Returns that sourceFolder on success.
 func resolveEmptyDatasetSourceFolder(client *http.Client, APIServer string, user map[string]string, pid string) (datasetUtils.Dataset, error) {
-	dataset, missing, err := datasetUtils.GetDatasetDetails(client, APIServer, user["accessToken"], []string{pid}, "")
+	dataset, missing, err := getDatasetDetailsFunc(client, APIServer, user["accessToken"], []string{pid}, "")
 	if err != nil {
 		return datasetUtils.Dataset{}, err
 	}
@@ -111,7 +118,7 @@ func updateDatasetTimes(client *http.Client, APIServer string, user map[string]s
 		"creationTime": startTime.Format(time.RFC3339),
 		"endTime":      endTime.Format(time.RFC3339),
 	}
-	return datasetUtils.PatchDataset(client, APIServer, user["accessToken"], pid, meta)
+	return patchDatasetFunc(client, APIServer, user["accessToken"], pid, meta)
 }
 
 func ExtractPidFromArgs(args []string) (string, error) {
