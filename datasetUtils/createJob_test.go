@@ -42,7 +42,7 @@ func TestCreateJob(t *testing.T) {
 		*tapecopies = 1
 
 		// Call the function
-		jobId, err := CreateArchivalJob(client, APIServer, user, "group1", datasetList, tapecopies, nil)
+		jobId, err := CreateArchivalJob(client, APIServer, user, "group1", datasetList, ArchivalJobOptions{TapeCopies: tapecopies})
 		if err != nil {
 			t.Errorf("Unexpected error received: %v", err)
 		}
@@ -75,7 +75,7 @@ func TestCreateJob(t *testing.T) {
 		*tapecopies = 1
 
 		// Call the function
-		jobId, err := CreateArchivalJob(client, APIServer, user, "group1", datasetList, tapecopies, nil)
+		jobId, err := CreateArchivalJob(client, APIServer, user, "group1", datasetList, ArchivalJobOptions{TapeCopies: tapecopies})
 		if err == nil {
 			t.Errorf("Expected an error to be returned from CreateJob")
 		}
@@ -113,7 +113,7 @@ func TestCreateJob(t *testing.T) {
 		*tapecopies = 1
 
 		// Call the function
-		jobId, err := CreateArchivalJob(client, APIServer, user, "group1", datasetList, tapecopies, nil)
+		jobId, err := CreateArchivalJob(client, APIServer, user, "group1", datasetList, ArchivalJobOptions{TapeCopies: tapecopies})
 
 		if err == nil {
 			t.Error("Expected an error to be returned from CreateJob")
@@ -196,7 +196,7 @@ func TestCreateJob(t *testing.T) {
 		}
 
 		// Call the function with the mock client
-		jobId, err := CreateArchivalJob(client, server.URL, user, "group1", datasetList, tapecopies, nil)
+		jobId, err := CreateArchivalJob(client, server.URL, user, "group1", datasetList, ArchivalJobOptions{TapeCopies: tapecopies})
 		if err != nil {
 			t.Errorf("Got an error when creating a job: %s", err.Error())
 		}
@@ -299,7 +299,7 @@ func TestCreateArchivalJobs(t *testing.T) {
 		tapecopies := new(int)
 		*tapecopies = 1
 
-		jobIds, errs := CreateArchivalJobs(client, server.URL, user, groupedDatasets, tapecopies)
+		jobIds, errs := CreateArchivalJobs(client, server.URL, user, groupedDatasets, ArchivalJobOptions{TapeCopies: tapecopies})
 
 		if len(jobIds) != 2 {
 			t.Errorf("Expected 2 job IDs, got %d", len(jobIds))
@@ -345,7 +345,7 @@ func TestCreateArchivalJobs(t *testing.T) {
 		tapecopies := new(int)
 		*tapecopies = 1
 
-		_, errs := CreateArchivalJobs(client, server.URL, user, groupedDatasets, tapecopies)
+		_, errs := CreateArchivalJobs(client, server.URL, user, groupedDatasets, ArchivalJobOptions{TapeCopies: tapecopies})
 
 		if len(errs) == 0 {
 			t.Error("Expected at least one error")

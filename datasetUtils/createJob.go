@@ -13,8 +13,19 @@ type Job struct {
 	Id string `json:"id"`
 }
 
+type LandingZoneEntry struct {
+	Type TransferType `json:"type"`
+}
+
+// ArchivalJobOptions bundles the optional parameters of an archival job.
+type ArchivalJobOptions struct {
+	TapeCopies    *int
+	TransferType  *TransferType
+	ExecutionTime *time.Time
+}
+
 /*
-`CreateArchivalJob` creates a new job on the server. It takes in an HTTP client, the API server URL, a user map, a list of datasets, and a pointer to an integer representing the number of tape copies.
+`CreateArchivalJob` creates a new job on the server. It takes in an HTTP client, the API server URL, a user map, a list of datasets, and a set of job options.
 
 The function constructs a job map with various parameters, including the email of the job initiator, the type of job, the creation time, the job parameters, and the job status message. It also includes a list of datasets.
 
@@ -27,12 +38,12 @@ Parameters:
 - APIServer: A string representing the API server URL
 - user: A map with string keys and values representing user information
 - datasetMap: A list of datasets grouped by ownerGroups
-- tapecopies: A pointer to an integer representing the number of tape copies
+- opts: The archival job's optional parameters (tape copies, transfer type, execution time)
 
 Returns:
 - jobId: A string representing the job ID if the job was successfully created, or an empty string otherwise
 */
-func CreateArchivalJob(client *http.Client, APIServer string, user map[string]string, ownerGroup string, datasetList []string, tapecopies *int, executionTime *time.Time) (jobId string, err error) {
+func CreateArchivalJob(client *http.Client, APIServer string, user map[string]string, ownerGroup string, datasetList []string, opts ArchivalJobOptions) (jobId string, err error) {
 	// important: define field with capital names and rename fields via 'json' constructs
 	// otherwise the marshaling will omit the fields !
 
@@ -42,9 +53,17 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 	}
 
 	type jobParamsStruct struct {
-		TapeCopies string `json:"tapeCopies"`
-		Username   string `json:"username"`
-		OwnerGroup string `json:"ownerGroup"`
+		TapeCopies  string                      `json:"tapeCopies"`
+		Username    string                      `json:"username"`
+		OwnerGroup  string                      `json:"ownerGroup"`
+		LandingZone map[string]LandingZoneEntry `json:"landingZone,omitempty"`
+	}
+
+	jobParams := jobParamsStruct{
+		TapeCopies:  "one",
+		Username:    user["username"],
+		OwnerGroup:  ownerGroup,
+		LandingZone: make(map[string]LandingZoneEntry),
 	}
 
 	type createJobDto struct {
@@ -62,29 +81,27 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 
 	//jobMap["creationTime"] = time.Now().Format(time.RFC3339)
 	// TODO these job parameters may become obsolete
-	tc := "one"
-	if *tapecopies == 2 {
-		tc = "two"
+	if *opts.TapeCopies == 2 {
+		jobParams.TapeCopies = "two"
 	}
 
 	emptyfiles := []string{}
 	dsMap := make([]datasetStruct, len(datasetList))
 	for i, dataset := range datasetList {
 		dsMap[i] = datasetStruct{dataset, emptyfiles}
+		if opts.TransferType != nil {
+			jobParams.LandingZone[dataset] = LandingZoneEntry{Type: *opts.TransferType}
+		}
 	}
 
 	// jobMap["datasetList"] = dsMap
 	createJob := createJobDto{
-		JobType: "archive",
-		JobParams: jobParamsStruct{
-			TapeCopies: tc,
-			Username:   user["username"],
-			OwnerGroup: ownerGroup,
-		},
+		JobType:          "archive",
+		JobParams:        jobParams,
 		JobStatusMessage: "jobSubmitted",
 		DatasetList:      dsMap,
 		ContactEmail:     user["mail"],
-		ExecutionTime:    executionTime,
+		ExecutionTime:    opts.ExecutionTime,
 	}
 
 	// marshal to JSON
@@ -125,12 +142,12 @@ func CreateArchivalJob(client *http.Client, APIServer string, user map[string]st
 }
 
 // Auxiliary function to CreateArchivalJob when you need to use a list of datasets grouped by ownerGroups
-func CreateArchivalJobs(client *http.Client, APIServer string, user map[string]string, groupedDatasetLists map[string][]string, tapecopies *int) (jobIds []string, errs []error) {
+func CreateArchivalJobs(client *http.Client, APIServer string, user map[string]string, groupedDatasetLists map[string][]string, opts ArchivalJobOptions) (jobIds []string, errs []error) {
 	jobIds = make([]string, len(groupedDatasetLists))
 	errs = make([]error, len(groupedDatasetLists))
 	i := 0
 	for group := range groupedDatasetLists {
-		jobIds[i], errs[i] = CreateArchivalJob(client, APIServer, user, group, groupedDatasetLists[group], tapecopies, nil)
+		jobIds[i], errs[i] = CreateArchivalJob(client, APIServer, user, group, groupedDatasetLists[group], opts)
 		i++
 	}
 	return jobIds, errs
