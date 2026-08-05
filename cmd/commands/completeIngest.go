@@ -49,6 +49,7 @@ For further help see "` + cliutils.MANUAL + `"`,
 
 		token := cliutils.GetCobraStringFlag(cmd, "token")
 		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
+		sourceFolderPrefix := cliutils.GetCobraStringFlag(cmd, "source-folder-prefix")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
@@ -79,7 +80,7 @@ For further help see "` + cliutils.MANUAL + `"`,
 			log.Fatal(err)
 		}
 
-		err = orchestrator.CompleteIngest(client, APIServer, user, pid)
+		err = orchestrator.CompleteIngest(client, APIServer, user, pid, sourceFolderPrefix)
 		if err != nil {
 			switch err.(type) {
 			case *datasetIngestor.SkippedLinksWarning, *datasetIngestor.IllegalFileNamesWarning:
@@ -102,6 +103,7 @@ func init() {
 
 	completeIngestCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead of production environment")
 	completeIngestCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
+	completeIngestCmd.Flags().String("source-folder-prefix", "", "Prefix to prepend to sourceFolder path when scanning for files")
 
 	completeIngestCmd.MarkFlagsMutuallyExclusive("testenv", "devenv")
 }
