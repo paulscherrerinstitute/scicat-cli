@@ -73,12 +73,15 @@ func (s *s3BrokerCredsProvider) Retrieve(ctx context.Context) (aws.Credentials, 
 		return aws.Credentials{}, err
 	}
 	expires, err := time.Parse(time.RFC3339, s3Creds.ExpiryTime)
+	if err != nil {
+		return aws.Credentials{}, err
+	}
 	return aws.Credentials{
 		AccessKeyID:     s3Creds.AccessKey,
 		SecretAccessKey: s3Creds.SecretKey,
 		SessionToken:    s3Creds.SessionToken,
 		Expires:         expires,
-	}, err
+	}, nil
 }
 
 // getTransferManagerClient constructs a transfermanager client using s3BrokerCredsProvider which
