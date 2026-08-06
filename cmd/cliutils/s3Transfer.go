@@ -63,10 +63,12 @@ type s3BrokerCredsProvider struct {
 	datasetId    string
 	operation    string
 	accessToken  string
+
+	getShortTermCreds func(client *http.Client, brokerServer string, datasetId string, operation string, accessToken string) (s3Creds, error)
 }
 
 func (s *s3BrokerCredsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
-	s3Creds, err := getShortTermCreds(s.client, s.brokerServer, s.datasetId, s.operation, s.accessToken)
+	s3Creds, err := s.getShortTermCreds(s.client, s.brokerServer, s.datasetId, s.operation, s.accessToken)
 	if err != nil {
 		return aws.Credentials{}, err
 	}
@@ -88,6 +90,8 @@ func getTransferManagerClient(ctx context.Context, client *http.Client, brokerSe
 		datasetId:    datasetId,
 		operation:    "write",
 		accessToken:  accessToken,
+
+		getShortTermCreds: getShortTermCreds,
 	}
 	if s3bCredsProvider.accessToken == "" {
 		return nil, fmt.Errorf("No access token")
