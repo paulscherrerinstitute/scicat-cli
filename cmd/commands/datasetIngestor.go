@@ -92,7 +92,7 @@ For Windows you need instead to specify -user username:password on the command l
 		// TODO: read in CFG!
 
 		// transfer type
-		transferType, err := cliutils.ConvertToTransferType(transferTypeFlag)
+		transferType, err := datasetUtils.ConvertToTransferType(transferTypeFlag)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -105,9 +105,9 @@ For Windows you need instead to specify -user username:password on the command l
 		skipSymlinks := ""
 
 		switch transferType {
-		case cliutils.Ssh:
+		case datasetUtils.Ssh:
 			transferFiles = cliutils.SshTransfer
-		case cliutils.Globus:
+		case datasetUtils.Globus:
 			transferFiles = cliutils.GlobusTransfer
 			var globusConfigPath string
 			if cmd.Flags().Lookup("globus-cfg").Changed {
@@ -128,7 +128,7 @@ For Windows you need instead to specify -user username:password on the command l
 			if autoarchiveFlag {
 				log.Fatalln("Cannot autoarchive when transferring via Globus due to the transfer happening asynchronously. Use the \"globusCheckTransfer\" command to archive them")
 			}
-		case cliutils.S3:
+		case datasetUtils.S3:
 			transferFiles = cliutils.TransferFilesS3
 
 			if cmd.Flags().Changed("linkfiles") && linkfiles != "delete" {
@@ -136,6 +136,8 @@ For Windows you need instead to specify -user username:password on the command l
 			}
 			log.Println("WARNING: transfer-type is s3: symbolic links will be dropped from ingestion and copying")
 			skipSymlinks = "sA"
+		default:
+			log.Fatalf("unsupported transfer type for datasetIngestor: %q. Available options: \"ssh\", \"globus\", \"s3\"\n", transferTypeFlag)
 		}
 
 		if datasetUtils.TestFlags != nil {
@@ -498,7 +500,10 @@ For Windows you need instead to specify -user username:password on the command l
 			log.Printf("Submitting Archive Job for the ingested datasets.\n")
 			// TODO: change param type from pointer to regular as it is unnecessary
 			//   for it to be passed as pointer
-			jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasetListOwnerGroup, archivableDatasetList, &tapecopies, nil)
+			jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, archivableDatasetListOwnerGroup, archivableDatasetList, datasetUtils.ArchivalJobOptions{
+				TapeCopies:   &tapecopies,
+				TransferType: &transferType,
+			})
 
 			if err != nil {
 				color.Set(color.FgRed)

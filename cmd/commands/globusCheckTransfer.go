@@ -188,7 +188,7 @@ func globusCheckTransferCreateArchiveJobs(client *http.Client, APIServer string,
 	log.Printf("Submitting Archive Job for archivable datasets.\n")
 	// TODO: change param type from pointer to regular as it is unnecessary
 	//   for it to be passed as pointer
-	jobIds, errs := datasetUtils.CreateArchivalJobs(client, APIServer, user, archivableDatasetMap, &tapecopies)
+	jobIds, errs := datasetUtils.CreateArchivalJobs(client, APIServer, user, archivableDatasetMap, datasetUtils.ArchivalJobOptions{TapeCopies: &tapecopies})
 
 	color.Set(color.FgRed)
 	for _, err := range errs {

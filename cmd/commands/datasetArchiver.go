@@ -23,7 +23,10 @@ var datasetArchiverCmd = &cobra.Command{
 You must choose either an ownerGroup, in which case all archivable datasets
 of this ownerGroup not yet archived will be archived.
 Or you choose a (list of) datasetIds, in which case all archivable datasets
-of this list not yet archived will be archived. 
+of this list not yet archived will be archived.
+
+The transfer type used for the archival job's landing zone can be selected
+via the --transfer-type flag. Available options: "ssh", "globus", "s3", "rocrate".
 
 For further help see "` + cliutils.MANUAL + `"`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -48,6 +51,7 @@ For further help see "` + cliutils.MANUAL + `"`,
 		nonInteractiveFlag, _ := cmd.Flags().GetBool("noninteractive")
 		ownerGroup, _ := cmd.Flags().GetString("ownergroup")
 		showVersion, _ := cmd.Flags().GetBool("version")
+		transferType, _ := cmd.Flags().GetString("transfer-type")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
@@ -61,7 +65,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 				"noninteractive": nonInteractiveFlag,
 				"version":        showVersion,
 				"ownergroup":     ownerGroup,
-				"execution-time": executionTimeStr})
+				"execution-time": executionTimeStr,
+				"transfer-type":  transferType,
+			})
 			return
 		}
 
@@ -125,9 +131,18 @@ For further help see "` + cliutils.MANUAL + `"`,
 			log.Fatalf("Okay the archive process is stopped here, no datasets will be archived\n")
 		}
 
+		convertedTransferType, err := datasetUtils.ConvertToTransferType(transferType)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		log.Printf("You chose to archive the new datasets\n")
 		log.Printf("Submitting Archive Job for the ingested datasets.\n")
-		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, resolvedOwnerGroup, archivableDatasets, &tapecopies, executionTime)
+		jobId, err := datasetUtils.CreateArchivalJob(client, APIServer, user, resolvedOwnerGroup, archivableDatasets, datasetUtils.ArchivalJobOptions{
+			TapeCopies:    &tapecopies,
+			TransferType:  &convertedTransferType,
+			ExecutionTime: executionTime,
+		})
 		if err != nil {
 			log.Fatalf("Couldn't create a job: %s\n", err.Error())
 		}
@@ -145,6 +160,7 @@ func init() {
 	datasetArchiverCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
 	datasetArchiverCmd.Flags().Bool("noninteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
 	datasetArchiverCmd.Flags().String("ownergroup", "", "Specifies to which owner group should the archival job belong. If no dataset id's are passed, all datasets belonging to this ownergroup that can also be marked as archivable will be included. If not specified, a list of dataset id's must be passed as arguments instead")
+	datasetArchiverCmd.Flags().String("transfer-type", "ssh", "Selects the transfer type to be used for transferring files. Available options: \"ssh\", \"globus\", \"s3\", \"rocrate\"")
 
 	datasetArchiverCmd.MarkFlagsMutuallyExclusive("testenv", "localenv", "devenv")
 }
