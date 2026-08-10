@@ -26,7 +26,7 @@ Or you choose a (list of) datasetIds, in which case all archivable datasets
 of this list not yet archived will be archived.
 
 The transfer type used for the archival job's landing zone can be selected
-via the --transfer-type flag. Available options: "ssh", "globus", "rocrate".
+via the --transfer-type flag. Available options: "ssh", "globus", "s3", "rocrate".
 
 For further help see "` + cliutils.MANUAL + `"`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -160,7 +160,7 @@ func init() {
 	datasetArchiverCmd.Flags().Bool("devenv", false, "Use development environment instead or production")
 	datasetArchiverCmd.Flags().Bool("noninteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
 	datasetArchiverCmd.Flags().String("ownergroup", "", "Specifies to which owner group should the archival job belong. If no dataset id's are passed, all datasets belonging to this ownergroup that can also be marked as archivable will be included. If not specified, a list of dataset id's must be passed as arguments instead")
-	datasetArchiverCmd.Flags().String("transfer-type", "ssh", "Selects the transfer type to be used for transferring files. Available options: \"ssh\", \"globus\", \"rocrate\"")
+	datasetArchiverCmd.Flags().String("transfer-type", "ssh", "Selects the transfer type to be used for transferring files. Available options: \"ssh\", \"globus\", \"s3\", \"rocrate\"")
 
 	datasetArchiverCmd.MarkFlagsMutuallyExclusive("testenv", "localenv", "devenv")
 }
