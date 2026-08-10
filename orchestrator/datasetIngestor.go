@@ -66,7 +66,7 @@ func prepareDataset(client *http.Client, APIServer string, user map[string]strin
 		return fullFileArray, err
 	}
 	log.Println("File list collected.")
-	log.Printf("The dataset contains %v files with a total size of %v bytes.\n", numFiles, totalSize)
+	log.Printf("The dataset contains %v files and directories with a total size of %v bytes.\n", numFiles, totalSize)
 
 	updateAndLogMetaData(client, APIServer, user, originalMap, metaDataMap, startTime, endTime, owner, tapecopies)
 	return fullFileArray, nil

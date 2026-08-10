@@ -64,6 +64,8 @@ For Windows you need instead to specify -user username:password on the command l
 		// configure environment
 		APIServer := envConfig.ResolveAPIServer()
 		RSYNCServer := envConfig.ResolveRSYNCServer()
+		S3UploadBucket := envConfig.ResolveS3UploadBucket()
+		S3BrokerServer := envConfig.ResolveS3BrokerServer()
 
 		ingestFlag := cliutils.GetCobraBoolFlag(cmd, "ingest")
 		noninteractiveFlag := cliutils.GetCobraBoolFlag(cmd, "noninteractive")
@@ -100,6 +102,7 @@ For Windows you need instead to specify -user username:password on the command l
 		// globus specific vars (if needed)
 		var globusClient globus.GlobusClient
 		var gConfig cliutils.GlobusConfig
+		skipSymlinks := ""
 
 		switch transferType {
 		case cliutils.Ssh:
@@ -125,6 +128,14 @@ For Windows you need instead to specify -user username:password on the command l
 			if autoarchiveFlag {
 				log.Fatalln("Cannot autoarchive when transferring via Globus due to the transfer happening asynchronously. Use the \"globusCheckTransfer\" command to archive them")
 			}
+		case cliutils.S3:
+			transferFiles = cliutils.TransferFilesS3
+
+			if cmd.Flags().Changed("linkfiles") && linkfiles != "delete" {
+				log.Fatalln("Only --linkfiles=delete supported with transfer-type s3")
+			}
+			log.Println("WARNING: transfer-type is s3: symbolic links will be dropped from ingestion and copying")
+			skipSymlinks = "sA"
 		}
 
 		if datasetUtils.TestFlags != nil {
@@ -273,7 +284,6 @@ For Windows you need instead to specify -user username:password on the command l
 			copyFlag = false
 		}
 		checkCentralAvailability := !(cmd.Flags().Changed("copy") || cmd.Flags().Changed("nocopy") || beamlineAccount || copyFlag)
-		skipSymlinks := ""
 
 		// check if skip flag is globally defined via flags:
 		if cmd.Flags().Changed("linkfiles") {
@@ -421,6 +431,10 @@ For Windows you need instead to specify -user username:password on the command l
 							Filelist:       filePathList,
 							IsSymlinkList:  isSymlinkList,
 						},
+						S3Params: cliutils.S3Params{
+							UploadBucket: S3UploadBucket,
+							BrokerServer: S3BrokerServer,
+						},
 						DatasetId:           datasetId,
 						DatasetSourceFolder: datasetSourceFolder,
 					}
@@ -515,7 +529,7 @@ func init() {
 	datasetIngestorCmd.Flags().Bool("noninteractive", false, "If set no questions will be asked and the default settings for all undefined flags will be assumed")
 	datasetIngestorCmd.Flags().Bool("copy", false, "Defines if files should be copied from your local system to a central server before ingest (i.e. your data is not centrally available and therefore needs to be copied ='decentral' case). copyFlag has higher priority than nocopyFlag. If neither flag is defined the tool will try to make the best guess.")
 	datasetIngestorCmd.Flags().Bool("nocopy", false, "Defines if files should *not* be copied from your local system to a central server before ingest (i.e. your data is centrally available and therefore does not need to be copied ='central' case).")
-	datasetIngestorCmd.Flags().String("transfer-type", "ssh", "Selects the transfer type to be used for transferring files. Available options: \"ssh\", \"globus\"")
+	datasetIngestorCmd.Flags().String("transfer-type", "ssh", "Selects the transfer type to be used for transferring files. Available options: \"ssh\", \"globus\", \"s3\"")
 	datasetIngestorCmd.Flags().Int("tapecopies", 0, "Number of tapecopies to be used for archiving")
 	datasetIngestorCmd.Flags().Bool("autoarchive", false, "Option to create archive job automatically after ingestion")
 	datasetIngestorCmd.Flags().String("linkfiles", "keepInternalOnly", "Define what to do with symbolic links: (keep|delete|keepInternalOnly)")

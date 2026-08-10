@@ -7,8 +7,8 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/term"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
+	"golang.org/x/term"
 )
 
 // Authenticator is an abstraction used to support testing and custom auth backends.
