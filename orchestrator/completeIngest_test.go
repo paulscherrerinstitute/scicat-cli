@@ -51,7 +51,7 @@ func TestCompleteIngest(t *testing.T) {
 	archiveManager := map[string]string{"username": "archiveManager", "accessToken": "testToken"}
 
 	t.Run("rejects non archiveManager users", func(t *testing.T) {
-		err := CompleteIngest(nil, "", map[string]string{"username": "someoneElse"}, "testPid")
+		err := CompleteIngest(nil, "", map[string]string{"username": "someoneElse"}, "testPid", "")
 		if err == nil {
 			t.Fatal("expected an error, got nil")
 		}
@@ -104,7 +104,7 @@ func TestCompleteIngest(t *testing.T) {
 				gatherCompletionFileListFunc = tt.mockGather
 			}
 
-			err := CompleteIngest(nil, "", archiveManager, "testPid")
+			err := CompleteIngest(nil, "", archiveManager, "testPid", "")
 			if tt.checkErr != nil {
 				tt.checkErr(t, err)
 			} else if err == nil {
@@ -158,7 +158,7 @@ func TestCompleteIngest(t *testing.T) {
 				return nil
 			}
 
-			err := CompleteIngest(nil, "", archiveManager, "testPid")
+			err := CompleteIngest(nil, "", archiveManager, "testPid", "")
 			tt.checkWarning(t, err)
 			if !createdOrigDatablock {
 				t.Error("expected an origdatablock to be created even when a warning is returned")
@@ -174,11 +174,27 @@ func TestCompleteIngest(t *testing.T) {
 			return nil
 		}
 
-		if err := CompleteIngest(nil, "", archiveManager, "testPid"); err != nil {
+		if err := CompleteIngest(nil, "", archiveManager, "testPid", ""); err != nil {
 			t.Fatalf("expected no error, got: %v", err)
 		}
 		if !createdOrigDatablock {
 			t.Error("expected an origdatablock to be created")
+		}
+	})
+
+	t.Run("applies the sourceFolderPrefix to the dataset's sourceFolder before gathering files", func(t *testing.T) {
+		withCompleteIngestMocks(t)
+		var gotSourceFolder string
+		gatherCompletionFileListFunc = func(sourceFolder string) ([]datasetIngestor.Datafile, time.Time, time.Time, uint, uint, error) {
+			gotSourceFolder = sourceFolder
+			return []datasetIngestor.Datafile{{Path: "a"}}, time.Now(), time.Now(), 0, 0, nil
+		}
+
+		if err := CompleteIngest(nil, "", archiveManager, "testPid", "/mnt/remote/"); err != nil {
+			t.Fatalf("expected no error, got: %v", err)
+		}
+		if want := "/mnt/remote/some/folder"; gotSourceFolder != want {
+			t.Errorf("sourceFolder = %q, want %q", gotSourceFolder, want)
 		}
 	})
 
@@ -197,7 +213,7 @@ func TestCompleteIngest(t *testing.T) {
 			return nil
 		}
 
-		err := CompleteIngest(nil, "", archiveManager, "testPid")
+		err := CompleteIngest(nil, "", archiveManager, "testPid", "")
 		if err == nil {
 			t.Fatal("expected an error, got nil")
 		}
@@ -220,7 +236,7 @@ func TestCompleteIngest(t *testing.T) {
 			return nil
 		}
 
-		err := CompleteIngest(nil, "", archiveManager, "testPid")
+		err := CompleteIngest(nil, "", archiveManager, "testPid", "")
 		if err == nil {
 			t.Fatal("expected an error, got nil")
 		}
@@ -242,7 +258,7 @@ func TestCompleteIngest(t *testing.T) {
 			return nil
 		}
 
-		if err := CompleteIngest(nil, "", archiveManager, "testPid"); err != nil {
+		if err := CompleteIngest(nil, "", archiveManager, "testPid", ""); err != nil {
 			t.Fatalf("expected no error, got: %v", err)
 		}
 

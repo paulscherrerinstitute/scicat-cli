@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -28,7 +29,7 @@ sourceFolder and creates the corresponding origdatablocks. Symlinks are kept onl
 internally to the sourceFolder; filenames containing "*", "\" or three consecutive blanks are
 excluded from the dataset.
 */
-func CompleteIngest(client *http.Client, APIServer string, user map[string]string, pid string) error {
+func CompleteIngest(client *http.Client, APIServer string, user map[string]string, pid string, sourceFolderPrefix string) error {
 	if err := requireArchiveManager(user); err != nil {
 		return err
 	}
@@ -39,8 +40,13 @@ func CompleteIngest(client *http.Client, APIServer string, user map[string]strin
 	}
 
 	log.Printf("Dataset with PID %s has sourceFolder %s\n", pid, dataset.SourceFolder)
+	sourceFolder := dataset.SourceFolder
+	if sourceFolderPrefix != "" {
+		sourceFolder = path.Join(sourceFolderPrefix, sourceFolder)
+		log.Printf("Using sourceFolder %s (prefix %s applied)\n", sourceFolder, sourceFolderPrefix)
+	}
 
-	fullFileArray, startTime, endTime, skippedLinks, illegalFileNames, err := gatherCompletionFileListFunc(dataset.SourceFolder)
+	fullFileArray, startTime, endTime, skippedLinks, illegalFileNames, err := gatherCompletionFileListFunc(sourceFolder)
 	if err != nil {
 		return err
 	}
