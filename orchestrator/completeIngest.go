@@ -30,7 +30,7 @@ internally to the sourceFolder; filenames containing "*", "\" or three consecuti
 excluded from the dataset.
 */
 func CompleteIngest(client *http.Client, APIServer string, user map[string]string, pid string, sourceFolderPrefix string) error {
-	if err := requireArchiveManager(user, "complete the ingestion"); err != nil {
+	if err := datasetUtils.RequireArchiveManager(user, "complete the ingestion"); err != nil {
 		return err
 	}
 
@@ -68,15 +68,6 @@ func CompleteIngest(client *http.Client, APIServer string, user map[string]strin
 	}
 	if illegalFileNames > 0 {
 		return &datasetIngestor.IllegalFileNamesWarning{Count: illegalFileNames}
-	}
-	return nil
-}
-
-// requireArchiveManager enforces that only the archiveManager account may perform action.
-// Kept as a pure function so the authorization rule can be unit-tested without any client/network setup.
-func requireArchiveManager(user map[string]string, action string) error {
-	if user["username"] != "archiveManager" {
-		return fmt.Errorf("you must be archiveManager to be allowed to %s", action)
 	}
 	return nil
 }

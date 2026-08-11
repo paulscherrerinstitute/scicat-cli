@@ -21,7 +21,7 @@ then also removes the dataset's catalog entries (Dataset and OrigDatablock); thi
 once the reset job has finished. If either step fails, the reset job is patched to a failed status.
 */
 func CleanDataset(client *http.Client, APIServer string, user map[string]string, pid string, nonInteractive bool, removeFromCatalog bool, opts datasetUtils.RemovalJobOptions) error {
-	if err := requireArchiveManager(user, "delete datasets"); err != nil {
+	if err := datasetUtils.RequireArchiveManager(user, "delete datasets"); err != nil {
 		return err
 	}
 
