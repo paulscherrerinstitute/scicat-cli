@@ -9,6 +9,7 @@ import (
 
 	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/orchestrator"
 	"github.com/spf13/cobra"
 )
 
@@ -96,37 +97,12 @@ For further help see "` + cliutils.MANUAL + `"`,
 			log.Fatal(err)
 		}
 
-		if user["username"] != "archiveManager" {
-			log.Fatalf("You must be archiveManager to be allowed to delete datasets\n")
-		}
-
-		jobID, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag, datasetUtils.RemovalJobOptions{
+		err = orchestrator.CleanDataset(client, APIServer, user, pid, nonInteractiveFlag, removeFromCatalogFlag, datasetUtils.RemovalJobOptions{
 			DeletionCode:   deletionCodeFlag,
 			DeletionReason: deletionReasonFlag,
 		})
 		if err != nil {
-			if jobID != "" {
-				patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobID, string(datasetUtils.JobFailed))
-				if patchError != nil {
-					log.Fatalf("Failed to patch job status: %v", patchError)
-				}
-			}
 			log.Fatal(err)
-		}
-
-		if removeFromCatalogFlag {
-			err = datasetUtils.RemoveFromCatalog(client, APIServer, pid, jobID, user, nonInteractiveFlag)
-			if err != nil {
-				if jobID != "" {
-					patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobID, string(datasetUtils.JobFailed))
-					if patchError != nil {
-						log.Fatalf("Failed to patch job status: %v", patchError)
-					}
-				}
-				log.Fatal(err)
-			}
-		} else {
-			log.Println("To also delete the dataset from the catalog add the flag --removeFromCatalog")
 		}
 	},
 }
