@@ -25,9 +25,9 @@ const PROD_S3_UPLOAD_BUCKET string = "psi-upload"
 const TEST_S3_UPLOAD_BUCKET string = "psi-upload-qa"
 const DEV_S3_UPLOAD_BUCKET string = "psi-upload-dev"
 
-const PROD_S3_BROKER_SERVER string = "https://s3-broker.psi.ch"
-const TEST_S3_BROKER_SERVER string = "https://s3-broker.qa.psi.ch"
-const DEV_S3_BROKER_SERVER string = "https://s3-broker.development.psi.ch"
+const PROD_S3_BROKER_SERVER string = "https://scicat-s3-broker.psi.ch"
+const TEST_S3_BROKER_SERVER string = "https://scicat-s3-broker.qa.psi.ch"
+const DEV_S3_BROKER_SERVER string = "https://scicat-s3-broker.development.psi.ch"
 const CSCS_CEPH_ENDPOINT string = "https://rgw.cscs.ch"
 const CSCS_CEPH_AWS_REGION string = "us-east-1"
 
