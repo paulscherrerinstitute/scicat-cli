@@ -29,18 +29,23 @@ type jobParamsStruct struct {
 	DeletionReason string `json:"deletionReason,omitempty"`
 }
 
-// RemovalJobOptions bundles the optional parameters of a reset job.
+// RemovalJobOptions bundles the optional parameters of a removal job.
 type RemovalJobOptions struct {
 	DeletionCode   string
 	DeletionReason string
 }
 
+const (
+	JobTypeReset           = "reset"
+	JobTypeMarkForDeletion = "markForDeletion"
+)
+
 type JobSubmissionResponse struct {
-	ID string `json:"id"`
+	ID               string `json:"id"`
 	JobStatusMessage string `json:"jobStatusMessage"`
 }
 
-func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, opts RemovalJobOptions) (string, error) {
+func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, jobType string, opts RemovalJobOptions) (string, error) {
 	respObj, err := getDatablocks(client, APIServer, pid, user)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch datablocks: %w", err)
@@ -57,8 +62,8 @@ func RemoveFromArchive(client *http.Client, APIServer string, pid string, user m
 	for _, item := range respObj {
 		log.Printf("ID: %s, Size: %d", item.ID, item.Size)
 	}
-	// Set up reset job
-	log.Println("Setting up reset job to remove dataset inside archive system")
+	// Set up removal job
+	log.Printf("Setting up %s job for dataset inside archive system", jobType)
 	if !nonInteractive {
 		color.Set(color.FgYellow)
 		log.Println("Are you sure? This action cannot be undone! Type 'y' to continue:")
@@ -71,10 +76,10 @@ func RemoveFromArchive(client *http.Client, APIServer string, pid string, user m
 	} else {
 		log.Println("Non-interactive mode: proceeding automatically.")
 	}
-	jobMap := buildResetJobMap(pid, user, opts)
+	jobMap := buildRemovalJobMap(pid, user, jobType, opts)
 	jobID, err := submitJob(client, APIServer, user, jobMap)
 	if err != nil {
-		return "", fmt.Errorf("archive reset job submission failed: %w", err)
+		return "", fmt.Errorf("%s job submission failed: %w", jobType, err)
 	}
 
 	return jobID, nil
@@ -109,10 +114,10 @@ func getDatablocks(client *http.Client, APIServer string, pid string, user map[s
 	return respObj, nil
 }
 
-func buildResetJobMap(pid string, user map[string]string, opts RemovalJobOptions) map[string]interface{} {
+func buildRemovalJobMap(pid string, user map[string]string, jobType string, opts RemovalJobOptions) map[string]interface{} {
 	return map[string]interface{}{
 		"emailJobInitiator": user["mail"],
-		"type":              "reset",
+		"type":              jobType,
 		"creationTime":      time.Now().Format(time.RFC3339),
 		"jobParams": jobParamsStruct{
 			Username:       user["username"],
