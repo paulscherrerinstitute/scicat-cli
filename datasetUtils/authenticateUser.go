@@ -110,3 +110,11 @@ func AuthenticateUser(client *http.Client, APIServer string, username string, pa
 	u["password"] = password
 	return u, ir.Profile.AccessGroups, nil
 }
+
+// RequireArchiveManager enforces that only the archiveManager account may perform action.
+func RequireArchiveManager(user map[string]string, action string) error {
+	if user["username"] != "archiveManager" {
+		return fmt.Errorf("you must be archiveManager to be allowed to %s", action)
+	}
+	return nil
+}
