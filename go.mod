@@ -1,6 +1,6 @@
 module github.com/paulscherrerinstitute/scicat-cli/v3
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
@@ -64,6 +64,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/exp v0.0.0-20260813180055-c1d0aacb2297
+	golang.org/x/exp v0.0.0-20260820142414-ca536658362e
 	golang.org/x/sys v0.47.0 // indirect
 )
