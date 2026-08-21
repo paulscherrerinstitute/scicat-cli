@@ -69,7 +69,7 @@ func TestCheckMetadata(t *testing.T) {
 	accessGroups := []string{"group1", "group2"}
 
 	// Call the function with mock parameters
-	metaDataMap, sourceFolder, beamlineAccount, err := ReadAndCheckMetadata(server.Client(), server.URL, metadatafile1, user, accessGroups)
+	metaDataMap, sourceFolder, beamlineAccount, err := ReadAndCheckMetadata(server.Client(), server.URL, metadatafile1, user, accessGroups, false)
 	if err != nil {
 		t.Error("Error in CheckMetadata function: ", err)
 	}
@@ -119,7 +119,7 @@ func TestCheckMetadata(t *testing.T) {
 	}
 
 	// test with the second metadata file
-	metaDataMap2, sourceFolder2, beamlineAccount2, err := ReadAndCheckMetadata(server.Client(), server.URL, metadatafile2, user, accessGroups)
+	metaDataMap2, sourceFolder2, beamlineAccount2, err := ReadAndCheckMetadata(server.Client(), server.URL, metadatafile2, user, accessGroups, false)
 	if err != nil {
 		t.Error("Error in CheckMetadata function: ", err)
 	}
@@ -183,7 +183,7 @@ func TestCheckMetadata_CrashCase(t *testing.T) {
 	accessGroups := []string{"group1", "group2"}
 
 	// Call the function that should return an error
-	_, _, _, err := ReadAndCheckMetadata(client, server.URL, metadatafile3, user, accessGroups)
+	_, _, _, err := ReadAndCheckMetadata(client, server.URL, metadatafile3, user, accessGroups, false)
 
 	// Check that the function returned the expected error
 	if err == nil {
@@ -224,7 +224,7 @@ func TestCheckMetadata_ValidFalse(t *testing.T) {
 	accessGroups := []string{"group1", "group2"}
 
 	// Call the function with mock parameters
-	_, _, _, err := ReadAndCheckMetadata(client, server.URL, metadatafile2, user, accessGroups)
+	_, _, _, err := ReadAndCheckMetadata(client, server.URL, metadatafile2, user, accessGroups, false)
 	if err == nil {
 		t.Fatal("Function did not return an error as expected")
 	} else if !strings.Contains(err.Error(), "metadata is not valid") {
@@ -292,6 +292,75 @@ func TestCheckUserAndOwnerGroup(t *testing.T) {
 	}
 }
 
+func TestGetSourceFolder(t *testing.T) {
+	const slsSourceFolder = "/sls/X12SA/data/e12345/Data10/some_dataset"
+
+	tests := []struct {
+		name             string
+		metaDataMap      map[string]interface{}
+		remoteFiles      bool
+		wantSourceFolder string
+		wantErrSubstring string
+	}{
+		{
+			name:             "SLS source folder is not resolved when files are remote",
+			metaDataMap:      map[string]interface{}{"sourceFolder": slsSourceFolder},
+			remoteFiles:      true,
+			wantSourceFolder: slsSourceFolder,
+		},
+		{
+			name:             "SLS source folder is resolved when files are local",
+			metaDataMap:      map[string]interface{}{"sourceFolder": slsSourceFolder},
+			remoteFiles:      false,
+			wantErrSubstring: "failed to find canonical form of sourceFolder",
+		},
+		{
+			name:             "non SLS source folder is never resolved",
+			metaDataMap:      map[string]interface{}{"sourceFolder": "/data/e12345/Data10/some_dataset"},
+			remoteFiles:      false,
+			wantSourceFolder: "/data/e12345/Data10/some_dataset",
+		},
+		{
+			name:             "missing sourceFolder",
+			metaDataMap:      map[string]interface{}{},
+			remoteFiles:      true,
+			wantErrSubstring: "undefined sourceFolder field",
+		},
+		{
+			name:             "sourceFolder is not a string",
+			metaDataMap:      map[string]interface{}{"sourceFolder": 42},
+			remoteFiles:      true,
+			wantErrSubstring: "sourceFolder is not a string",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			sourceFolder, err := GetSourceFolder(tc.metaDataMap, tc.remoteFiles)
+
+			if tc.wantErrSubstring != "" {
+				if err == nil {
+					t.Fatalf("expected an error containing %q, got nil", tc.wantErrSubstring)
+				}
+				if !strings.Contains(err.Error(), tc.wantErrSubstring) {
+					t.Errorf("expected error to contain %q, got %q", tc.wantErrSubstring, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("expected no error, got %q", err.Error())
+			}
+			if sourceFolder != tc.wantSourceFolder {
+				t.Errorf("expected sourceFolder %q, got %q", tc.wantSourceFolder, sourceFolder)
+			}
+			if got := tc.metaDataMap["sourceFolder"]; got != tc.wantSourceFolder {
+				t.Errorf("expected metadata sourceFolder %q, got %v", tc.wantSourceFolder, got)
+			}
+		})
+	}
+}
+
 func TestCheckMetadata_BeamlineAccount(t *testing.T) {
 	var metadatafile2 = "testdata/metadata-short.json"
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -319,7 +388,7 @@ func TestCheckMetadata_BeamlineAccount(t *testing.T) {
 	accessGroups := []string{"slscsaxs", "slscsaxs1"}
 
 	// Call the function with mock parameters
-	_, _, beamlineAccount, err := ReadAndCheckMetadata(client, server.URL, metadatafile2, user, accessGroups)
+	_, _, beamlineAccount, err := ReadAndCheckMetadata(client, server.URL, metadatafile2, user, accessGroups, false)
 	if err != nil {
 		t.Error("Error in CheckMetadata function: ", err)
 	}
