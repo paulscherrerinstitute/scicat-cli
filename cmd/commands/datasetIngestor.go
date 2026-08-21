@@ -208,7 +208,7 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 
 		/* TODO Add info about policy settings and that autoarchive will take place or not */
-		metaDataMap, metadataSourceFolder, beamlineAccount, err := datasetIngestor.ReadAndCheckMetadata(client, APIServer, metadatafile, user, accessGroups)
+		metaDataMap, metadataSourceFolder, beamlineAccount, err := datasetIngestor.ReadAndCheckMetadata(client, APIServer, metadatafile, user, accessGroups, remoteFilesFlag)
 		if err != nil {
 			log.Fatal("Error in CheckMetadata function: ", err)
 		}

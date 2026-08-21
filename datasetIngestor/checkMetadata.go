@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fatih/color"
-	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"io"
 	"net"
 	"net/http"
@@ -15,6 +13,9 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
 const (
@@ -27,16 +28,16 @@ const unknown = "unknown"
 const raw = "raw"
 
 // a combined function that reads and checks metadata, gathers missing metadata and returns the metadata map, source folder and beamline account check
-func ReadAndCheckMetadata(client *http.Client, APIServer string, metadatafile string, user map[string]string, accessGroups []string) (metaDataMap map[string]interface{}, sourceFolder string, beamlineAccount bool, err error) {
+func ReadAndCheckMetadata(client *http.Client, APIServer string, metadatafile string, user map[string]string, accessGroups []string, remoteFiles bool) (metaDataMap map[string]interface{}, sourceFolder string, beamlineAccount bool, err error) {
 	metaDataMap, err = ReadMetadataFromFile(metadatafile)
 	if err != nil {
 		return nil, "", false, err
 	}
-	sourceFolder, beamlineAccount, err = CheckMetadata(client, APIServer, metaDataMap, user, accessGroups)
+	sourceFolder, beamlineAccount, err = CheckMetadata(client, APIServer, metaDataMap, user, accessGroups, remoteFiles)
 	return metaDataMap, sourceFolder, beamlineAccount, err
 }
 
-func CheckMetadata(client *http.Client, APIServer string, metaDataMap map[string]interface{}, user map[string]string, accessGroups []string) (sourceFolder string, beamlineAccount bool, err error) {
+func CheckMetadata(client *http.Client, APIServer string, metaDataMap map[string]interface{}, user map[string]string, accessGroups []string, remoteFiles bool) (sourceFolder string, beamlineAccount bool, err error) {
 	if keys := CollectIllegalKeys(metaDataMap); len(keys) > 0 {
 		return "", false, errors.New(ErrIllegalKeys + ": \"" + strings.Join(keys, "\", \"") + "\"")
 	}
@@ -56,7 +57,7 @@ func CheckMetadata(client *http.Client, APIServer string, metaDataMap map[string
 		return "", false, err
 	}
 
-	sourceFolder, err = GetSourceFolder(metaDataMap)
+	sourceFolder, err = GetSourceFolder(metaDataMap, remoteFiles)
 	if err != nil {
 		return "", false, err
 	}
@@ -386,7 +387,7 @@ func CheckMetadataValidity(client *http.Client, APIServer string, token string, 
 }
 
 // GetSourceFolder gets the source folder from the metadata.
-func GetSourceFolder(metaDataMap map[string]interface{}) (string, error) {
+func GetSourceFolder(metaDataMap map[string]interface{}, remoteFiles bool) (string, error) {
 	sourceFolder := ""
 	val, ok := metaDataMap["sourceFolder"]
 	if !ok {
@@ -401,7 +402,7 @@ func GetSourceFolder(metaDataMap map[string]interface{}) (string, error) {
 	// NOTE: this part seems very PSI specific
 	// [if lvl.1 (or 2?) path == "sls" and lvl.3 (or 4?) path == "data"] => evaluate symlinks in path
 	parts := strings.Split(sourceFolder, "/")
-	if len(parts) > 3 && parts[3] == "data" && parts[1] == "sls" {
+	if !remoteFiles && len(parts) > 3 && parts[3] == "data" && parts[1] == "sls" {
 		var err error
 		sourceFolder, err = filepath.EvalSymlinks(sourceFolder)
 		if err != nil {
