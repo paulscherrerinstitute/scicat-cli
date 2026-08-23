@@ -25,9 +25,8 @@ func CleanDataset(client *http.Client, APIServer string, user map[string]string,
 		return err
 	}
 
-	jobID, err := removeFromArchiveFunc(client, APIServer, pid, user, nonInteractive, opts)
+	jobID, err := submitRemovalJob(client, APIServer, user, pid, nonInteractive, datasetUtils.JobTypeReset, opts)
 	if err != nil {
-		failJob(client, APIServer, user, jobID)
 		return err
 	}
 
@@ -42,6 +41,17 @@ func CleanDataset(client *http.Client, APIServer string, user map[string]string,
 	}
 
 	return nil
+}
+
+// submitRemovalJob launches a removal job of jobType for pid and returns its ID. On failure, the
+// job (if one was created) is best-effort patched to a failed status before the error is returned.
+func submitRemovalJob(client *http.Client, APIServer string, user map[string]string, pid string, nonInteractive bool, jobType string, opts datasetUtils.RemovalJobOptions) (string, error) {
+	jobID, err := removeFromArchiveFunc(client, APIServer, pid, user, nonInteractive, jobType, opts)
+	if err != nil {
+		failJob(client, APIServer, user, jobID)
+		return "", err
+	}
+	return jobID, nil
 }
 
 // failJob best-effort patches jobID to a failed status; jobID is empty when no job was ever
