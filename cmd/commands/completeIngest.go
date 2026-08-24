@@ -39,9 +39,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 
 		// pass parameters
 		envConfig := cliutils.InputEnvironmentConfig{
-			TestenvFlag:  cliutils.GetCobraBoolFlag(cmd, "testenv"),
-			DevenvFlag:   cliutils.GetCobraBoolFlag(cmd, "devenv"),
-			ScicatUrl:    cliutils.GetCobraStringFlag(cmd, "scicat-url"),
+			TestenvFlag: cliutils.GetCobraBoolFlag(cmd, "testenv"),
+			DevenvFlag:  cliutils.GetCobraBoolFlag(cmd, "devenv"),
+			ScicatUrl:   cliutils.GetCobraStringFlag(cmd, "scicat-url"),
 		}
 
 		// configure environment
@@ -50,14 +50,16 @@ For further help see "` + cliutils.MANUAL + `"`,
 		token := cliutils.GetCobraStringFlag(cmd, "token")
 		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
 		sourceFolderPrefix := cliutils.GetCobraStringFlag(cmd, "source-folder-prefix")
+		noOnlineChecks := cliutils.GetCobraBoolFlag(cmd, "no-online-checks")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
-				"testenv":    envConfig.TestenvFlag,
-				"devenv":     envConfig.DevenvFlag,
-				"localenv":   envConfig.LocalenvFlag,
-				"scicat-url": envConfig.ScicatUrl,
-				"token":      token,
+				"testenv":          envConfig.TestenvFlag,
+				"devenv":           envConfig.DevenvFlag,
+				"localenv":         envConfig.LocalenvFlag,
+				"scicat-url":       envConfig.ScicatUrl,
+				"token":            token,
+				"no-online-checks": noOnlineChecks,
 			})
 			return
 		}
@@ -73,7 +75,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 		}
 
 		// === check for program version ===
-		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
+		if !noOnlineChecks {
+			datasetUtils.CheckForNewVersion(client, CMD, VERSION)
+		}
 
 		user, _, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, "", token, false)
 		if err != nil {

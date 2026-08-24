@@ -84,6 +84,7 @@ For Windows you need instead to specify -user username:password on the command l
 		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
 		globusCfgFlag := cliutils.GetCobraStringFlag(cmd, "globus-cfg")
 		remoteFilesFlag := cliutils.GetCobraBoolFlag(cmd, "remote-files")
+		noOnlineChecks := cliutils.GetCobraBoolFlag(cmd, "no-online-checks")
 
 		if remoteFilesFlag {
 			nocopyFlag = true
@@ -162,6 +163,7 @@ For Windows you need instead to specify -user username:password on the command l
 				"addcaption":          addCaption,
 				"version":             showVersion,
 				"remote-files":        remoteFilesFlag,
+				"no-online-checks":    noOnlineChecks,
 			})
 			return
 		}
@@ -199,8 +201,10 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 
 		// === check for program version ===
-		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
-		datasetUtils.CheckForServiceAvailability(client, envConfig.TestenvFlag, autoarchiveFlag)
+		if !noOnlineChecks {
+			datasetUtils.CheckForNewVersion(client, CMD, VERSION)
+			datasetUtils.CheckForServiceAvailability(client, envConfig.TestenvFlag, autoarchiveFlag)
+		}
 
 		user, accessGroups, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, userpass, token, oidc)
 		if err != nil {

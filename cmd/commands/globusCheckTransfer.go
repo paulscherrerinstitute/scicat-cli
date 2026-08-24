@@ -52,6 +52,7 @@ For further help see "` + cliutils.MANUAL + `"`,
 		autoarchiveFlag, _ := cmd.Flags().GetBool("autoarchive")
 		skipDestPathCheck, _ := cmd.Flags().GetBool("skip-dest-path-check")
 		tapecopies, _ := cmd.Flags().GetInt("tapecopies")
+		noOnlineChecks, _ := cmd.Flags().GetBool("no-online-checks")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
@@ -69,6 +70,7 @@ For further help see "` + cliutils.MANUAL + `"`,
 				"autoarchive":          autoarchiveFlag,
 				"skip-dest-path-check": skipDestPathCheck,
 				"tapecopies":           tapecopies,
+				"no-online-checks":     noOnlineChecks,
 			})
 			return
 		}
@@ -81,7 +83,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 			return
 		}
 
-		datasetUtils.CheckForNewVersion(client, "dummystring", VERSION)
+		if !noOnlineChecks {
+			datasetUtils.CheckForNewVersion(client, "dummystring", VERSION)
+		}
 
 		// since Cobra doesn't support one way dependent flags, we have to do this:
 		if !markArchivable && (dryRun || autoarchiveFlag || tapecopies > 0) {
