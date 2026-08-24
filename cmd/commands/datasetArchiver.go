@@ -79,7 +79,6 @@ For further help see "` + cliutils.MANUAL + `"`,
 			return
 		}
 
-		// check for program version only if running interactively
 		if !noOnlineChecks {
 			datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 		}
