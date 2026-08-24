@@ -83,7 +83,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 			return
 		}
 
-		if !noOnlineChecks {
+		if noOnlineChecks {
+			log.Println("Skipping version check")
+		} else {
 			datasetUtils.CheckForNewVersion(client, "dummystring", VERSION)
 		}
 

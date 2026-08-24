@@ -200,8 +200,9 @@ For Windows you need instead to specify -user username:password on the command l
 			return
 		}
 
-		// === check for program version ===
-		if !noOnlineChecks {
+		if noOnlineChecks {
+			log.Println("Skipping version and service availability checks")
+		} else {
 			datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 			datasetUtils.CheckForServiceAvailability(client, envConfig.TestenvFlag, autoarchiveFlag)
 		}

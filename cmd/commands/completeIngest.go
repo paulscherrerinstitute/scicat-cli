@@ -74,8 +74,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 			log.Fatal(err)
 		}
 
-		// === check for program version ===
-		if !noOnlineChecks {
+		if noOnlineChecks {
+			log.Println("Skipping version check")
+		} else {
 			datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 		}
 

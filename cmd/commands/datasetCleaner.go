@@ -70,7 +70,9 @@ For further help see "` + cliutils.MANUAL + `"`,
 			return
 		}
 
-		if !noOnlineChecks {
+		if noOnlineChecks {
+			log.Println("Skipping version and service availability checks")
+		} else {
 			datasetUtils.CheckForNewVersion(client, CMD, VERSION)
 			datasetUtils.CheckForServiceAvailability(client, testenvFlag, true)
 		}
