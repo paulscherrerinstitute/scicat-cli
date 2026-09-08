@@ -17,7 +17,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/crypto v0.56.0
 	golang.org/x/oauth2 v0.37.0
-	golang.org/x/term v0.45.0
+	golang.org/x/term v0.46.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -65,5 +65,5 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/exp v0.0.0-20260824195058-e88cd73687aa
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 )
