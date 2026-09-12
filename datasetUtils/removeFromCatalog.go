@@ -143,7 +143,7 @@ func RemoveFromCatalog(client *http.Client, APIServer string, pid string, jobID 
 		}
 
 		// technically when jobID is empty we should not even check for countDatablocks,
-		// but this is to prevent false positive nil returns from RemoveFromArchive which can 
+		// but this is to prevent false positive nil returns from RemoveFromArchive which can
 		// cause the function to clean up the catalog without actually waiting for datablocks to be removed from the archive
 		if countDatablocks == 0 && countErr == nil && (jobID == "" || jobStatus == string(JobSuccess)) {
 			err = deleteLinkedDocuments(client, APIServer, pid, user, countOrig, countAttachments, countDataset)

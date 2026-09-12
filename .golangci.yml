@@ -59,6 +59,8 @@ severity:
         - dupl
       severity: info
 formatters:
+  enable:
+    - goimports
   exclusions:
     generated: lax
     paths:
