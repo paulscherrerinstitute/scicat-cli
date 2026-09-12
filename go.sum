@@ -136,6 +136,8 @@ github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.4 h1:dc/GZeqeKqO/Aq
 github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.4/go.mod h1:ATGiwbI0OICjQbyVJa++zRFLv4xyZIPCXEnk3NOYbkk=
 github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.5 h1:vKQIooDqC2wEwq+s2RE0tSwl8FRXc0XlnJfUEaRmdMs=
 github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.5/go.mod h1:xgWSIGKZ0Y2LvJSBEe4ha9aRaXPg3uAPpikvu1Xzo3Y=
+github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.6 h1:iRNTRmeY62yl77KrpdMNilNEbj2wLfAgoFfMfsK91Go=
+github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.6/go.mod h1:Hi9cY8j6kGvrbBZMM66KCtUeGZp9b3VbDSpxPpeDRFI=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.30 h1:xM/Is9cKMHa8Jj8zkvWhvrFkZsXJV9E+BB4g0HW0duQ=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.30/go.mod h1:WueJeNDZvK1fMYEWJIkcivBfEzUkTpBhzlrUKKY8EuA=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.35 h1:kzVuGlatQtYinwBJEEyLAbggepCoavosiaHHX9+fD+c=
@@ -306,6 +308,8 @@ github.com/aws/aws-sdk-go-v2/service/s3 v1.112.0 h1:clAH6BH9cZ6JHy6uUfUS26TGuzFS
 github.com/aws/aws-sdk-go-v2/service/s3 v1.112.0/go.mod h1:6ZFrmv/qIAYFmG+2WhA7mFU8+edldRlISwT+tNnyLuA=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.113.0 h1:0slwIjBv1sEigSUW4EfTtNw9mbHl0PlOUPX9Y1C/eLE=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.113.0/go.mod h1:/uA+2Qj4jd5qBWagVC1AyzzDFXVK997E7U04w7Kw0wI=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.113.1 h1:cFHmwLxZPvtoAlo79MboURL2+7b0TMHycnrcf5VZNXk=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.113.1/go.mod h1:/uA+2Qj4jd5qBWagVC1AyzzDFXVK997E7U04w7Kw0wI=
 github.com/aws/aws-sdk-go-v2/service/signin v1.4.1 h1:V7ZZ300WPXGjvkyore5DGe0ljVPOxCXie/thWdtSBXE=
 github.com/aws/aws-sdk-go-v2/service/signin v1.4.1/go.mod h1:mxC0nT/C8wMMS97DemZPzvUZxvIt+2Iq+eS3JdFZGgg=
 github.com/aws/aws-sdk-go-v2/service/signin v1.5.4 h1:cOJELVNrq5Q3Udry2GLuHUM7MhwpeaQRdYaoa6GI/yI=
