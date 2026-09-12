@@ -47,6 +47,7 @@ For further help see "` + cliutils.MANUAL + `"`,
 		token, _ := cmd.Flags().GetString("token")
 		oidc, _ := cmd.Flags().GetBool("oidc")
 		showVersion, _ := cmd.Flags().GetBool("version")
+		noOnlineChecks, _ := cmd.Flags().GetBool("no-online-checks")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
@@ -58,6 +59,7 @@ For further help see "` + cliutils.MANUAL + `"`,
 				"nonInteractive":    nonInteractiveFlag,
 				"removeFromCatalog": removeFromCatalogFlag,
 				"version":           showVersion,
+				"no-online-checks":  noOnlineChecks,
 			})
 			return
 		}
@@ -68,10 +70,12 @@ For further help see "` + cliutils.MANUAL + `"`,
 			return
 		}
 
-		// check for program version only if running interactively
-
-		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
-		datasetUtils.CheckForServiceAvailability(client, testenvFlag, true)
+		if noOnlineChecks {
+			log.Println("Skipping version and service availability checks")
+		} else {
+			datasetUtils.CheckForNewVersion(client, CMD, VERSION)
+			datasetUtils.CheckForServiceAvailability(client, testenvFlag, true)
+		}
 
 		// configure environment
 		config := cliutils.InputEnvironmentConfig{
