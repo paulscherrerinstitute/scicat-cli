@@ -109,19 +109,21 @@ For further help see "` + cliutils.MANUAL + `"`,
 		scicatUrl, _ := cmd.Flags().GetString("scicat-url")
 		localenvFlag, _ := cmd.Flags().GetBool("localenv")
 		showVersion, _ := cmd.Flags().GetBool("version")
+		noOnlineChecks, _ := cmd.Flags().GetBool("no-online-checks")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
-				"retrieve":   retrieveFlag,
-				"testenv":    testenvFlag,
-				"devenv":     devenvFlag,
-				"scicat-url": scicatUrl,
-				"user":       userpass,
-				"token":      token,
-				"nochksum":   nochksumFlag,
-				"dataset":    datasetId,
-				"ownergroup": ownerGroup,
-				"version":    showVersion,
+				"retrieve":         retrieveFlag,
+				"testenv":          testenvFlag,
+				"devenv":           devenvFlag,
+				"scicat-url":       scicatUrl,
+				"user":             userpass,
+				"token":            token,
+				"nochksum":         nochksumFlag,
+				"dataset":          datasetId,
+				"ownergroup":       ownerGroup,
+				"version":          showVersion,
+				"no-online-checks": noOnlineChecks,
 			})
 			return
 		}
@@ -132,7 +134,11 @@ For further help see "` + cliutils.MANUAL + `"`,
 			return
 		}
 
-		datasetUtils.CheckForNewVersion(client, APP, VERSION)
+		if noOnlineChecks {
+			log.Println("Skipping version check")
+		} else {
+			datasetUtils.CheckForNewVersion(client, APP, VERSION)
+		}
 
 		if localenvFlag {
 			APIServer = cliutils.LOCAL_API_SERVER
