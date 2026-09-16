@@ -84,3 +84,12 @@ nfpms:
 
 release:
   prerelease: auto
+
+dockers_v2:
+  - images:
+      - ghcr.io/swissdatasciencecenter/scicat-cli
+    tags:
+      - "latest"
+      - "{{.Version}}"
+    platforms:
+      - linux/amd64

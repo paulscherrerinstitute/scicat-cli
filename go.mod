@@ -59,11 +59,9 @@ require (
 require (
 	github.com/aws/aws-sdk-go-v2/config v1.33.5
 	github.com/creack/pty v1.1.23 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
 	golang.org/x/sys v0.48.0 // indirect
 )
