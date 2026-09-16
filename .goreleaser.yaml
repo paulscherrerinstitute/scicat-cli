@@ -87,7 +87,7 @@ release:
 
 dockers_v2:
   - images:
-      - ghcr.io/swissdatasciencecenter/scicat-cli
+      - ghcr.io/paulscherrerinstitute/scicat-cli
     tags:
       - "latest"
       - "{{.Version}}"
