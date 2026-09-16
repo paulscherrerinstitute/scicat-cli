@@ -9,6 +9,7 @@ import (
 
 	"github.com/paulscherrerinstitute/scicat-cli/v3/cmd/cliutils"
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/orchestrator"
 	"github.com/spf13/cobra"
 )
 
@@ -39,6 +40,8 @@ For further help see "` + cliutils.MANUAL + `"`,
 
 		// pass parameters
 		removeFromCatalogFlag, _ := cmd.Flags().GetBool("removeFromCatalog")
+		deletionCodeFlag, _ := cmd.Flags().GetString("deletionCode")
+		deletionReasonFlag, _ := cmd.Flags().GetString("deletionReason")
 		nonInteractiveFlag, _ := cmd.Flags().GetBool("nonInteractive")
 		testenvFlag, _ := cmd.Flags().GetBool("testenv")
 		devenvFlag, _ := cmd.Flags().GetBool("devenv")
@@ -57,6 +60,8 @@ For further help see "` + cliutils.MANUAL + `"`,
 				"scicat-url":        scicatUrl,
 				"nonInteractive":    nonInteractiveFlag,
 				"removeFromCatalog": removeFromCatalogFlag,
+				"deletionCode":      deletionCodeFlag,
+				"deletionReason":    deletionReasonFlag,
 				"version":           showVersion,
 			})
 			return
@@ -92,34 +97,12 @@ For further help see "` + cliutils.MANUAL + `"`,
 			log.Fatal(err)
 		}
 
-		if user["username"] != "archiveManager" {
-			log.Fatalf("You must be archiveManager to be allowed to delete datasets\n")
-		}
-
-		jobID, err := datasetUtils.RemoveFromArchive(client, APIServer, pid, user, nonInteractiveFlag)
+		err = orchestrator.CleanDataset(client, APIServer, user, pid, nonInteractiveFlag, removeFromCatalogFlag, datasetUtils.RemovalJobOptions{
+			DeletionCode:   deletionCodeFlag,
+			DeletionReason: deletionReasonFlag,
+		})
 		if err != nil {
-			if jobID != "" {
-				patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobID, string(datasetUtils.JobFailed))
-				if patchError != nil {
-					log.Fatalf("Failed to patch job status: %v", patchError)
-				}
-			}
 			log.Fatal(err)
-		}
-
-		if removeFromCatalogFlag {
-			err = datasetUtils.RemoveFromCatalog(client, APIServer, pid, jobID, user, nonInteractiveFlag)
-			if err != nil {
-				if jobID != "" {
-					patchError := datasetUtils.PatchJobStatus(client, APIServer, user, jobID, string(datasetUtils.JobFailed))
-					if patchError != nil {
-						log.Fatalf("Failed to patch job status: %v", patchError)
-					}
-				}
-				log.Fatal(err)
-			}
-		} else {
-			log.Println("To also delete the dataset from the catalog add the flag --removeFromCatalog")
 		}
 	},
 }
@@ -128,6 +111,8 @@ func init() {
 	rootCmd.AddCommand(datasetCleanerCmd)
 
 	datasetCleanerCmd.Flags().Bool("removeFromCatalog", false, "Defines if the dataset should also be deleted from data catalog")
+	datasetCleanerCmd.Flags().String("deletionCode", "", "Code for the deletion reason, recorded on the reset job")
+	datasetCleanerCmd.Flags().String("deletionReason", "", "Reason for the deletion, recorded on the reset job")
 	datasetCleanerCmd.Flags().Bool("nonInteractive", false, "Defines if no questions will be asked, just do it - make sure you know what you are doing")
 	datasetCleanerCmd.Flags().Bool("testenv", false, "Use test environment (qa) instead of production environment")
 	datasetCleanerCmd.Flags().Bool("devenv", false, "Use development environment instead of production environment (developers only)")
