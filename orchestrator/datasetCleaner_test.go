@@ -22,7 +22,7 @@ func withCleanDatasetMocks(t *testing.T) {
 		patchJobStatusFunc = oldPatchJobStatus
 	})
 
-	removeFromArchiveFunc = func(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, opts datasetUtils.RemovalJobOptions) (string, error) {
+	removeFromArchiveFunc = func(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, jobType string, opts datasetUtils.RemovalJobOptions) (string, error) {
 		return "job1", nil
 	}
 	removeFromCatalogFunc = func(client *http.Client, APIServer string, pid string, jobID string, user map[string]string, nonInteractive bool) error {
@@ -76,10 +76,12 @@ func TestCleanDataset(t *testing.T) {
 		}
 	})
 
-	t.Run("passes the deletion code and reason through to the archive removal", func(t *testing.T) {
+	t.Run("submits a reset job carrying the deletion code and reason", func(t *testing.T) {
 		withCleanDatasetMocks(t)
+		var gotJobType string
 		var gotOpts datasetUtils.RemovalJobOptions
-		removeFromArchiveFunc = func(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, opts datasetUtils.RemovalJobOptions) (string, error) {
+		removeFromArchiveFunc = func(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, jobType string, opts datasetUtils.RemovalJobOptions) (string, error) {
+			gotJobType = jobType
 			gotOpts = opts
 			return "job1", nil
 		}
@@ -88,6 +90,9 @@ func TestCleanDataset(t *testing.T) {
 		if err := CleanDataset(nil, "", archiveManager, "testPid", true, false, wantOpts); err != nil {
 			t.Fatalf("expected no error, got: %v", err)
 		}
+		if gotJobType != datasetUtils.JobTypeReset {
+			t.Errorf("jobType = %q, want %q", gotJobType, datasetUtils.JobTypeReset)
+		}
 		if gotOpts != wantOpts {
 			t.Errorf("RemovalJobOptions = %+v, want %+v", gotOpts, wantOpts)
 		}
@@ -95,7 +100,7 @@ func TestCleanDataset(t *testing.T) {
 
 	t.Run("patches the job to failed and returns the error when archive removal fails", func(t *testing.T) {
 		withCleanDatasetMocks(t)
-		removeFromArchiveFunc = func(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, opts datasetUtils.RemovalJobOptions) (string, error) {
+		removeFromArchiveFunc = func(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, jobType string, opts datasetUtils.RemovalJobOptions) (string, error) {
 			return "job1", errors.New("boom")
 		}
 		var patchedJobID, patchedStatus string
@@ -116,7 +121,7 @@ func TestCleanDataset(t *testing.T) {
 
 	t.Run("does not patch the job when archive removal fails without creating one", func(t *testing.T) {
 		withCleanDatasetMocks(t)
-		removeFromArchiveFunc = func(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, opts datasetUtils.RemovalJobOptions) (string, error) {
+		removeFromArchiveFunc = func(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, jobType string, opts datasetUtils.RemovalJobOptions) (string, error) {
 			return "", errors.New("boom")
 		}
 		var patchCalled bool
