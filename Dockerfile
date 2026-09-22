@@ -1,4 +1,4 @@
-FROM scratch
+FROM gcr.io/distroless/static:nonroot
 
 ARG TARGETPLATFORM
 COPY $TARGETPLATFORM/scicat-cli /usr/bin/
