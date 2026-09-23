@@ -28,7 +28,7 @@ type jobParamsStruct struct {
 }
 
 type JobSubmissionResponse struct {
-	ID string `json:"id"`
+	ID               string `json:"id"`
 	JobStatusMessage string `json:"jobStatusMessage"`
 }
 
