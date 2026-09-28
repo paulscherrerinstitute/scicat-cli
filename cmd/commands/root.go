@@ -40,6 +40,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("scicat-url", "s", "", "The scicat url to use. Note: it'll overwrite any built-in environments.")
 	rootCmd.PersistentFlags().Bool("oidc", false, "Use OIDC for login instead of internal user")
 	rootCmd.PersistentFlags().BoolP("version", "v", false, "Show version")
+	rootCmd.PersistentFlags().Bool("no-online-checks", false, "Disable the online checks for a newer version and for service availability")
 
 	rootCmd.MarkFlagsMutuallyExclusive("token", "oidc")
 }
