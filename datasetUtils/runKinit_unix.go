@@ -1,4 +1,4 @@
-// +build aix darwin dragonfly freebsd js,wasm linux nacl netbsd openbsd solaris
+//go:build aix || darwin || dragonfly || freebsd || (js && wasm) || linux || nacl || netbsd || openbsd || solaris
 
 // very important: there must be an empty line after the build flag line .
 package datasetUtils
