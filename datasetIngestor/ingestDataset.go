@@ -50,6 +50,7 @@ APIServer: The URL of the API server.
 metaDataMap: A map containing metadata for the dataset.
 fullFileArray: An array of Datafile objects representing the files in the dataset.
 user: A map containing user information, including the access token.
+datasetId: The ID of the dataset to ingest data into. If empty, a new dataset will be created.
 
 The function first creates a new dataset by sending a POST request to the appropriate endpoint on the API server,
 based on the dataset type specified in metaDataMap. The dataset type can be "raw", "derived", or "base".
@@ -66,14 +67,24 @@ Returns:
 The ID of the created dataset.
 */
 func IngestDataset(client *http.Client, APIServer string, metaDataMap map[string]interface{},
-	fullFileArray []Datafile, user map[string]string) (datasetId string, err error) {
-	datasetId, err = createDataset(client, APIServer, metaDataMap, user)
+	fullFileArray []Datafile, user map[string]string, datasetId string) (string, error) {
+	datasetId, err := createOrUpdateDataset(client, APIServer, datasetId, metaDataMap, user)
 	if err != nil {
 		return datasetId, err
 	}
 	err = CreateOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
 
 	return datasetId, err
+}
+
+func createOrUpdateDataset(client *http.Client, APIServer string, datasetId string, metaDataMap map[string]interface{}, user map[string]string) (string, error) {
+	if datasetId == "" {
+		return createDataset(client, APIServer, metaDataMap, user)
+	} else {
+		delete(metaDataMap, "type") // drop "type" as it is not allowed to update it
+		err := datasetUtils.PatchDataset(client, APIServer, user["accessToken"], datasetId, metaDataMap)
+		return datasetId, err
+	}
 }
 
 func createDataset(client *http.Client, APIServer string, metaDataMap map[string]interface{}, user map[string]string) (string, error) {

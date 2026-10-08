@@ -94,7 +94,7 @@ func TestSendIngestCommand(t *testing.T) {
 	defer server.Close()
 
 	// Call SendIngestCommand function with the mock server's URL and check the returned dataset ID
-	datasetId, err := IngestDataset(client, server.URL, metaDataMap, datafiles, user)
+	datasetId, err := IngestDataset(client, server.URL, metaDataMap, datafiles, user, "")
 	if err != nil {
 		t.Errorf("received unexpected error: %v", err)
 	}
