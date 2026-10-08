@@ -547,7 +547,7 @@ func init() {
 	datasetIngestorCmd.Flags().String("addcaption", "", "Optional caption to be stored with attachment (single dataset case only)")
 	datasetIngestorCmd.Flags().String("globus-cfg", "", "Override globus transfer config file location [default: globus.yaml next to executable]")
 	datasetIngestorCmd.Flags().Bool("remote-files", false, "Defines if files should be accessed remotely instead of locally (i.e. your data is not locally available and therefore needs to be accessed remotely ='remote' case).")
-	datasetIngestorCmd.Flags().String("pid", "", "PID of the dataset to ingest data into. If not provided, a new dataset will be created.")
+	datasetIngestorCmd.Flags().String("pid", "", "PID of the dataset to ingest data into. If not provided, a new dataset will be created. Command will fail if data were already ingested for the dataset.")
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")

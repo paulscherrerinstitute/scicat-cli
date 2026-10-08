@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
@@ -71,6 +72,14 @@ func IngestDataset(client *http.Client, APIServer string, metaDataMap map[string
 	datasetId, err := createOrUpdateDataset(client, APIServer, datasetId, metaDataMap, user)
 	if err != nil {
 		return datasetId, err
+	}
+	origDatablocks, err := GetOrigDatablocks(client, APIServer, datasetId, user)
+	if err != nil {
+		return datasetId, err
+	}
+	// If the dataset already has original data blocks, we cannot ingest new data
+	if len(origDatablocks) > 0 {
+		return datasetId, fmt.Errorf("dataset %v already has %v origDatablocks, cannot ingest new data", datasetId, len(origDatablocks))
 	}
 	err = CreateOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
 
@@ -192,4 +201,25 @@ func CreateOrigDatablocks(client *http.Client, APIServer string, fullFileArray [
 		start = end
 	}
 	return nil
+}
+
+func GetOrigDatablocks(client *http.Client, APIServer string, datasetId string, user map[string]string) ([]FileBlock, error) {
+	resp, err := sendRequest(client, "GET", APIServer+"/datasets/"+url.QueryEscape(datasetId)+"/origdatablocks", user["accessToken"], nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 || resp.StatusCode < 200 {
+		return nil, fmt.Errorf("unexpected response code \"%v\" when getting origDatablocks for dataset id: \"%v\"", resp.Status, datasetId)
+	}
+
+	var fileBlocks []FileBlock
+	decoder := json.NewDecoder(resp.Body)
+	err = decoder.Decode(&fileBlocks)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode origDatablocks from response: %v", err)
+	}
+
+	return fileBlocks, nil
 }
