@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 
@@ -73,14 +74,6 @@ func IngestDataset(client *http.Client, APIServer string, metaDataMap map[string
 	if err != nil {
 		return datasetId, err
 	}
-	origDatablocks, err := GetOrigDatablocks(client, APIServer, datasetId, user)
-	if err != nil {
-		return datasetId, err
-	}
-	// If the dataset already has original data blocks, we cannot ingest new data
-	if len(origDatablocks) > 0 {
-		return datasetId, fmt.Errorf("dataset %v already has %v origDatablocks, cannot ingest new data", datasetId, len(origDatablocks))
-	}
 	err = CreateOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
 
 	return datasetId, err
@@ -90,8 +83,17 @@ func createOrUpdateDataset(client *http.Client, APIServer string, datasetId stri
 	if datasetId == "" {
 		return createDataset(client, APIServer, metaDataMap, user)
 	} else {
-		delete(metaDataMap, "type") // drop "type" as it is not allowed to update it
-		err := datasetUtils.PatchDataset(client, APIServer, user["accessToken"], datasetId, metaDataMap)
+		origDatablocks, err := GetOrigDatablocks(client, APIServer, datasetId, user)
+		if err != nil {
+			return datasetId, err
+		}
+		// If the dataset already has original data blocks, we cannot ingest new data
+		if len(origDatablocks) > 0 {
+			return datasetId, fmt.Errorf("dataset %v already has %v origDatablocks, cannot ingest new data", datasetId, len(origDatablocks))
+		}
+		patchMap := maps.Clone(metaDataMap) // copy so the caller's map keeps "type"
+		delete(patchMap, "type")            // drop "type" as it is not allowed to update it
+		err = datasetUtils.PatchDataset(client, APIServer, user["accessToken"], datasetId, patchMap)
 		return datasetId, err
 	}
 }

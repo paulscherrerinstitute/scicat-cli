@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -250,12 +251,21 @@ For Windows you need instead to specify -user username:password on the command l
 			}
 		}
 		// log.Printf("Selected folders: %v\n", folders)
+		if len(datasetPaths) > 1 && pid != "" {
+			log.Fatal("Cannot use multiple dataset paths if pid is specified.")
+		}
 
 		// test if a sourceFolder already used in the past and give warning
 		log.Println("Testing for existing source folders...")
 		foundList, err := datasetIngestor.TestForExistingSourceFolder(datasetPaths, client, APIServer, user["accessToken"])
 		if err != nil {
 			log.Fatal(err)
+		}
+		// the target dataset of --pid is expected to match its own sourceFolder
+		if pid != "" {
+			foundList = slices.DeleteFunc(foundList, func(d datasetIngestor.DatasetInfo) bool {
+				return d.Pid == pid
+			})
 		}
 		color.Set(color.FgYellow)
 		if len(foundList) > 0 {
@@ -400,6 +410,8 @@ For Windows you need instead to specify -user username:password on the command l
 				}
 				if pid == "" {
 					log.Println("Dataset created:", datasetId)
+				} else {
+					log.Println("Dataset updated:", datasetId)
 				}
 				// add attachment optionally
 				if addAttachment != "" {
