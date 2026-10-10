@@ -30,6 +30,7 @@ func TestRemoveFromArchive(t *testing.T) {
 		expectedDataset []map[string]interface{}
 		expectedJobID   string
 		expectPost      bool
+		jobType         string
 		deletionCode    string
 		deletionReason  string
 	}{
@@ -39,6 +40,7 @@ func TestRemoveFromArchive(t *testing.T) {
 			expectedDataset: []map[string]interface{}{},
 			expectedJobID:   "",
 			expectPost:      false,
+			jobType:         JobTypeReset,
 		},
 		{
 			name:         "Return datablocks list of size 2",
@@ -48,6 +50,7 @@ func TestRemoveFromArchive(t *testing.T) {
 			},
 			expectedJobID: "123",
 			expectPost:    true,
+			jobType:       JobTypeReset,
 		},
 		{
 			name:         "Includes deletion code and reason in the job params",
@@ -57,8 +60,21 @@ func TestRemoveFromArchive(t *testing.T) {
 			},
 			expectedJobID:  "123",
 			expectPost:     true,
+			jobType:        JobTypeReset,
 			deletionCode:   "SUPERSEDED",
 			deletionReason: "replaced by a newer dataset",
+		},
+		{
+			name:         "Submits a markForDeletion job type",
+			mockResponse: `[{"id": "datablock1", "size": 50}]`,
+			expectedDataset: []map[string]interface{}{
+				{"pid": "dataset1", "files": []interface{}{}},
+			},
+			expectedJobID:  "123",
+			expectPost:     true,
+			jobType:        JobTypeMarkForDeletion,
+			deletionCode:   "EXPIRED",
+			deletionReason: "retention elapsed",
 		},
 	}
 	user := map[string]string{
@@ -78,7 +94,7 @@ func TestRemoveFromArchive(t *testing.T) {
 				},
 				JobStatusMessage: "jobSubmitted",
 				DatasetList:      tt.expectedDataset,
-				Type:             "reset",
+				Type:             tt.jobType,
 			}
 
 			// Create a mock HTTP client
@@ -122,7 +138,7 @@ func TestRemoveFromArchive(t *testing.T) {
 				},
 			}
 
-			jobID, err := RemoveFromArchive(client, "http://mockserver", "dataset1", user, true, RemovalJobOptions{
+			jobID, err := RemoveFromArchive(client, "http://mockserver", "dataset1", user, true, tt.jobType, RemovalJobOptions{
 				DeletionCode:   tt.deletionCode,
 				DeletionReason: tt.deletionReason,
 			})
