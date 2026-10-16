@@ -7,9 +7,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"gopkg.in/yaml.v3"
-	"github.com/fatih/color"
 	"time"
+
+	"github.com/fatih/color"
+	"gopkg.in/yaml.v3"
 )
 
 type Availability struct {
@@ -38,15 +39,15 @@ func CheckForServiceAvailability(client *http.Client, testenvFlag bool, autoarch
 		log.Printf("Failed to get service availability: %v", err)
 		return
 	}
-	
+
 	status, env := determineStatusAndEnv(s, testenvFlag)
-	
+
 	logPlannedDowntime(status, env)
-	
+
 	err = handleServiceUnavailability(status, env, autoarchiveFlag)
 	if err != nil {
-			log.Printf("Error: %v", err)
-			os.Exit(1)
+		log.Printf("Error: %v", err)
+		os.Exit(1)
 	}
 }
 
@@ -55,38 +56,38 @@ func getServiceAvailability(client *http.Client) (ServiceAvailability, error) {
 	if err != nil {
 		return ServiceAvailability{}, err
 	}
-	
+
 	s := ServiceAvailability{}
 	err = yaml.Unmarshal(yamlFile, &s)
 	if err != nil {
 		return ServiceAvailability{}, fmt.Errorf("Unmarshal of availability file failed: %v\n%s", err, yamlFile)
 	}
-	
+
 	return s, nil
 }
 
 func determineStatusAndEnv(s ServiceAvailability, testenvFlag bool) (OverallAvailability, string) {
 	status := OverallAvailability{Availability{"on", "", "", ""}, Availability{"on", "", "", ""}}
 	env := "production"
-	
+
 	if testenvFlag {
 		if (OverallAvailability{}) != s.Qa {
 			status = s.Qa
 		}
 		env = "test"
-		} else {
+	} else {
 		if (OverallAvailability{}) != s.Production {
-				status = s.Production
-		}	
+			status = s.Production
+		}
 	}
-		
+
 	return status, env
 }
 
 func logPlannedDowntime(status OverallAvailability, env string) {
 	// Reset the terminal color after the function returns
 	defer color.Unset()
-	
+
 	// Log the planned downtime for the ingest and archive services, if any
 	if status.Ingest.Downfrom != "" {
 		color.Set(color.FgYellow)
@@ -112,7 +113,7 @@ func handleServiceUnavailability(status OverallAvailability, env string, autoarc
 		logServiceUnavailability("ingest", env, status.Ingest)
 		return fmt.Errorf("ingest service is unavailable")
 	}
-	
+
 	// If the archive service is not available and autoarchiveFlag is set, log a message and return an error
 	if autoarchiveFlag && status.Archive.Status != "on" {
 		logServiceUnavailability("archive", env, status.Archive)
@@ -132,34 +133,34 @@ func logServiceUnavailability(serviceName string, env string, availability Avail
 func readYAMLFile(client *http.Client) ([]byte, error) {
 	// Construct the URL of the service availability YAML file
 	yamlURL := fmt.Sprintf("%s/cmd/datasetIngestor/datasetIngestorServiceAvailability.yml", GitHubMainLocation)
-	
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
-    defer cancel()
 
-    req, err := http.NewRequestWithContext(ctx, "GET", yamlURL, nil)
-    if err != nil {
-        return nil, err
-    }
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-    resp, err := client.Do(req)	
+	req, err := http.NewRequestWithContext(ctx, "GET", yamlURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("No Information about Service Availability")
 		return nil, fmt.Errorf("failed to fetch the service availability YAML file: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	// If the HTTP status code is not 200 (OK), log a message and return
 	if resp.StatusCode != 200 {
 		log.Println("No Information about Service Availability")
 		log.Printf("Error: Got %s fetching %s\n", resp.Status, yamlURL)
 		return nil, fmt.Errorf("got %s fetching %s", resp.Status, yamlURL)
 	}
-	
+
 	// Read the entire body of the response (the YAML file)
 	yamlFile, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("Can not read service availability file for this application")
 	}
-	
+
 	return yamlFile, nil
 }

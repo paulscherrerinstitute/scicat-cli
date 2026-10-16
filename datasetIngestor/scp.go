@@ -1,7 +1,6 @@
 /*
 This package provides simple SCP client for copying data recursively to remote server. It's built
 on top of x/crypto/ssh. Code from aedavelli.
-
 */
 package datasetIngestor
 
@@ -33,7 +32,9 @@ func keyString(k ssh.PublicKey) string {
 	return k.Type() + " " + base64.StdEncoding.EncodeToString(k.Marshal()) // e.g. "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY...."
 }
 
-/* trustedHostKeyCallback returns a function that serves as a callback for SSH host key verification.
+/*
+	trustedHostKeyCallback returns a function that serves as a callback for SSH host key verification.
+
 If a trustedKey is provided, the callback will verify if the key from the server matches the trustedKey.
 If they don't match, it returns an error.
 If no trustedKey is provided, the callback will log a warning that SSH-key verification is not in effect,
@@ -41,7 +42,8 @@ but it will not stop the connection.
 Parameters:
 trustedKey: A string representation of the trusted SSH public key.
 Returns:
-An ssh.HostKeyCallback function for SSH host key verification. */
+An ssh.HostKeyCallback function for SSH host key verification.
+*/
 func trustedHostKeyCallback(trustedKey string) ssh.HostKeyCallback {
 	trustedKey = strings.TrimSpace(trustedKey)
 	if trustedKey == "" {
@@ -53,7 +55,7 @@ func trustedHostKeyCallback(trustedKey string) ssh.HostKeyCallback {
 
 	return func(_ string, _ net.Addr, k ssh.PublicKey) error {
 		ks := keyString(k)
-		ks = strings.TrimSpace(ks)		
+		ks = strings.TrimSpace(ks)
 		if trustedKey != ks {
 			return fmt.Errorf("SSH-key verification: expected %q but got %q", trustedKey, ks)
 		}
@@ -149,9 +151,9 @@ func (c *Client) sendRegularFile(w io.Writer, path string, fi os.FileInfo) error
 }
 
 // Walk and Send directory
-/* walkAndSend recursively walks through the directory specified by 'src', 
-and sends each file it encounters to the writer 'w'. 
-If 'src' is a regular file, it sends the file directly. 
+/* walkAndSend recursively walks through the directory specified by 'src',
+and sends each file it encounters to the writer 'w'.
+If 'src' is a regular file, it sends the file directly.
 If 'src' is a directory, it walks through the directory and sends each file it encounters.
 It also sends directory change commands (push and pop) to the writer.
 If 'c.PreseveTimes' is true, it sends the modification time of each file and directory to the writer.
