@@ -40,6 +40,7 @@ For Windows you need instead to specify -user username:password on the command l
 	Run: func(cmd *cobra.Command, args []string) {
 		var tooLargeDatasets = 0
 		var emptyDatasets = 0
+		var transferFailedDatasets = 0
 
 		var originalMap = make(map[string]string)
 
@@ -443,6 +444,7 @@ For Windows you need instead to specify -user username:password on the command l
 
 					archivable, err = transferFiles(params)
 					if err != nil {
+						transferFailedDatasets++
 						color.Set(color.FgRed)
 						log.Printf("The  command to copy files exited with error %v \n", err)
 						log.Printf("The dataset %v is not yet in an archivable state\n", datasetId)
@@ -490,8 +492,8 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 		color.Unset()
 
-		// stop here if empty datasets appeared
-		if emptyDatasets > 0 || tooLargeDatasets > 0 {
+		// stop here if empty/too large datasets or any dataset's files failed to transfer
+		if emptyDatasets > 0 || tooLargeDatasets > 0 || transferFailedDatasets > 0 {
 			os.Exit(1)
 		}
 
