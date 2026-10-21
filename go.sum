@@ -194,6 +194,8 @@ github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.15 h1:EqoKcawNddB2E
 github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.15/go.mod h1:+D9lew0hIWfhc2/5TIvaYJw934QNnCw2M2yYLLz/F04=
 github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.16 h1:q9YuNkYR/7lxflWCcEv3C0cecUt3Zvrh2hn9ZNxieNA=
 github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.16/go.mod h1:3BSeJQF55QQI+dDFHx4WTIjTvX/Lvtk8Jaaf/SGAnBM=
+github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.17 h1:A4oacmRt/hMX2qATy9fnxks8G+bV5PnLV8w61xeAy6Q=
+github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.17/go.mod h1:3BSeJQF55QQI+dDFHx4WTIjTvX/Lvtk8Jaaf/SGAnBM=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.30 h1:xM/Is9cKMHa8Jj8zkvWhvrFkZsXJV9E+BB4g0HW0duQ=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.30/go.mod h1:WueJeNDZvK1fMYEWJIkcivBfEzUkTpBhzlrUKKY8EuA=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.35 h1:kzVuGlatQtYinwBJEEyLAbggepCoavosiaHHX9+fD+c=
@@ -683,6 +685,10 @@ golang.org/x/exp v0.0.0-20261009195045-ca0d7ba23607 h1:o259es6R0mYtmCeID0xv+dkp5
 golang.org/x/exp v0.0.0-20261009195045-ca0d7ba23607/go.mod h1:SRjTzy5WcYqRRqquLUvHeeovSwLO0CZ3xcltZNO4Fck=
 golang.org/x/exp v0.0.0-20261011100332-faecfb24eb49 h1:pQo5TwmxKJvI8k39uYS2Gqkk8OXWxX/TMSis2Twp1AQ=
 golang.org/x/exp v0.0.0-20261011100332-faecfb24eb49/go.mod h1:DBoxwWhjaW8DJJw/YeM4zpeOKMC1FMXSblsYy+1mFSw=
+golang.org/x/exp v0.0.0-20261013213113-2ab7f3cbc5fb h1:fMK59tNbIKghD6eTnk7DGfVtbK6JiHiFgpmBAWcPaco=
+golang.org/x/exp v0.0.0-20261013213113-2ab7f3cbc5fb/go.mod h1:DBoxwWhjaW8DJJw/YeM4zpeOKMC1FMXSblsYy+1mFSw=
+golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e h1:HgI6W1OolKK6tcV74is+rl9SMT0njsHlp0TbQiGXI/A=
+golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e/go.mod h1:DBoxwWhjaW8DJJw/YeM4zpeOKMC1FMXSblsYy+1mFSw=
 golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4/go.mod h1:jJ57K6gSWd91VN4djpZkiMVwK6gcyfeH4XE8wZrZaV4=
 golang.org/x/net v0.0.0-20190620200207-3b0461eec859/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
 golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
