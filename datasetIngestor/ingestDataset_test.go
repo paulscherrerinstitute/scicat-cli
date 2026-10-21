@@ -1,6 +1,7 @@
 package datasetIngestor
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -40,67 +41,200 @@ func TestCreateOrigBlock(t *testing.T) {
 }
 
 func TestSendIngestCommand(t *testing.T) {
-	// Mock HTTP client
-	client := &http.Client{
-		Timeout:   5 * time.Second, // Set a timeout for requests
-		Transport: &http.Transport{
-			// Customize the transport settings if needed (e.g., proxy, TLS config)
-			// For a dummy client, default settings are usually sufficient
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Customize how redirects are handled if needed
-			// For a dummy client, default behavior is usually sufficient
-			return http.ErrUseLastResponse // Use the last response for redirects
-		},
-	}
-
-	// Mock user map
-	const token = "sometoken"
-	user := map[string]string{
-		"displayName": "test user",
-		"accessToken": token,
-	}
-
-	// Mock metaDataMap
-	metaDataMap := map[string]interface{}{
-		"type": "raw",
-	}
-
-	// Mock datafiles
-	datafiles := []Datafile{
-		{Size: 100},
-		{Size: 200},
-		{Size: 300},
-		{Size: 400},
-	}
-
-	const expectedAuthHeaderValue = "Bearer " + token
-
-	// Create a mock server
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		// Respond with a fixed dataset ID when a new dataset is created
-		if strings.HasPrefix(req.URL.Path, "/datasets") {
-			authVal := req.Header.Get("Authorization")
-			if authVal != expectedAuthHeaderValue {
-				t.Errorf("Invalid Auth header value: %s", authVal)
-			}
-			rw.Write([]byte(`{"pid": "test-dataset-id"}`))
-		} else {
-			// Respond with a 200 status code when a new data block is created
-			rw.WriteHeader(http.StatusOK)
+	t.Run("IngestDataset with new dataset created", func(t *testing.T) {
+		// Mock HTTP client
+		client := &http.Client{
+			Timeout:   5 * time.Second, // Set a timeout for requests
+			Transport: &http.Transport{
+				// Customize the transport settings if needed (e.g., proxy, TLS config)
+				// For a dummy client, default settings are usually sufficient
+			},
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				// Customize how redirects are handled if needed
+				// For a dummy client, default behavior is usually sufficient
+				return http.ErrUseLastResponse // Use the last response for redirects
+			},
 		}
-	}))
-	// Close the server when test finishes
-	defer server.Close()
 
-	// Call SendIngestCommand function with the mock server's URL and check the returned dataset ID
-	datasetId, err := IngestDataset(client, server.URL, metaDataMap, datafiles, user)
-	if err != nil {
-		t.Errorf("received unexpected error: %v", err)
-	}
-	if datasetId != "test-dataset-id" {
-		t.Errorf("Expected dataset id 'test-dataset-id', but got '%s'", datasetId)
-	}
+		// Mock user map
+		const token = "sometoken"
+		user := map[string]string{
+			"displayName": "test user",
+			"accessToken": token,
+		}
+
+		// Mock metaDataMap
+		metaDataMap := map[string]interface{}{
+			"type": "raw",
+		}
+
+		// Mock datafiles
+		datafiles := []Datafile{
+			{Size: 100},
+			{Size: 200},
+			{Size: 300},
+			{Size: 400},
+		}
+
+		const expectedAuthHeaderValue = "Bearer " + token
+
+		// Create a mock server
+		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			// Respond with a fixed dataset ID when a new dataset is created
+			if strings.HasSuffix(req.URL.Path, "/origdatablocks") {
+				rw.WriteHeader(http.StatusOK)
+				rw.Write([]byte(`[]`)) // Respond with an empty array for origdatablocks
+			} else if strings.HasPrefix(req.URL.Path, "/datasets") {
+				authVal := req.Header.Get("Authorization")
+				if authVal != expectedAuthHeaderValue {
+					t.Errorf("Invalid Auth header value: %s", authVal)
+				}
+				rw.Write([]byte(`{"pid": "test-dataset-id"}`))
+			} else {
+				// Respond with a 200 status code when a new data block is created
+				rw.WriteHeader(http.StatusOK)
+			}
+		}))
+		// Close the server when test finishes
+		defer server.Close()
+
+		// Call SendIngestCommand function with the mock server's URL and check the returned dataset ID
+		datasetId, err := IngestDataset(client, server.URL, metaDataMap, datafiles, user, "")
+		if err != nil {
+			t.Errorf("received unexpected error: %v", err)
+		}
+		if datasetId != "test-dataset-id" {
+			t.Errorf("Expected dataset id 'test-dataset-id', but got '%s'", datasetId)
+		}
+	})
+
+	t.Run("IngestDataset for non-existing dataset", func(t *testing.T) {
+		// Create a mock server
+		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			rw.WriteHeader(http.StatusNotFound)
+		}))
+		// Close the server when test finishes
+		defer server.Close()
+
+		// Create a mock HTTP client
+		client := server.Client()
+
+		// Define user data
+		user := map[string]string{
+			"accessToken": "testToken",
+		}
+
+		// Mock metaDataMap
+		metaDataMap := map[string]interface{}{
+			"type": "raw",
+		}
+
+		// Call the function with test data
+		datasetId, err := IngestDataset(client, server.URL, metaDataMap, nil, user, "nonExistingDatasetId")
+		if err == nil {
+			t.Errorf("Expected error for non-existing dataset, but got nil")
+		}
+		if datasetId != "nonExistingDatasetId" {
+			t.Errorf("Expected datasetId to be 'nonExistingDatasetId', but got '%s'", datasetId)
+		}
+	})
+
+	t.Run("IngestDataset for existing dataset with already existing data blocks", func(t *testing.T) {
+		// Create a mock server
+		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			switch {
+			case req.Method == "GET" && req.URL.Path == "/datasets/existingDatasetId/origdatablocks":
+				rw.WriteHeader(http.StatusOK)
+				rw.Write([]byte(`[{"id": "block1"}]`)) // Simulate existing data blocks
+			case req.Method == "PATCH" || req.Method == "POST":
+				// the dataset must not be modified when it already has data blocks
+				t.Errorf("unexpected %s request to %s", req.Method, req.URL.Path)
+				rw.WriteHeader(http.StatusOK)
+			default:
+				rw.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		// Close the server when test finishes
+		defer server.Close()
+
+		// Create a mock HTTP client
+		client := server.Client()
+
+		// Define user data
+		user := map[string]string{
+			"accessToken": "testToken",
+		}
+
+		// Mock metaDataMap
+		metaDataMap := map[string]interface{}{
+			"type": "raw",
+		}
+
+		// Call the function with test data
+		datasetId, err := IngestDataset(client, server.URL, metaDataMap, nil, user, "existingDatasetId")
+		if err == nil {
+			t.Errorf("Expected error for existing dataset with already existing data blocks, but got nil")
+		}
+		if datasetId != "existingDatasetId" {
+			t.Errorf("Expected datasetId to be 'existingDatasetId', but got '%s'", datasetId)
+		}
+	})
+
+	t.Run("IngestDataset for existing dataset without data blocks", func(t *testing.T) {
+		// Create a mock server
+		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			switch {
+			case req.Method == "GET" && req.URL.Path == "/datasets/existingDatasetId/origdatablocks":
+				rw.WriteHeader(http.StatusOK)
+				rw.Write([]byte(`[]`))
+			case req.Method == "PATCH" && req.URL.Path == "/Datasets/existingDatasetId":
+				var body map[string]interface{}
+				if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+					t.Errorf("could not decode PATCH body: %v", err)
+				}
+				if _, ok := body["type"]; ok {
+					t.Errorf("Expected PATCH body without 'type', but got %v", body)
+				}
+				rw.WriteHeader(http.StatusOK)
+			case req.Method == "POST" && req.URL.Path == "/origdatablocks":
+				rw.WriteHeader(http.StatusOK)
+			default:
+				rw.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		// Close the server when test finishes
+		defer server.Close()
+
+		// Create a mock HTTP client
+		client := server.Client()
+
+		// Define user data
+		user := map[string]string{
+			"accessToken": "testToken",
+		}
+
+		// Mock metaDataMap
+		metaDataMap := map[string]interface{}{
+			"type":         "raw",
+			"sourceFolder": "/test/folder",
+		}
+
+		datafiles := []Datafile{
+			{Path: "file1", Size: 100},
+		}
+
+		// Call the function with test data
+		datasetId, err := IngestDataset(client, server.URL, metaDataMap, datafiles, user, "existingDatasetId")
+		if err != nil {
+			t.Errorf("received unexpected error: %v", err)
+		}
+		if datasetId != "existingDatasetId" {
+			t.Errorf("Expected datasetId to be 'existingDatasetId', but got '%s'", datasetId)
+		}
+		if metaDataMap["type"] != "raw" {
+			t.Errorf("Expected caller's metaDataMap to keep type 'raw', but got %v", metaDataMap["type"])
+		}
+	})
 }
 
 func TestSendRequest(t *testing.T) {
@@ -211,6 +345,53 @@ func TestCreateOrigDatablocks(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetOrigDatablocks(t *testing.T) {
+	t.Run("GetOrigDatablocks for non-existing dataset", func(t *testing.T) {
+		// Create a mock server
+		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			rw.WriteHeader(http.StatusNotFound)
+		}))
+		// Close the server when test finishes
+		defer server.Close()
+
+		// Create a mock HTTP client
+		client := server.Client()
+
+		// Define user data
+		user := map[string]string{
+			"accessToken": "testToken",
+		}
+
+		// Call the function with test data
+		_, err := GetOrigDatablocks(client, server.URL, "nonExistingDatasetId", user)
+		if err == nil {
+			t.Errorf("Expected error for non-existing dataset, but got nil")
+		}
+	})
+
+	t.Run("GetOrigDatablocks for existing dataset with decode error", func(t *testing.T) {
+		// Create a mock server
+		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			rw.WriteHeader(http.StatusOK)
+			rw.Write([]byte(`invalid json`))
+		}))
+		// Close the server when test finishes
+		defer server.Close()
+
+		// Create a mock HTTP client
+		client := server.Client()
+
+		// Define user data
+		user := map[string]string{
+			"accessToken": "testToken",
+		}
+		_, err := GetOrigDatablocks(client, server.URL, "existingDatasetId", user)
+		if err == nil {
+			t.Errorf("Expected error for existing dataset with decode error, but got nil")
+		}
+	})
 }
 
 func makeDatafiles(numFiles, size int) []Datafile {

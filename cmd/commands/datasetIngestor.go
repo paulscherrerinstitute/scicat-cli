@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -85,6 +86,7 @@ For Windows you need instead to specify -user username:password on the command l
 		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
 		globusCfgFlag := cliutils.GetCobraStringFlag(cmd, "globus-cfg")
 		remoteFilesFlag := cliutils.GetCobraBoolFlag(cmd, "remote-files")
+		pid := cliutils.GetCobraStringFlag(cmd, "pid")
 
 		if remoteFilesFlag {
 			nocopyFlag = true
@@ -163,6 +165,7 @@ For Windows you need instead to specify -user username:password on the command l
 				"addcaption":          addCaption,
 				"version":             showVersion,
 				"remote-files":        remoteFilesFlag,
+				"pid":                 pid,
 			})
 			return
 		}
@@ -249,12 +252,21 @@ For Windows you need instead to specify -user username:password on the command l
 			}
 		}
 		// log.Printf("Selected folders: %v\n", folders)
+		if len(datasetPaths) > 1 && pid != "" {
+			log.Fatal("Cannot use multiple dataset paths if pid is specified.")
+		}
 
 		// test if a sourceFolder already used in the past and give warning
 		log.Println("Testing for existing source folders...")
 		foundList, err := datasetIngestor.TestForExistingSourceFolder(datasetPaths, client, APIServer, user["accessToken"])
 		if err != nil {
 			log.Fatal(err)
+		}
+		// the target dataset of --pid is expected to match its own sourceFolder
+		if pid != "" {
+			foundList = slices.DeleteFunc(foundList, func(d datasetIngestor.DatasetInfo) bool {
+				return d.Pid == pid
+			})
 		}
 		color.Set(color.FgYellow)
 		if len(foundList) > 0 {
@@ -393,11 +405,15 @@ For Windows you need instead to specify -user username:password on the command l
 				metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = archiveStatusMessage
 				metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = metaArchivable
 				log.Println("Ingesting dataset...")
-				datasetId, err := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user)
+				datasetId, err := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user, pid)
 				if err != nil {
 					log.Fatal("Couldn't ingest dataset:", err)
 				}
-				log.Println("Dataset created:", datasetId)
+				if pid == "" {
+					log.Println("Dataset created:", datasetId)
+				} else {
+					log.Println("Dataset updated:", datasetId)
+				}
 				// add attachment optionally
 				if addAttachment != "" {
 					log.Println("Adding attachment...")
@@ -545,6 +561,7 @@ func init() {
 	datasetIngestorCmd.Flags().String("addcaption", "", "Optional caption to be stored with attachment (single dataset case only)")
 	datasetIngestorCmd.Flags().String("globus-cfg", "", "Override globus transfer config file location [default: globus.yaml next to executable]")
 	datasetIngestorCmd.Flags().Bool("remote-files", false, "Defines if files should be accessed remotely instead of locally (i.e. your data is not locally available and therefore needs to be accessed remotely ='remote' case).")
+	datasetIngestorCmd.Flags().String("pid", "", "PID of the dataset to ingest data into. If not provided, a new dataset will be created. Command will fail if data were already ingested for the dataset.")
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
