@@ -6,7 +6,7 @@ require (
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/SwissOpenEM/globus v0.1.2
 	github.com/aws/aws-sdk-go-v2 v1.47.4
-	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.19
+	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.5.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.5
 	github.com/bodgit/sshkrb5 v1.2.1
 	github.com/fatih/color v1.19.0
@@ -24,7 +24,7 @@ require (
 require (
 	github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.24 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.10 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.11 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.7 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.7 // indirect
@@ -33,7 +33,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.10.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.11.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.38.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.5 // indirect
@@ -57,7 +57,7 @@ require (
 )
 
 require (
-	github.com/aws/aws-sdk-go-v2/config v1.33.10
+	github.com/aws/aws-sdk-go-v2/config v1.33.11
 	github.com/creack/pty v1.1.23 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
