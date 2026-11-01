@@ -10,7 +10,9 @@ import (
 )
 
 type JobParams struct {
-	Username string `json:"username"`
+	Username       string `json:"username"`
+	DeletionCode   string `json:"deletionCode,omitempty"`
+	DeletionReason string `json:"deletionReason,omitempty"`
 }
 
 type Payload struct {
@@ -28,6 +30,8 @@ func TestRemoveFromArchive(t *testing.T) {
 		expectedDataset []map[string]interface{}
 		expectedJobID   string
 		expectPost      bool
+		deletionCode    string
+		deletionReason  string
 	}{
 		{
 			name:            "Return empty datablocks list",
@@ -45,6 +49,17 @@ func TestRemoveFromArchive(t *testing.T) {
 			expectedJobID: "123",
 			expectPost:    true,
 		},
+		{
+			name:         "Includes deletion code and reason in the job params",
+			mockResponse: `[{"id": "datablock1", "size": 50}]`,
+			expectedDataset: []map[string]interface{}{
+				{"pid": "dataset1", "files": []interface{}{}},
+			},
+			expectedJobID:  "123",
+			expectPost:     true,
+			deletionCode:   "SUPERSEDED",
+			deletionReason: "replaced by a newer dataset",
+		},
 	}
 	user := map[string]string{
 		"mail":        "test@example.com",
@@ -56,10 +71,14 @@ func TestRemoveFromArchive(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			expectedPayload := Payload{
 				EmailJobInitiator: "test@example.com",
-				JobParams:         JobParams{Username: "testuser"},
-				JobStatusMessage:  "jobSubmitted",
-				DatasetList:       tt.expectedDataset,
-				Type:              "reset",
+				JobParams: JobParams{
+					Username:       "testuser",
+					DeletionCode:   tt.deletionCode,
+					DeletionReason: tt.deletionReason,
+				},
+				JobStatusMessage: "jobSubmitted",
+				DatasetList:      tt.expectedDataset,
+				Type:             "reset",
 			}
 
 			// Create a mock HTTP client
@@ -103,7 +122,10 @@ func TestRemoveFromArchive(t *testing.T) {
 				},
 			}
 
-			jobID, err := RemoveFromArchive(client, "http://mockserver", "dataset1", user, true)
+			jobID, err := RemoveFromArchive(client, "http://mockserver", "dataset1", user, true, RemovalJobOptions{
+				DeletionCode:   tt.deletionCode,
+				DeletionReason: tt.deletionReason,
+			})
 			if err != nil {
 				t.Fatalf("RemoveFromArchive returned unexpected error: %v", err)
 			}
