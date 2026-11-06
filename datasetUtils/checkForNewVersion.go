@@ -11,13 +11,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	version "github.com/mcuadros/go-version"
 )
 
 var scanner = bufio.NewScanner(os.Stdin)
 
 var (
-	GitHubAPI      = "https://api.github.com/repos/paulscherrerinstitute/scicat-cli/releases/latest"
+	GitHubAPI            = "https://api.github.com/repos/paulscherrerinstitute/scicat-cli/releases/latest"
 	DonwloadInstructions = "https://github.com/paulscherrerinstitute/scicat-cli?tab=readme-ov-file#manual-deployment-and-upgrade"
 )
 
@@ -26,15 +27,15 @@ type Release struct {
 }
 
 func fetchLatestVersion(client *http.Client) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-    req, err := http.NewRequestWithContext(ctx, "GET", GitHubAPI, nil)
-    if err != nil {
-        return "", err
-    }
+	req, err := http.NewRequestWithContext(ctx, "GET", GitHubAPI, nil)
+	if err != nil {
+		return "", err
+	}
 
-    resp, err := client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -53,15 +54,15 @@ func fetchLatestVersion(client *http.Client) (string, error) {
 	return strings.TrimSpace(release.TagName), nil
 }
 
-func CheckForNewVersion(client *http.Client, APP string, VERSION string)  {
+func CheckForNewVersion(client *http.Client, APP string, VERSION string) {
 	// avoid checking for new version in test mode
 	if os.Getenv("TEST_MODE") == "true" {
 		return
 	}
 	latestVersion, err := fetchLatestVersion(client)
 	if err != nil {
-			log.Printf("Warning: Can not find info about latest version for this program: %s\n", err)
-			return
+		log.Printf("Warning: Can not find info about latest version for this program: %s\n", err)
+		return
 	}
 
 	latestVersion = strings.TrimPrefix(latestVersion, "v")
