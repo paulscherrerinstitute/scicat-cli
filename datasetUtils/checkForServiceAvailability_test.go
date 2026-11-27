@@ -1,16 +1,17 @@
 package datasetUtils
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
-	"testing"
-	"bytes"
-	"gopkg.in/yaml.v3"
-	"log"
 	"os"
-	"strings"
 	"reflect"
+	"strings"
+	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestReadYAMLFile(t *testing.T) {
@@ -28,7 +29,7 @@ func TestReadYAMLFile(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	
+
 	// Update the GitHubAPI and GitHubMainLocation variables to point to the mock server
 	oldGitHubAPI := GitHubAPI
 	oldGitHubMainLocation := GitHubMainLocation
@@ -39,16 +40,16 @@ func TestReadYAMLFile(t *testing.T) {
 		GitHubAPI = oldGitHubAPI
 		GitHubMainLocation = oldGitHubMainLocation
 	}()
-		
+
 	// Create a new HTTP client
 	client := &http.Client{}
-	
+
 	// Call the function
 	yamlFile, err := readYAMLFile(client)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	// Check that the function returned the expected YAML file
 	expected := []byte("mock: YAML file\n")
 	if !bytes.Equal(yamlFile, expected) {
@@ -59,13 +60,13 @@ func TestReadYAMLFile(t *testing.T) {
 func TestReadYAMLFileIntegration(t *testing.T) {
 	// Create a new HTTP client
 	client := &http.Client{}
-	
+
 	// Call the function
 	yamlFile, err := readYAMLFile(client)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	// Check that the function returned a non-empty file
 	if len(yamlFile) == 0 {
 		t.Errorf("Expected a non-empty YAML file, got an empty file")
@@ -91,7 +92,7 @@ qa:
 
 	err := yaml.Unmarshal(yamlFile, &serviceAvailability)
 	if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+		t.Fatalf("Expected no error, got %v", err)
 	}
 
 	checkService := func(service Availability, serviceName string) {
@@ -122,7 +123,7 @@ func TestLogServiceUnavailability(t *testing.T) {
 	defer func() {
 		log.SetOutput(os.Stderr)
 	}()
-		
+
 	serviceName := "ingest"
 	env := "test"
 	availability := Availability{
@@ -131,14 +132,14 @@ func TestLogServiceUnavailability(t *testing.T) {
 		Downto:   "2022-01-02T00:00:00Z",
 		Comment:  "Maintenance",
 	}
-	
+
 	logServiceUnavailability(serviceName, env, availability)
-	
+
 	want := "The test data catalog is currently not available for ingesting new datasets"
 	if got := buf.String(); !strings.Contains(got, want) {
 		t.Errorf("logServiceUnavailability() = %q, want %q", got, want)
 	}
-	
+
 	want = "Planned downtime until 2022-01-02T00:00:00Z. Reason: Maintenance"
 	if got := buf.String(); !strings.Contains(got, want) {
 		t.Errorf("logServiceUnavailability() = %q, want %q", got, want)
@@ -152,11 +153,11 @@ func TestHandleServiceUnavailability(t *testing.T) {
 		env             string
 		autoarchiveFlag bool
 		wantErr         bool
-		}{
+	}{
 		{
 			name: "ingest service unavailable",
 			status: OverallAvailability{
-				Ingest: Availability{Status: "off"},
+				Ingest:  Availability{Status: "off"},
 				Archive: Availability{Status: "on"},
 			},
 			env:             "test",
@@ -165,7 +166,7 @@ func TestHandleServiceUnavailability(t *testing.T) {
 		},
 		// Add more test cases here.
 	}
-		
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := handleServiceUnavailability(tt.status, tt.env, tt.autoarchiveFlag)
@@ -188,17 +189,17 @@ func TestDetermineStatusAndEnv(t *testing.T) {
 			name: "test environment",
 			s: ServiceAvailability{
 				Qa: OverallAvailability{
-					Ingest: Availability{Status: "off"},
+					Ingest:  Availability{Status: "off"},
 					Archive: Availability{Status: "on"},
 				},
 				Production: OverallAvailability{
-					Ingest: Availability{Status: "on"},
+					Ingest:  Availability{Status: "on"},
 					Archive: Availability{Status: "on"},
 				},
 			},
 			testenvFlag: true,
 			wantStatus: OverallAvailability{
-				Ingest: Availability{Status: "off"},
+				Ingest:  Availability{Status: "off"},
 				Archive: Availability{Status: "on"},
 			},
 			wantEnv: "test",
