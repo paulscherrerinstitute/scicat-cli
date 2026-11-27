@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
+	"net/url"
 
 	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
@@ -50,6 +52,7 @@ APIServer: The URL of the API server.
 metaDataMap: A map containing metadata for the dataset.
 fullFileArray: An array of Datafile objects representing the files in the dataset.
 user: A map containing user information, including the access token.
+datasetId: The ID of the dataset to ingest data into. If empty, a new dataset will be created.
 
 The function first creates a new dataset by sending a POST request to the appropriate endpoint on the API server,
 based on the dataset type specified in metaDataMap. The dataset type can be "raw", "derived", or "base".
@@ -66,14 +69,33 @@ Returns:
 The ID of the created dataset.
 */
 func IngestDataset(client *http.Client, APIServer string, metaDataMap map[string]interface{},
-	fullFileArray []Datafile, user map[string]string) (datasetId string, err error) {
-	datasetId, err = createDataset(client, APIServer, metaDataMap, user)
+	fullFileArray []Datafile, user map[string]string, datasetId string) (string, error) {
+	datasetId, err := createOrUpdateDataset(client, APIServer, datasetId, metaDataMap, user)
 	if err != nil {
 		return datasetId, err
 	}
 	err = CreateOrigDatablocks(client, APIServer, fullFileArray, datasetId, user)
 
 	return datasetId, err
+}
+
+func createOrUpdateDataset(client *http.Client, APIServer string, datasetId string, metaDataMap map[string]interface{}, user map[string]string) (string, error) {
+	if datasetId == "" {
+		return createDataset(client, APIServer, metaDataMap, user)
+	} else {
+		origDatablocks, err := GetOrigDatablocks(client, APIServer, datasetId, user)
+		if err != nil {
+			return datasetId, err
+		}
+		// If the dataset already has original data blocks, we cannot ingest new data
+		if len(origDatablocks) > 0 {
+			return datasetId, fmt.Errorf("dataset %v already has %v origDatablocks, cannot ingest new data", datasetId, len(origDatablocks))
+		}
+		patchMap := maps.Clone(metaDataMap) // copy so the caller's map keeps "type"
+		delete(patchMap, "type")            // drop "type" as it is not allowed to update it
+		err = datasetUtils.PatchDataset(client, APIServer, user["accessToken"], datasetId, patchMap)
+		return datasetId, err
+	}
 }
 
 func createDataset(client *http.Client, APIServer string, metaDataMap map[string]interface{}, user map[string]string) (string, error) {
@@ -181,4 +203,25 @@ func CreateOrigDatablocks(client *http.Client, APIServer string, fullFileArray [
 		start = end
 	}
 	return nil
+}
+
+func GetOrigDatablocks(client *http.Client, APIServer string, datasetId string, user map[string]string) ([]FileBlock, error) {
+	resp, err := sendRequest(client, "GET", APIServer+"/datasets/"+url.QueryEscape(datasetId)+"/origdatablocks", user["accessToken"], nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 || resp.StatusCode < 200 {
+		return nil, fmt.Errorf("unexpected response code \"%v\" when getting origDatablocks for dataset id: \"%v\"", resp.Status, datasetId)
+	}
+
+	var fileBlocks []FileBlock
+	decoder := json.NewDecoder(resp.Body)
+	err = decoder.Decode(&fileBlocks)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode origDatablocks from response: %v", err)
+	}
+
+	return fileBlocks, nil
 }
