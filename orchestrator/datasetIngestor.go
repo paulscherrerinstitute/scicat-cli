@@ -81,39 +81,14 @@ func updateAndLogMetaData(client *http.Client, APIServer string, user map[string
 	log.Printf("Updated metadata object:\n%s\n", pretty)
 }
 
-// PrepareRemoteDataset updates and logs metadata for a dataset whose files are accessed remotely and
-// therefore can't be scanned locally: startTime/endTime default to now (there is no file list to derive
-// them from) and owner is read directly from metaDataMap's "owner" field.
-func PrepareRemoteDataset(client *http.Client, APIServer string, user map[string]string,
-	originalMap map[string]string, metaDataMap map[string]interface{}, tapecopies int) {
-	now := time.Now().UTC()
-	owner := metaDataMap["owner"].(string)
-	updateAndLogMetaData(client, APIServer, user, originalMap, metaDataMap, now, now, owner, tapecopies)
-}
-
 // DetermineDatasetLifecycle computes the datasetlifecycle fields for a dataset about to be ingested.
 //
 // copyFlag means the files still need to be copied, so the dataset isn't archivable yet.
-//
-// remoteFilesFlag means the files are accessed remotely: their origin datablocks aren't registered yet.
-// Nonetheless metaArchivable (the value to store in the dataset's metadata) is set to true and the archive
-// system picking up the request will check if origs exist, if not create and propagate success or error via email.
-func DetermineDatasetLifecycle(copyFlag bool, remoteFilesFlag bool) (archivable bool, metaArchivable bool, isOnCentralDisk bool, archiveStatusMessage string) {
+func DetermineDatasetLifecycle(copyFlag bool) (archivable bool, isOnCentralDisk bool, archiveStatusMessage string) {
 	if copyFlag {
-		archivable = false
-		isOnCentralDisk = false
-		archiveStatusMessage = "filesNotYetAvailable"
-	} else {
-		archivable = true
-		isOnCentralDisk = true
-		archiveStatusMessage = "datasetCreated"
+		return false, false, "filesNotYetAvailable"
 	}
-	metaArchivable = archivable
-	if remoteFilesFlag {
-		metaArchivable = true
-		archiveStatusMessage = "origDatablocksNotYetAvailable"
-	}
-	return archivable, metaArchivable, isOnCentralDisk, archiveStatusMessage
+	return true, true, "datasetCreated"
 }
 
 // ErrCopyRequiresPersonalAccount is returned when the data is not centrally
