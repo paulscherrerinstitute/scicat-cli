@@ -85,13 +85,8 @@ For Windows you need instead to specify -user username:password on the command l
 		addCaption := cliutils.GetCobraStringFlag(cmd, "addcaption")
 		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
 		globusCfgFlag := cliutils.GetCobraStringFlag(cmd, "globus-cfg")
-		remoteFilesFlag := cliutils.GetCobraBoolFlag(cmd, "remote-files")
 		noOnlineChecks := cliutils.GetCobraBoolFlag(cmd, "no-online-checks")
 		pid := cliutils.GetCobraStringFlag(cmd, "pid")
-
-		if remoteFilesFlag {
-			nocopyFlag = true
-		}
 
 		// TODO: read in CFG!
 
@@ -165,7 +160,6 @@ For Windows you need instead to specify -user username:password on the command l
 				"addattachment":       addAttachment,
 				"addcaption":          addCaption,
 				"version":             showVersion,
-				"remote-files":        remoteFilesFlag,
 				"no-online-checks":    noOnlineChecks,
 				"pid":                 pid,
 			})
@@ -217,7 +211,7 @@ For Windows you need instead to specify -user username:password on the command l
 		}
 
 		/* TODO Add info about policy settings and that autoarchive will take place or not */
-		metaDataMap, metadataSourceFolder, beamlineAccount, err := datasetIngestor.ReadAndCheckMetadata(client, APIServer, metadatafile, user, accessGroups, remoteFilesFlag)
+		metaDataMap, metadataSourceFolder, beamlineAccount, err := datasetIngestor.ReadAndCheckMetadata(client, APIServer, metadatafile, user, accessGroups)
 		if err != nil {
 			log.Fatal("Error in CheckMetadata function: ", err)
 		}
@@ -351,53 +345,47 @@ For Windows you need instead to specify -user username:password on the command l
 				log.Printf("Note: this dataset, if archived, will be copied to two tape copies")
 				color.Unset()
 			}
-			fullFileArray := make([]datasetIngestor.Datafile, 0)
-			if remoteFilesFlag {
-				orchestrator.PrepareRemoteDataset(client, APIServer, user, originalMap, metaDataMap, tapecopies)
-			} else {
-				var err error
-				fullFileArray, err = orchestrator.PrepareDatasetAndUpdateCounts(client, APIServer, user, originalMap, metaDataMap, tapecopies,
-					datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback,
-					&emptyDatasets, &tooLargeDatasets)
-				if err != nil {
-					var emptyDatasetErr *datasetIngestor.EmptyDatasetError
-					var tooManyFilesErr *datasetIngestor.TooManyFilesError
-					if errors.As(err, &emptyDatasetErr) || errors.As(err, &tooManyFilesErr) {
-						color.Set(color.FgRed)
-						log.Println(err)
-						color.Unset()
-						continue
-					}
+			fullFileArray, err := orchestrator.PrepareDatasetAndUpdateCounts(client, APIServer, user, originalMap, metaDataMap, tapecopies,
+				datasetSourceFolder, datasetFileListTxt, localSymlinkCallback, localFilepathFilterCallback,
+				&emptyDatasets, &tooLargeDatasets)
+			if err != nil {
+				var emptyDatasetErr *datasetIngestor.EmptyDatasetError
+				var tooManyFilesErr *datasetIngestor.TooManyFilesError
+				if errors.As(err, &emptyDatasetErr) || errors.As(err, &tooManyFilesErr) {
 					color.Set(color.FgRed)
-					log.Print(err)
+					log.Println(err)
 					color.Unset()
-					os.Exit(1)
+					continue
 				}
+				color.Set(color.FgRed)
+				log.Print(err)
+				color.Unset()
+				os.Exit(1)
+			}
 
-				// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
-				// and unless (no)copy flag defined via command line
-				if checkCentralAvailability {
-					newCopyFlag, err := orchestrator.ResolveCentralAvailability(user["username"], RSYNCServer, datasetSourceFolder,
-						copyFlag, accessGroups, noninteractiveFlag, func() bool {
-							log.Printf("Do you want to continue (Y/n)? ")
-							scanner.Scan()
-							return scanner.Text() != "n"
-						})
-					if err != nil {
-						var notCentrallyAvailableWarning *orchestrator.NotCentrallyAvailableWarning
-						if errors.As(err, &notCentrallyAvailableWarning) {
-							color.Set(color.FgYellow)
-							log.Print(err)
-							color.Unset()
-						} else {
-							color.Set(color.FgRed)
-							log.Print(err)
-							color.Unset()
-							os.Exit(1)
-						}
+			// check if data is accesible at archive server, unless beamline account (assumed to be centrally available always)
+			// and unless (no)copy flag defined via command line
+			if checkCentralAvailability {
+				newCopyFlag, err := orchestrator.ResolveCentralAvailability(user["username"], RSYNCServer, datasetSourceFolder,
+					copyFlag, accessGroups, noninteractiveFlag, func() bool {
+						log.Printf("Do you want to continue (Y/n)? ")
+						scanner.Scan()
+						return scanner.Text() != "n"
+					})
+				if err != nil {
+					var notCentrallyAvailableWarning *orchestrator.NotCentrallyAvailableWarning
+					if errors.As(err, &notCentrallyAvailableWarning) {
+						color.Set(color.FgYellow)
+						log.Print(err)
+						color.Unset()
+					} else {
+						color.Set(color.FgRed)
+						log.Print(err)
+						color.Unset()
+						os.Exit(1)
 					}
-					copyFlag = newCopyFlag
 				}
+				copyFlag = newCopyFlag
 			}
 			// === ingest dataset ===
 			if ingestFlag {
@@ -405,10 +393,10 @@ For Windows you need instead to specify -user username:password on the command l
 				if _, ok := metaDataMap["datasetlifecycle"]; !ok {
 					metaDataMap["datasetlifecycle"] = map[string]interface{}{}
 				}
-				archivable, metaArchivable, isOnCentralDisk, archiveStatusMessage := orchestrator.DetermineDatasetLifecycle(copyFlag, remoteFilesFlag)
+				archivable, isOnCentralDisk, archiveStatusMessage := orchestrator.DetermineDatasetLifecycle(copyFlag)
 				metaDataMap["datasetlifecycle"].(map[string]interface{})["isOnCentralDisk"] = isOnCentralDisk
 				metaDataMap["datasetlifecycle"].(map[string]interface{})["archiveStatusMessage"] = archiveStatusMessage
-				metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = metaArchivable
+				metaDataMap["datasetlifecycle"].(map[string]interface{})["archivable"] = archivable
 				log.Println("Ingesting dataset...")
 				datasetId, err := datasetIngestor.IngestDataset(client, APIServer, metaDataMap, fullFileArray, user, pid)
 				if err != nil {
@@ -565,10 +553,8 @@ func init() {
 	datasetIngestorCmd.Flags().String("addattachment", "", "Filename of image to attach (single dataset case only)")
 	datasetIngestorCmd.Flags().String("addcaption", "", "Optional caption to be stored with attachment (single dataset case only)")
 	datasetIngestorCmd.Flags().String("globus-cfg", "", "Override globus transfer config file location [default: globus.yaml next to executable]")
-	datasetIngestorCmd.Flags().Bool("remote-files", false, "Defines if files should be accessed remotely instead of locally (i.e. your data is not locally available and therefore needs to be accessed remotely ='remote' case).")
 	datasetIngestorCmd.Flags().String("pid", "", "PID of the dataset to ingest data into. If not provided, a new dataset will be created. Command will fail if data were already ingested for the dataset.")
 
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("testenv", "devenv", "localenv", "tunnelenv")
 	datasetIngestorCmd.MarkFlagsMutuallyExclusive("nocopy", "copy")
-	datasetIngestorCmd.MarkFlagsMutuallyExclusive("remote-files", "copy")
 }

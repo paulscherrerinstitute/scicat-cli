@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -117,68 +116,25 @@ func TestPrepareDataset(t *testing.T) {
 	}
 }
 
-// --- PrepareRemoteDataset ---
-
-func TestPrepareRemoteDataset(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[]`))
-	}))
-	defer ts.Close()
-
-	client := ts.Client()
-	user := map[string]string{"accessToken": "testToken"}
-	originalMap := map[string]string{}
-	metaDataMap := map[string]interface{}{
-		"ownerGroup":   datasetIngestor.DUMMY_OWNER,
-		"owner":        "testOwner",
-		"creationTime": datasetIngestor.DUMMY_TIME,
-	}
-
-	before := time.Now()
-	PrepareRemoteDataset(client, ts.URL, user, originalMap, metaDataMap, 1)
-	after := time.Now()
-
-	if _, ok := metaDataMap["license"]; !ok {
-		t.Errorf("expected metadata to be updated with a license field")
-	}
-	if metaDataMap["ownerGroup"] != "testOwner" {
-		t.Errorf("expected ownerGroup to be updated to 'testOwner', got %v", metaDataMap["ownerGroup"])
-	}
-	creationTime, ok := metaDataMap["creationTime"].(time.Time)
-	if !ok {
-		t.Fatalf("expected creationTime to be set to a time.Time, got %v", metaDataMap["creationTime"])
-	}
-	if creationTime.Before(before) || creationTime.After(after) {
-		t.Errorf("expected creationTime to be set to roughly now, got %v (want between %v and %v)", creationTime, before, after)
-	}
-}
-
 // --- DetermineDatasetLifecycle ---
 
 func TestDetermineDatasetLifecycle(t *testing.T) {
 	tests := []struct {
 		name                     string
 		copyFlag                 bool
-		remoteFilesFlag          bool
 		wantArchivable           bool
-		wantMetaArchivable       bool
 		wantIsOnCentralDisk      bool
 		wantArchiveStatusMessage string
 	}{
-		{"local, no copy needed", false, false, true, true, true, "datasetCreated"},
-		{"local, copy needed", true, false, false, false, false, "filesNotYetAvailable"},
-		{"remote files", false, true, true, true, true, "origDatablocksNotYetAvailable"},
+		{"no copy needed", false, true, true, "datasetCreated"},
+		{"copy needed", true, false, false, "filesNotYetAvailable"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			archivable, metaArchivable, isOnCentralDisk, archiveStatusMessage := DetermineDatasetLifecycle(tt.copyFlag, tt.remoteFilesFlag)
+			archivable, isOnCentralDisk, archiveStatusMessage := DetermineDatasetLifecycle(tt.copyFlag)
 			if archivable != tt.wantArchivable {
 				t.Errorf("archivable = %v, want %v", archivable, tt.wantArchivable)
-			}
-			if metaArchivable != tt.wantMetaArchivable {
-				t.Errorf("metaArchivable = %v, want %v", metaArchivable, tt.wantMetaArchivable)
 			}
 			if isOnCentralDisk != tt.wantIsOnCentralDisk {
 				t.Errorf("isOnCentralDisk = %v, want %v", isOnCentralDisk, tt.wantIsOnCentralDisk)

@@ -337,7 +337,7 @@ func TestCreateOrigDatablocks(t *testing.T) {
 			}
 
 			// Call the function with test data
-			CreateOrigDatablocks(client, server.URL, tc.datafiles, "testDatasetId", user)
+			createOrigDatablocks(client, server.URL, tc.datafiles, "testDatasetId", user)
 
 			// Check if the correct number of requests were made
 			if numRequests != tc.expectedRequests {
