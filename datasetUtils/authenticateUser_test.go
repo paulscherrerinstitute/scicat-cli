@@ -247,3 +247,27 @@ func TestAuthenticateUser(t *testing.T) {
 	}
 	_ = tests
 }
+
+func TestRequireArchiveManager(t *testing.T) {
+	t.Run("allows the archiveManager account", func(t *testing.T) {
+		err := RequireArchiveManager(map[string]string{"username": "archiveManager"}, "do the thing")
+		if err != nil {
+			t.Errorf("expected no error, got: %v", err)
+		}
+	})
+
+	t.Run("rejects any other account", func(t *testing.T) {
+		err := RequireArchiveManager(map[string]string{"username": "someoneElse"}, "do the thing")
+		wantErr := "you must be archiveManager to be allowed to do the thing"
+		if err == nil || err.Error() != wantErr {
+			t.Errorf("got error %v, want %q", err, wantErr)
+		}
+	})
+
+	t.Run("rejects a user map with no username set", func(t *testing.T) {
+		err := RequireArchiveManager(map[string]string{}, "do the thing")
+		if err == nil {
+			t.Error("expected an error, got nil")
+		}
+	})
+}

@@ -24,7 +24,15 @@ type datasetStruct struct {
 }
 
 type jobParamsStruct struct {
-	Username string `json:"username"`
+	Username       string `json:"username"`
+	DeletionCode   string `json:"deletionCode,omitempty"`
+	DeletionReason string `json:"deletionReason,omitempty"`
+}
+
+// RemovalJobOptions bundles the optional parameters of a reset job.
+type RemovalJobOptions struct {
+	DeletionCode   string
+	DeletionReason string
 }
 
 type JobSubmissionResponse struct {
@@ -32,7 +40,7 @@ type JobSubmissionResponse struct {
 	JobStatusMessage string `json:"jobStatusMessage"`
 }
 
-func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool) (string, error) {
+func RemoveFromArchive(client *http.Client, APIServer string, pid string, user map[string]string, nonInteractive bool, opts RemovalJobOptions) (string, error) {
 	respObj, err := getDatablocks(client, APIServer, pid, user)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch datablocks: %w", err)
@@ -63,7 +71,7 @@ func RemoveFromArchive(client *http.Client, APIServer string, pid string, user m
 	} else {
 		log.Println("Non-interactive mode: proceeding automatically.")
 	}
-	jobMap := buildResetJobMap(pid, user)
+	jobMap := buildResetJobMap(pid, user, opts)
 	jobID, err := submitJob(client, APIServer, user, jobMap)
 	if err != nil {
 		return "", fmt.Errorf("archive reset job submission failed: %w", err)
@@ -101,13 +109,17 @@ func getDatablocks(client *http.Client, APIServer string, pid string, user map[s
 	return respObj, nil
 }
 
-func buildResetJobMap(pid string, user map[string]string) map[string]interface{} {
+func buildResetJobMap(pid string, user map[string]string, opts RemovalJobOptions) map[string]interface{} {
 	return map[string]interface{}{
 		"emailJobInitiator": user["mail"],
 		"type":              "reset",
 		"creationTime":      time.Now().Format(time.RFC3339),
-		"jobParams":         jobParamsStruct{Username: user["username"]},
-		"jobStatusMessage":  "jobSubmitted",
+		"jobParams": jobParamsStruct{
+			Username:       user["username"],
+			DeletionCode:   opts.DeletionCode,
+			DeletionReason: opts.DeletionReason,
+		},
+		"jobStatusMessage": "jobSubmitted",
 		"datasetList": []datasetStruct{
 			{Pid: pid, Files: []string{}},
 		},
