@@ -40,6 +40,12 @@ builds:
       - darwin
     goarch:
       - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+      - goos: linux
+        goarch: arm64
     main: .
     binary: scicat-cli
 
@@ -84,3 +90,12 @@ nfpms:
 
 release:
   prerelease: auto
+
+dockers_v2:
+  - images:
+      - ghcr.io/paulscherrerinstitute/scicat-cli
+    tags:
+      - "latest"
+      - "{{.Version}}"
+    platforms:
+      - linux/amd64
