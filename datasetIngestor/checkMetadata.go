@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fatih/color"
-	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 	"io"
 	"net"
 	"net/http"
@@ -15,6 +13,9 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/fatih/color"
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
 const (
