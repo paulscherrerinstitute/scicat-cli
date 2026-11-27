@@ -255,3 +255,88 @@ func TestUpdateAVField(t *testing.T) {
 		t.Errorf("updateAVField() with tapecopies = 2 = %v; want %v", metaDataMap2["classification"], expected2)
 	}
 }
+
+func TestAddProposalIdFromOwnerGroup(t *testing.T) {
+	tests := []struct {
+		name           string
+		metaDataMap    map[string]interface{}
+		status         int
+		response       string
+		wantProposalId interface{}
+		wantRequest    bool
+	}{
+		{
+			name:           "single matching proposal",
+			metaDataMap:    map[string]interface{}{"type": "raw", "ownerGroup": "p12345"},
+			status:         http.StatusOK,
+			response:       `[{"proposalId": "20250001"}]`,
+			wantProposalId: "20250001",
+			wantRequest:    true,
+		},
+		{
+			name:           "derived dataset",
+			metaDataMap:    map[string]interface{}{"type": "derived", "ownerGroup": "p12345"},
+			status:         http.StatusOK,
+			response:       `[{"proposalId": "20250001"}]`,
+			wantProposalId: "20250001",
+			wantRequest:    true,
+		},
+		{
+			name:        "multiple matching proposals",
+			metaDataMap: map[string]interface{}{"type": "raw", "ownerGroup": "p12345"},
+			status:      http.StatusOK,
+			response:    `[{"proposalId": "20250001"}, {"proposalId": "20250002"}]`,
+			wantRequest: true,
+		},
+		{
+			name:        "no matching proposal",
+			metaDataMap: map[string]interface{}{"type": "raw", "ownerGroup": "p12345"},
+			status:      http.StatusOK,
+			response:    `[]`,
+			wantRequest: true,
+		},
+		{
+			name:        "proposal without proposalId",
+			metaDataMap: map[string]interface{}{"type": "raw", "ownerGroup": "p12345"},
+			status:      http.StatusOK,
+			response:    `[{"title": "no id"}]`,
+			wantRequest: true,
+		},
+		{
+			name:        "failing request",
+			metaDataMap: map[string]interface{}{"type": "raw", "ownerGroup": "p12345"},
+			status:      http.StatusInternalServerError,
+			wantRequest: true,
+		},
+		{
+			name:           "proposalId already set",
+			metaDataMap:    map[string]interface{}{"type": "raw", "ownerGroup": "p12345", "proposalId": "existing"},
+			wantProposalId: "existing",
+		},
+		{
+			name:        "unsupported dataset type",
+			metaDataMap: map[string]interface{}{"type": "custom", "ownerGroup": "p12345"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requested := false
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requested = true
+				w.WriteHeader(tt.status)
+				w.Write([]byte(tt.response))
+			}))
+			defer ts.Close()
+
+			addProposalIdFromOwnerGroup(ts.Client(), ts.URL, map[string]string{"accessToken": "testToken"}, tt.metaDataMap)
+
+			if requested != tt.wantRequest {
+				t.Errorf("requested proposals = %v, want %v", requested, tt.wantRequest)
+			}
+			if got := tt.metaDataMap["proposalId"]; got != tt.wantProposalId {
+				t.Errorf("proposalId = %v, want %v", got, tt.wantProposalId)
+			}
+		})
+	}
+}
