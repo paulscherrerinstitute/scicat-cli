@@ -52,21 +52,23 @@ For further help see "` + cliutils.MANUAL + `"`,
 		ownerGroup, _ := cmd.Flags().GetString("ownergroup")
 		showVersion, _ := cmd.Flags().GetBool("version")
 		transferType, _ := cmd.Flags().GetString("transfer-type")
+		noOnlineChecks, _ := cmd.Flags().GetBool("no-online-checks")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
-				"user":           userpass,
-				"token":          token,
-				"tapecopies":     tapecopies,
-				"testenv":        testenvFlag,
-				"localenv":       localenvFlag,
-				"devenv":         devenvFlag,
-				"scicat-url":     scicatUrl,
-				"noninteractive": nonInteractiveFlag,
-				"version":        showVersion,
-				"ownergroup":     ownerGroup,
-				"execution-time": executionTimeStr,
-				"transfer-type":  transferType,
+				"user":             userpass,
+				"token":            token,
+				"tapecopies":       tapecopies,
+				"testenv":          testenvFlag,
+				"localenv":         localenvFlag,
+				"devenv":           devenvFlag,
+				"scicat-url":       scicatUrl,
+				"noninteractive":   nonInteractiveFlag,
+				"version":          showVersion,
+				"ownergroup":       ownerGroup,
+				"execution-time":   executionTimeStr,
+				"transfer-type":    transferType,
+				"no-online-checks": noOnlineChecks,
 			})
 			return
 		}
@@ -77,8 +79,11 @@ For further help see "` + cliutils.MANUAL + `"`,
 			return
 		}
 
-		// check for program version only if running interactively
-		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
+		if noOnlineChecks {
+			log.Println("Skipping version check")
+		} else {
+			datasetUtils.CheckForNewVersion(client, CMD, VERSION)
+		}
 
 		// configure environment
 		config := cliutils.InputEnvironmentConfig{

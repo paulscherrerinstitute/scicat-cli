@@ -50,14 +50,16 @@ For further help see "` + cliutils.MANUAL + `"`,
 		token := cliutils.GetCobraStringFlag(cmd, "token")
 		showVersion := cliutils.GetCobraBoolFlag(cmd, "version")
 		sourceFolderPrefix := cliutils.GetCobraStringFlag(cmd, "source-folder-prefix")
+		noOnlineChecks := cliutils.GetCobraBoolFlag(cmd, "no-online-checks")
 
 		if datasetUtils.TestFlags != nil {
 			datasetUtils.TestFlags(map[string]interface{}{
-				"testenv":    envConfig.TestenvFlag,
-				"devenv":     envConfig.DevenvFlag,
-				"localenv":   envConfig.LocalenvFlag,
-				"scicat-url": envConfig.ScicatUrl,
-				"token":      token,
+				"testenv":          envConfig.TestenvFlag,
+				"devenv":           envConfig.DevenvFlag,
+				"localenv":         envConfig.LocalenvFlag,
+				"scicat-url":       envConfig.ScicatUrl,
+				"token":            token,
+				"no-online-checks": noOnlineChecks,
 			})
 			return
 		}
@@ -72,8 +74,11 @@ For further help see "` + cliutils.MANUAL + `"`,
 			log.Fatal(err)
 		}
 
-		// === check for program version ===
-		datasetUtils.CheckForNewVersion(client, CMD, VERSION)
+		if noOnlineChecks {
+			log.Println("Skipping version check")
+		} else {
+			datasetUtils.CheckForNewVersion(client, CMD, VERSION)
+		}
 
 		user, _, err := cliutils.Authenticate(cliutils.RealAuthenticator{}, client, APIServer, "", token, false)
 		if err != nil {
