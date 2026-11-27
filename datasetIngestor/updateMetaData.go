@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/paulscherrerinstitute/scicat-cli/v3/datasetUtils"
 )
 
 const (
@@ -100,6 +102,7 @@ The function updates the following fields in metaDataMap:
 - "license": If it doesn't exist, it's set to "CC BY-SA 4.0".
 - "isPublished": If it doesn't exist, it's set to false.
 - "classification": If it doesn't exist, it's set to "IN=medium,AV=<AV from policy>,CO=low". If tapecopies is 1 or 2, the "AV" part is replaced with "AV=low" or "AV=medium" respectively.
+- "proposalId": If it doesn't exist and the dataset is raw or derived, it's set to the proposalId of the only proposal with the same ownerGroup.
 
 The function logs a message each time it updates a field. If the "classification" field contains "AV=medium", it also logs a note that the dataset will be copied to two tape copies.
 
@@ -124,6 +127,42 @@ func updateStaticMetadataFields(client *http.Client, APIServer string, user map[
 	addFieldIfNotExists(metaDataMap, "license", "CC BY-SA 4.0")
 	addFieldIfNotExists(metaDataMap, "isPublished", false)
 	updateClassificationField(client, APIServer, user, metaDataMap, tapecopies)
+	addProposalIdFromOwnerGroup(client, APIServer, user, metaDataMap)
+}
+
+// addProposalIdFromOwnerGroup links the dataset to the proposal sharing its ownerGroup. The v3
+// datasets API only accepts a single proposalId, and only for raw and derived datasets, so the
+// field is left unset when zero or several proposals match.
+func addProposalIdFromOwnerGroup(client *http.Client, APIServer string, user map[string]string, metaDataMap map[string]interface{}) {
+	if _, ok := metaDataMap["proposalId"]; ok {
+		return
+	}
+	if dsType := metaDataMap["type"]; dsType != raw && dsType != derived {
+		return
+	}
+	ownerGroup, ok := metaDataMap["ownerGroup"].(string)
+	if !ok || ownerGroup == "" {
+		return
+	}
+
+	proposals, err := datasetUtils.GetProposals(client, APIServer, ownerGroup, user)
+	if err != nil {
+		log.Printf("Warning: could not get proposals for ownerGroup %s, proposalId not set: %v\n", ownerGroup, err)
+		return
+	}
+	switch len(proposals) {
+	case 0:
+		return
+	case 1:
+		proposalId, ok := proposals[0]["proposalId"].(string)
+		if !ok || proposalId == "" {
+			log.Printf("Warning: proposal for ownerGroup %s has no proposalId, proposalId not set\n", ownerGroup)
+			return
+		}
+		metaDataMap["proposalId"] = proposalId
+	default:
+		log.Printf("Warning: found %d proposals for ownerGroup %s, proposalId not set\n", len(proposals), ownerGroup)
+	}
 }
 
 func updateFieldIfDummy(metaDataMap map[string]interface{}, originalMap map[string]string, fieldName string, dummyValue interface{}, newValue interface{}) {

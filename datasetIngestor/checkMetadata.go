@@ -26,6 +26,7 @@ const (
 
 const unknown = "unknown"
 const raw = "raw"
+const derived = "derived"
 
 // a combined function that reads and checks metadata, gathers missing metadata and returns the metadata map, source folder and beamline account check
 func ReadAndCheckMetadata(client *http.Client, APIServer string, metadatafile string, user map[string]string, accessGroups []string) (metaDataMap map[string]interface{}, sourceFolder string, beamlineAccount bool, err error) {
